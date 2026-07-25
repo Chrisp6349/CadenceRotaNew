@@ -181,6 +181,7 @@
 
       const nurOc = [1, 2, 3].map(n => nursingRota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
       const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
+      const nurOcSurgeon = nursingRota[`${day}_oncall_surgeon`] || "—";
       const nurWl = [1, 2, 3].map(n => nursingRota[`${day}_wl_nurse${n}`]).filter(Boolean).join(", ") || "—";
       const nurWlHca = nursingRota[`${day}_wl_hca`] || "—";
       const nurWlSurgeon = nursingRota[`${day}_wl_surgeon`] || "—";
@@ -188,7 +189,7 @@
       bodyHtml = `<div class="cb-strip">
         <div class="card"><div class="card-label">ODP on call</div><div class="card-value">${odpOc}<br><span style="color:var(--ink-500);font-size:13px;">${odpOcAnaes}</span></div></div>
         <div class="card"><div class="card-label">ODP waiting list</div><div class="card-value">${odpWlOdp}<br><span style="color:var(--ink-500);font-size:13px;">${odpWlAnaes}</span></div></div>
-        <div class="card"><div class="card-label">Nursing on call</div><div class="card-value">${nurOc}<br><span style="color:var(--ink-500);font-size:13px;">HCA: ${nurOcHca}</span></div></div>
+        <div class="card"><div class="card-label">Nursing on call</div><div class="card-value">${nurOc}<br><span style="color:var(--ink-500);font-size:13px;">HCA: ${nurOcHca} · Surgeon: ${nurOcSurgeon}</span></div></div>
         <div class="card"><div class="card-label">Nursing waiting list</div><div class="card-value">${nurWl}<br><span style="color:var(--ink-500);font-size:13px;">HCA: ${nurWlHca} · ${nurWlSurgeon}</span></div></div>
       </div>`;
     } else {
@@ -204,9 +205,7 @@
       const nurOc = [1, 2, 3].map(n => nursingRota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
       const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
       const coordinator = nursingRota[`${day}_coordinator`] || "—";
-      // Weekdays don't currently have an on-call surgeon field (only the
-      // weekend waiting list does) — shown as an em dash rather than invented.
-      const oncallSurgeon = "—";
+      const oncallSurgeon = nursingRota[`${day}_oncall_surgeon`] || "—";
 
       bodyHtml = `
         <div class="cb-coord-wrap">
