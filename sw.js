@@ -17,7 +17,7 @@
 // this shouldn't need a manual "clear site data" to take effect.
 // -----------------------------------------------------------------------
 
-const CACHE_VERSION = "v6";
+const CACHE_VERSION = "v7";
 const CACHE_NAME = `cadence-shell-${CACHE_VERSION}`;
 
 const SHELL_FILES = [
@@ -25,6 +25,9 @@ const SHELL_FILES = [
   "./index.html",
   "./dashboard.html",
   "./rota.html",
+  "./nursing-rota.html",
+  "./nursing-dashboard.html",
+  "./corridor-board.html",
   "./calendar.html",
   "./staff.html",
   "./admin.html",
@@ -37,6 +40,7 @@ const SHELL_FILES = [
   "./js/firebase-init.js",
   "./js/insights.js",
   "./js/messages.js",
+  "./js/nursing-rota.js",
   "./js/pwa.js",
   "./js/rota.js",
   "./js/shell.js",
