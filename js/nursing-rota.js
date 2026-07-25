@@ -16,6 +16,7 @@
 //   "coordinator"                    one nurse, Mon-Fri, free pick (never restricted)
 //   "oncall_nurse1".."nurse3"        on call, every day (Mon-Sun)
 //   "oncall_hca"                     on call, every day (Mon-Sun)
+//   "oncall_surgeon"                 on call, every day (Mon-Sun)
 //   "wl_nurse1".."nurse3"            weekend waiting list, Sat-Sun only
 //   "wl_hca"                         weekend waiting list, Sat-Sun only
 //   "wl_surgeon"                     weekend waiting list, Sat-Sun only
@@ -74,6 +75,7 @@ function describeField(day, suffix, theatres) {
   }
   m = suffix.match(/^(.+)_surgeon$/);
   if (m) {
+    if (m[1] === "oncall") return `${day} On call Surgeon`;
     if (m[1] === "wl") return `${day} Weekend waiting list Surgeon`;
     const t = theatres.find(x => x.id === m[1]);
     if (t) return `${day} ${t.name} Surgeon`;
@@ -163,7 +165,7 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
     let s = [];
     Object.entries(rota).forEach(([k, v]) => {
       if (!k.startsWith(day + "_") || !v) return;
-      if (k.endsWith("_surgeon") && !k.includes("_wl_")) s.push(v);
+      if (k.endsWith("_surgeon") && !k.includes("_wl_") && !k.includes("oncall")) s.push(v);
     });
     return s;
   }
@@ -225,6 +227,7 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
         ${field(d, "oncall_nurse2", staff.nurses, null)}
         ${field(d, "oncall_nurse3", staff.nurses, null)}
         ${field(d, "oncall_hca", staff.hcas, null)}
+        ${field(d, "oncall_surgeon", staff.surgeons, null)}
       </td><td>
         ${field(d, "coordinator", staff.nurses, null)}
       </td></tr>`;
@@ -237,7 +240,8 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
       <td>${field(d, "oncall_nurse1", staff.nurses, null)}
           ${field(d, "oncall_nurse2", staff.nurses, null)}
           ${field(d, "oncall_nurse3", staff.nurses, null)}
-          ${field(d, "oncall_hca", staff.hcas, null)}</td>
+          ${field(d, "oncall_hca", staff.hcas, null)}
+          ${field(d, "oncall_surgeon", staff.surgeons, null)}</td>
       <td>${field(d, "wl_nurse1", staff.nurses, null)}
           ${field(d, "wl_nurse2", staff.nurses, null)}
           ${field(d, "wl_nurse3", staff.nurses, null)}
