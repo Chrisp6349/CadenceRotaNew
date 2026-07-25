@@ -3,6 +3,12 @@
 // The Team Board: a shared, informal message board on the Dashboard that
 // anyone in the department can post to.
 //
+// Every function takes an optional trailing `collectionName`, defaulting
+// to "messages" (the ODP dashboard's board) — the nursing dashboard passes
+// "nursingMessages" instead, so the two boards are entirely independent:
+// a post on one never appears on the other, and each has its own Firestore
+// collection/security rule.
+//
 // "Disappears at the end of the day but goes into an archive" needs no
 // scheduled job at all — every message is tagged with the local date it
 // was posted on (dateKey, e.g. "2026-07-23"). "Today's board" is just a
@@ -13,8 +19,8 @@
 
 import { db, collection, addDoc, deleteDoc, doc, getDocs, query, where, orderBy, limit, onSnapshot, serverTimestamp } from "./firebase-init.js";
 
-export function postMessage(deptId, uid, displayName, text, dateKey) {
-  return addDoc(collection(db, "departments", deptId, "messages"), {
+export function postMessage(deptId, uid, displayName, text, dateKey, collectionName = "messages") {
+  return addDoc(collection(db, "departments", deptId, collectionName), {
     text, uid, displayName, dateKey,
     createdAt: serverTimestamp(),
     // A brand-new message has createdAt === null locally until the
@@ -28,8 +34,8 @@ export function postMessage(deptId, uid, displayName, text, dateKey) {
   });
 }
 
-export function deleteMessage(deptId, messageId) {
-  return deleteDoc(doc(db, "departments", deptId, "messages", messageId));
+export function deleteMessage(deptId, messageId, collectionName = "messages") {
+  return deleteDoc(doc(db, "departments", deptId, collectionName, messageId));
 }
 
 // Live subscription to today's messages — callback fires immediately with
@@ -37,9 +43,9 @@ export function deleteMessage(deptId, messageId) {
 // board updates for everyone without a refresh. Returns an unsubscribe
 // function (not that this app currently bothers calling it, since every
 // navigation is a full page load that tears the listener down anyway).
-export function watchTodayMessages(deptId, dateKey, callback) {
+export function watchTodayMessages(deptId, dateKey, callback, collectionName = "messages") {
   const q = query(
-    collection(db, "departments", deptId, "messages"),
+    collection(db, "departments", deptId, collectionName),
     where("dateKey", "==", dateKey),
     orderBy("clientTime", "asc")
   );
@@ -53,9 +59,9 @@ export function watchTodayMessages(deptId, dateKey, callback) {
 // second orderBy on createdAt — that combination would need a manual
 // Firestore composite index; sorting each day's messages by time is done
 // client-side instead, in buildArchiveGroups below.
-export async function loadArchive(deptId, todayDateKey, cap = 300) {
+export async function loadArchive(deptId, todayDateKey, cap = 300, collectionName = "messages") {
   const q = query(
-    collection(db, "departments", deptId, "messages"),
+    collection(db, "departments", deptId, collectionName),
     where("dateKey", "<", todayDateKey),
     orderBy("dateKey", "desc"),
     limit(cap)
