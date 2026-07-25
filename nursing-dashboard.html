@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadence — Nursing Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/cadence.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0B6E64">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  .strip-label{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-500);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+  .bh-banner{display:flex;align-items:center;gap:8px;background:var(--status-oncall-bg);color:var(--status-oncall);
+    font-weight:600;font-size:12.5px;padding:8px 14px;border-radius:var(--r-sm);margin-bottom:16px;}
+  .theatre-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:24px;}
+  .theatre-card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-md);padding:14px;}
+  .tc-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .tc-head .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .tc-head .dot.available{background:var(--status-available);}
+  .tc-head .dot.inlist{background:var(--status-inlist);animation:pulse-dot 1.8s infinite;}
+  .tc-head .dot.closed{background:var(--status-closed);}
+  .tc-name{font-weight:700;font-size:13.5px;flex:1;}
+  .tc-list{font-family:var(--font-mono);font-size:10px;background:var(--ink-100);color:var(--ink-500);
+    padding:2px 6px;border-radius:4px;flex-shrink:0;}
+  .tc-row{font-size:12.5px;color:var(--ink-700);padding:2px 0;}
+  .tc-row.tc-surgeon{font-weight:600;color:var(--ink-900);}
+  .tc-empty{font-size:12.5px;color:var(--ink-300);font-style:italic;}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:8px;}
+  .empty-note{color:var(--ink-500);font-size:13.5px;padding:20px 0;}
+
+  .week-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .week-nav button{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-sm);
+    padding:7px 12px;font-family:var(--font-body);font-size:12.5px;font-weight:600;color:var(--ink-700);cursor:pointer;}
+  .week-nav button:hover{background:var(--ink-100);}
+  .week-nav-label{font-family:var(--font-mono);font-size:11px;color:var(--ink-500);flex:1;text-align:center;}
+  .week-nav .this-week-btn{color:var(--teal-600);border-color:var(--teal-100);}
+
+  .day-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:18px;padding-bottom:2px;}
+  .day-tab{flex-shrink:0;background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-pill);
+    padding:7px 14px;font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--ink-700);
+    cursor:pointer;white-space:nowrap;}
+  .day-tab:hover{background:var(--ink-100);}
+  .day-tab.active{background:var(--teal-600);color:#fff;border-color:var(--teal-600);}
+  .day-tab.is-today:not(.active){border-color:var(--teal-500);color:var(--teal-700);}
+
+  .myweek-card{margin-top:24px;}
+  .myweek-select-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .myweek-select-row select{font-family:var(--font-body);font-size:13.5px;padding:9px 12px;border-radius:var(--r-sm);
+    border:1px solid var(--ink-150);background:var(--surface);color:var(--ink-900);min-width:220px;}
+  .myweek-hi{font-family:var(--font-display);font-weight:800;font-size:16px;}
+  .myweek-change{background:none;border:none;color:var(--teal-600);font-size:12px;font-weight:600;cursor:pointer;
+    text-decoration:underline;padding:0;}
+  .myweek-days{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:14px;}
+  .myweek-day{background:var(--canvas);border:1px solid var(--ink-150);border-radius:var(--r-sm);padding:10px;}
+  .myweek-day.today{border-color:var(--teal-500);background:var(--teal-50);}
+  .myweek-day .md-label{font-family:var(--font-mono);font-size:10px;color:var(--ink-500);text-transform:uppercase;margin-bottom:5px;}
+  .myweek-day .md-role{font-size:12.5px;font-weight:600;color:var(--ink-900);}
+  .myweek-day .md-off{font-size:12.5px;color:var(--ink-300);font-style:italic;}
+</style>
+</head>
+<body>
+<div id="shellRoot"></div>
+
+<script type="module">
+  import { requireSession } from "./js/auth.js";
+  import { renderShell } from "./js/shell.js";
+  import { getDepartment, listTheatres, listStaff, splitStaff } from "./js/department.js";
+  import { loadNursingWeek } from "./js/nursing-rota.js";
+  import { mondayOfCurrentWeek } from "./js/rota.js";
+  import { applyTheme } from "./js/theme.js";
+  applyTheme();
+
+  const { user, profile } = await requireSession();
+  const dept = await getDepartment(profile.departmentId);
+  profile.departmentName = dept?.name || "Department";
+
+  const content = renderShell({ profile, activePage: "nursingDashboard", title: "Nursing Dashboard" });
+
+  const theatres = await listTheatres(profile.departmentId);
+  const staffList = await listStaff(profile.departmentId);
+  const staff = splitStaff(staffList);
+  // My Week picker covers everyone who can appear on the nursing rota —
+  // nurses, HCAs, and surgeons — not just nurses, since HCAs and
+  // surgeons want to check their own week too.
+  const myWeekStaff = staffList.filter(s => ["nurse", "hca", "surgeon"].includes(s.type));
+
+  const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  function localIso(d) {
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  const todayIso = localIso(new Date());
+  const todayName = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][new Date().getDay()];
+
+  const params = new URLSearchParams(window.location.search);
+  const linkedWeek = params.get("week");
+  const linkedDay = params.get("day");
+
+  let weekOffset = 0;
+  let selectedDayIdx = ALL_DAYS.indexOf(todayName);
+  let rota = {};
+
+  if (linkedWeek) {
+    const currentMonday = new Date(mondayOfCurrentWeek() + "T00:00:00");
+    const linkedMonday = new Date(linkedWeek + "T00:00:00");
+    weekOffset = Math.round((linkedMonday - currentMonday) / (7 * 86400000));
+    if (linkedDay !== null && !isNaN(Number(linkedDay))) selectedDayIdx = Number(linkedDay);
+  }
+
+  function weekStartIso(offset) {
+    const d = new Date(mondayOfCurrentWeek() + "T00:00:00");
+    d.setDate(d.getDate() + offset * 7);
+    return localIso(d);
+  }
+  function isoPlusDays(mondayIso, i) {
+    const d = new Date(mondayIso + "T00:00:00");
+    d.setDate(d.getDate() + i);
+    return d;
+  }
+  function shortDate(d) { return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); }
+  function longDate(d) { return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }); }
+
+  async function loadRota() {
+    const week = await loadNursingWeek(profile.departmentId, weekStartIso(weekOffset));
+    rota = week.data || {};
+  }
+
+  // ---- Theatre status (for the currently selected day) -------------------
+  function theatreInfo(day, t) {
+    const nurses = [1, 2, 3, 4].map(n => rota[`${day}_${t.id}_nurse${n}`]).filter(Boolean);
+    const hcas = [1, 2].map(n => rota[`${day}_${t.id}_hca${n}`]).filter(Boolean);
+    const surgeon = rota[`${day}_${t.id}_surgeon`] || "";
+    const listType = rota[`${day}_${t.id}_list`] || "";
+    const hasList = !!(nurses.length || hcas.length || surgeon);
+    let status = "available";
+    if (hasList) status = (listType.includes("NO LIST") || listType.includes("NO SURGEON")) ? "closed" : "inlist";
+    return { nurses, hcas, surgeon, listType, status };
+  }
+
+  // ---- My Week -------------------------------------------------------------
+  const MYWEEK_KEY = `cadence_nursing_myweek_${profile.departmentId}`;
+
+  function describePlacement(suffix, t) {
+    let m = suffix.match(/^(.+)_nurse([1-4])$/);
+    if (m) {
+      if (m[1] === "oncall") return "On call · Nurse";
+      if (m[1] === "wl") return "Weekend waiting list · Nurse";
+      if (m[1] === "support") return "Support · Nurse";
+      const th = theatres.find(x => x.id === m[1]);
+      return th ? `${th.name} · Nurse` : null;
+    }
+    m = suffix.match(/^(.+)_hca[12]?$/);
+    if (m) {
+      if (m[1] === "oncall") return "On call · HCA";
+      if (m[1] === "wl") return "Weekend waiting list · HCA";
+      if (m[1] === "support") return "Support · HCA";
+      const th = theatres.find(x => x.id === m[1]);
+      return th ? `${th.name} · HCA` : null;
+    }
+    m = suffix.match(/^(.+)_surgeon$/);
+    if (m) {
+      if (m[1] === "wl") return "Weekend waiting list · Surgeon";
+      const th = theatres.find(x => x.id === m[1]);
+      return th ? `${th.name} · Surgeon` : null;
+    }
+    if (suffix === "coordinator") return "Coordinator";
+    return null;
+  }
+
+  function placementsForDay(day, name) {
+    const found = [];
+    Object.entries(rota).forEach(([k, v]) => {
+      if (v !== name || !k.startsWith(day + "_")) return;
+      const label = describePlacement(k.slice(day.length + 1));
+      if (label) found.push(label);
+    });
+    return found;
+  }
+
+  function renderMyWeekResult(name) {
+    const dayCards = ALL_DAYS.map((day, i) => {
+      const d = isoPlusDays(weekStartIso(weekOffset), i);
+      const isDayToday = localIso(d) === todayIso;
+      const placements = placementsForDay(day, name);
+      const body = placements.length
+        ? placements.map(p => `<div class="md-role">${p}</div>`).join("")
+        : `<div class="md-off">Not rostered</div>`;
+      return `<div class="myweek-day${isDayToday ? " today" : ""}">
+        <div class="md-label">${day.slice(0, 3)} ${shortDate(d)}</div>
+        ${body}
+      </div>`;
+    }).join("");
+
+    document.getElementById("myweekCard").innerHTML = `
+      <div class="myweek-select-row">
+        <span class="myweek-hi">${name}</span>
+        <button class="myweek-change" id="myweekChangeBtn">Not you? Switch name</button>
+      </div>
+      <div class="myweek-days">${dayCards}</div>
+    `;
+    document.getElementById("myweekChangeBtn").addEventListener("click", () => {
+      localStorage.removeItem(MYWEEK_KEY);
+      renderMyWeekPicker();
+    });
+  }
+
+  const TYPE_LABELS = { nurse: "Nurse", hca: "HCA", surgeon: "Surgeon" };
+  function renderMyWeekPicker() {
+    const sorted = [...myWeekStaff].sort((a, b) => a.name.localeCompare(b.name));
+    const options = sorted.map(s => `<option value="${s.name}">${s.name} (${TYPE_LABELS[s.type]})</option>`).join("");
+    document.getElementById("myweekCard").innerHTML = `
+      <div class="myweek-select-row">
+        <select id="myweekSelect">
+          <option value="">Select your name…</option>
+          ${options}
+        </select>
+      </div>
+    `;
+    document.getElementById("myweekSelect").addEventListener("change", (e) => {
+      if (!e.target.value) return;
+      localStorage.setItem(MYWEEK_KEY, e.target.value);
+      renderMyWeekResult(e.target.value);
+    });
+  }
+
+  function initMyWeek() {
+    const saved = localStorage.getItem(MYWEEK_KEY);
+    if (saved && myWeekStaff.some(s => s.name === saved)) {
+      renderMyWeekResult(saved);
+    } else {
+      renderMyWeekPicker();
+    }
+  }
+
+  // ---- Main render ---------------------------------------------------------
+  function render() {
+    const day = ALL_DAYS[selectedDayIdx];
+    const isWeekend = day === "Saturday" || day === "Sunday";
+    const dayIso = localIso(isoPlusDays(weekStartIso(weekOffset), selectedDayIdx));
+    const isActualToday = dayIso === todayIso;
+
+    const weekLabel = `Week commencing ${longDate(isoPlusDays(weekStartIso(weekOffset), 0))}`;
+    const weekNavHtml = `
+      <div class="week-nav">
+        <button id="prevWeekBtn">‹ Previous week</button>
+        <span class="week-nav-label">${weekLabel}</span>
+        ${weekOffset !== 0 ? `<button class="this-week-btn" id="thisWeekBtn">This week</button>` : ""}
+        <button id="nextWeekBtn">Next week ›</button>
+      </div>
+    `;
+
+    const dayTabsHtml = `<div class="day-tabs">${ALL_DAYS.map((d, i) => {
+      const iso = localIso(isoPlusDays(weekStartIso(weekOffset), i));
+      const isTabToday = iso === todayIso;
+      return `<button class="day-tab${i === selectedDayIdx ? " active" : ""}${isTabToday ? " is-today" : ""}" data-day-idx="${i}">
+        ${d.slice(0, 3)} ${shortDate(isoPlusDays(weekStartIso(weekOffset), i))}
+      </button>`;
+    }).join("")}</div>`;
+
+    // Theatre grid — only real Mon-Fri; weekends have no theatres on the
+    // nursing rota, so show the weekend on-call/waiting-list cards instead.
+    let theatreCardsHtml, sessionsCount = 0;
+    if (isWeekend) {
+      theatreCardsHtml = `<div class="empty-state" style="grid-column:1/-1;">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18M14 11.5v1"/></svg>
+        <div class="es-title">No theatres on ${day}</div>
+        <div class="es-sub">Weekends run on call and the waiting list only — see below.</div>
+      </div>`;
+    } else if (theatres.length) {
+      theatreCardsHtml = theatres.map(t => {
+        const info = theatreInfo(day, t);
+        sessionsCount += info.status === "inlist" ? 1 : 0;
+        const rows = [
+          ...info.nurses.map(n => `<div class="tc-row">${n}</div>`),
+          ...info.hcas.map(n => `<div class="tc-row">${n}</div>`),
+          info.surgeon ? `<div class="tc-row tc-surgeon">${info.surgeon}</div>` : ""
+        ].filter(Boolean).join("");
+        return `<div class="theatre-card">
+          <div class="tc-head">
+            <span class="dot ${info.status}"></span>
+            <span class="tc-name">${t.name}</span>
+            ${info.listType ? `<span class="tc-list">${info.listType}</span>` : ""}
+          </div>
+          ${rows || `<div class="tc-empty">No allocation</div>`}
+        </div>`;
+      }).join("");
+    } else {
+      theatreCardsHtml = `<div class="empty-state" style="grid-column:1/-1;">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18M14 11.5v1"/></svg>
+        <div class="es-title">No theatres configured yet</div>
+        <div class="es-sub">Add your theatres in Administration and they'll appear here.</div>
+      </div>`;
+    }
+
+    const bhBanner = (dept.bankHolidays && dept.bankHolidays[dayIso])
+      ? `<div class="bh-banner">${isActualToday ? "Today" : day} is a bank holiday</div>` : "";
+
+    // On call and coordinator are day-level fields, same shape every day
+    // of the week. The weekend waiting list only exists Sat/Sun.
+    const onCallNurses = [1, 2, 3].map(n => rota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
+    const onCallHca = rota[`${day}_oncall_hca`] || "—";
+    const coordinator = !isWeekend ? (rota[`${day}_coordinator`] || "—") : null;
+
+    const supportNurses = [1, 2].map(n => rota[`${day}_support_nurse${n}`]).filter(Boolean).join(", ") || "—";
+    const supportHcas = [1, 2].map(n => rota[`${day}_support_hca${n}`]).filter(Boolean).join(", ") || "—";
+
+    const wlNurses = isWeekend ? [1, 2, 3].map(n => rota[`${day}_wl_nurse${n}`]).filter(Boolean).join(", ") || "—" : null;
+    const wlHca = isWeekend ? (rota[`${day}_wl_hca`] || "—") : null;
+    const wlSurgeon = isWeekend ? (rota[`${day}_wl_surgeon`] || "—") : null;
+
+    const statCards = [];
+    if (!isWeekend) {
+      statCards.push(`<div class="card"><div class="card-label">Sessions</div><div class="card-value">${sessionsCount} / ${theatres.length}</div></div>`);
+      statCards.push(`<div class="card"><div class="card-label">Support</div><div class="card-value" style="font-size:16px;">Nurses: ${supportNurses}<br>HCAs: ${supportHcas}</div></div>`);
+      statCards.push(`<div class="card"><div class="card-label">Coordinator</div><div class="card-value" style="font-size:20px;">${coordinator}</div></div>`);
+    }
+    statCards.push(`<div class="card"><div class="card-label">On call</div><div class="card-value" style="font-size:16px;">Nurses: ${onCallNurses}<br>HCA: ${onCallHca}</div></div>`);
+    if (isWeekend) {
+      statCards.push(`<div class="card"><div class="card-label">Weekend waiting list</div><div class="card-value" style="font-size:16px;">Nurses: ${wlNurses}<br>HCA: ${wlHca}<br>Surgeon: ${wlSurgeon}</div></div>`);
+    }
+
+    content.innerHTML = `
+      ${weekNavHtml}
+      ${dayTabsHtml}
+      ${bhBanner}
+      <div class="strip-label">Live status — ${day}${isActualToday ? " (today)" : ""}</div>
+      <div class="theatre-grid">${theatreCardsHtml}</div>
+      <div class="stat-grid">${statCards.join("")}</div>
+      <div class="strip-label myweek-card">My Week</div>
+      <div class="card" id="myweekCard"></div>
+    `;
+
+    document.getElementById("prevWeekBtn").addEventListener("click", () => changeWeek(-1));
+    document.getElementById("nextWeekBtn").addEventListener("click", () => changeWeek(1));
+    const thisWeekBtn = document.getElementById("thisWeekBtn");
+    if (thisWeekBtn) thisWeekBtn.addEventListener("click", () => changeWeek(0, true));
+    document.querySelectorAll(".day-tab").forEach(btn => {
+      btn.addEventListener("click", () => {
+        selectedDayIdx = Number(btn.dataset.dayIdx);
+        render();
+      });
+    });
+
+    initMyWeek();
+  }
+
+  async function changeWeek(delta, jumpToThisWeek) {
+    weekOffset = jumpToThisWeek ? 0 : weekOffset + delta;
+    if (jumpToThisWeek) selectedDayIdx = ALL_DAYS.indexOf(todayName);
+    await loadRota();
+    render();
+  }
+
+  await loadRota();
+  render();
+</script>
+</body>
+</html>

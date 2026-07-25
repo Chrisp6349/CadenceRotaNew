@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadence — Theatre Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/cadence.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0B6E64">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  /* This page is a standalone full-bleed wall board, not a normal app
+     screen — no sidebar/topbar (renderShell is never called), designed
+     to sit permanently open on a corridor TV/monitor logged in as a
+     viewer account. Large type throughout since it's read from a
+     distance, not held in the hand. */
+  html,body{height:100%;margin:0;background:var(--canvas);}
+  body{padding:28px 36px;box-sizing:border-box;overflow:hidden;}
+  .cb-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;}
+  .cb-org{font-family:var(--font-display);font-weight:800;font-size:26px;color:var(--ink-900);}
+  .cb-dept{font-size:14px;color:var(--ink-500);margin-top:2px;}
+  .cb-clock{text-align:right;}
+  .cb-time{font-family:var(--font-mono);font-size:30px;font-weight:600;color:var(--teal-700);line-height:1;}
+  .cb-date{font-size:13px;color:var(--ink-500);margin-top:4px;}
+  .cb-bh{display:inline-block;margin-top:22px;background:var(--status-oncall-bg);color:var(--status-oncall);
+    font-weight:700;font-size:14px;padding:8px 18px;border-radius:var(--r-sm);}
+
+  .cb-theatres{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:18px;}
+  .cb-card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);padding:16px 18px;}
+  .cb-card-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .cb-card-head .dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+  .cb-card-head .dot.available{background:var(--status-available);}
+  .cb-card-head .dot.inlist{background:var(--status-inlist);animation:pulse-dot 1.8s infinite;}
+  .cb-card-head .dot.closed{background:var(--status-closed);}
+  .cb-theatre-name{font-family:var(--font-display);font-weight:800;font-size:19px;flex:1;}
+  .cb-team{display:flex;flex-direction:column;gap:8px;}
+  .cb-team-block{border-top:1px solid var(--ink-100);padding-top:8px;}
+  .cb-team-block:first-child{border-top:none;padding-top:0;}
+  .cb-team-label{font-family:var(--font-mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-500);margin-bottom:4px;}
+  .cb-person{font-size:14.5px;color:var(--ink-900);line-height:1.5;}
+  .cb-person.cb-lead{font-weight:700;}
+  .cb-empty{font-size:13px;color:var(--ink-300);font-style:italic;}
+  .cb-list-tag{display:inline-block;font-family:var(--font-mono);font-size:9.5px;background:var(--ink-100);color:var(--ink-500);
+    padding:2px 7px;border-radius:4px;margin-left:6px;vertical-align:middle;}
+
+  .cb-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:20px;}
+  .cb-strip .card{padding:14px 18px;}
+  .cb-strip .card-label{font-size:11px;}
+  .cb-strip .card-value{font-size:17px;line-height:1.5;}
+
+  .cb-noboard{color:var(--ink-500);font-size:16px;padding:40px 0;text-align:center;}
+</style>
+</head>
+<body>
+<div id="boardRoot"></div>
+
+<script type="module">
+  import { requireSession } from "./js/auth.js";
+  import { getDepartment, listTheatres } from "./js/department.js";
+  import { loadWeek, mondayOfCurrentWeek } from "./js/rota.js";
+  import { loadNursingWeek } from "./js/nursing-rota.js";
+  import { applyTheme } from "./js/theme.js";
+  applyTheme();
+
+  // Any signed-in account can open the board (a "viewer" login left
+  // permanently open on the corridor screen is the intended setup) —
+  // requireSession() still runs so an unattended device without a
+  // saved session lands back on the login page rather than showing
+  // nothing.
+  const { profile } = await requireSession();
+  const dept = await getDepartment(profile.departmentId);
+  const root = document.getElementById("boardRoot");
+
+  const theatres = await listTheatres(profile.departmentId);
+
+  function localIso(d) {
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  function isoPlusDays(mondayIso, i) {
+    const d = new Date(mondayIso + "T00:00:00");
+    d.setDate(d.getDate() + i);
+    return d;
+  }
+  const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  let odpRota = {}, nursingRota = {};
+
+  async function loadBoth() {
+    const weekStart = mondayOfCurrentWeek();
+    const [odpWeek, nursingWeek] = await Promise.all([
+      loadWeek(profile.departmentId, weekStart),
+      loadNursingWeek(profile.departmentId, weekStart)
+    ]);
+    odpRota = odpWeek.data || {};
+    nursingRota = nursingWeek.data || {};
+  }
+
+  function theatreInfo(day, t) {
+    const odp1 = odpRota[`${day}_${t.id}_odp1`] || "";
+    const odp2 = odpRota[`${day}_${t.id}_odp2`] || "";
+    const anaes = odpRota[`${day}_${t.id}_anaes`] || "";
+    const odpList = odpRota[`${day}_${t.id}_list`] || "";
+
+    const nurses = [1, 2, 3, 4].map(n => nursingRota[`${day}_${t.id}_nurse${n}`]).filter(Boolean);
+    const hcas = [1, 2].map(n => nursingRota[`${day}_${t.id}_hca${n}`]).filter(Boolean);
+    const surgeon = nursingRota[`${day}_${t.id}_surgeon`] || "";
+    const nursingList = nursingRota[`${day}_${t.id}_list`] || "";
+
+    const hasAny = !!(odp1 || odp2 || anaes || nurses.length || hcas.length || surgeon);
+    const closedFlag = [odpList, nursingList].some(l => l.includes("NO LIST") || l.includes("NO SURGEON") || l.includes("MAINTENANCE"));
+    let status = "available";
+    if (hasAny) status = closedFlag ? "closed" : "inlist";
+
+    return { odp1, odp2, anaes, odpList, nurses, hcas, surgeon, nursingList, status };
+  }
+
+  function theatreCardHtml(day, t) {
+    const i = theatreInfo(day, t);
+    const odpRows = [i.odp1, i.odp2, i.anaes].filter(Boolean)
+      .map(n => `<div class="cb-person${n === i.anaes ? " cb-lead" : ""}">${n}</div>`).join("");
+    const nursingRows = [...i.nurses.map(n => `<div class="cb-person">${n}</div>`),
+      ...i.hcas.map(n => `<div class="cb-person">${n}</div>`),
+      i.surgeon ? `<div class="cb-person cb-lead">${i.surgeon}</div>` : ""].filter(Boolean).join("");
+
+    return `<div class="cb-card">
+      <div class="cb-card-head">
+        <span class="dot ${i.status}"></span>
+        <span class="cb-theatre-name">${t.name}</span>
+      </div>
+      <div class="cb-team">
+        <div class="cb-team-block">
+          <div class="cb-team-label">ODP team ${i.odpList ? `<span class="cb-list-tag">${i.odpList}</span>` : ""}</div>
+          ${odpRows || `<div class="cb-empty">No allocation</div>`}
+        </div>
+        <div class="cb-team-block">
+          <div class="cb-team-label">Nursing team ${i.nursingList ? `<span class="cb-list-tag">${i.nursingList}</span>` : ""}</div>
+          ${nursingRows || `<div class="cb-empty">No allocation</div>`}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function render() {
+    const now = new Date();
+    const todayIso = localIso(now);
+    const day = ALL_DAYS[(now.getDay() + 6) % 7];
+    const isWeekend = day === "Saturday" || day === "Sunday";
+
+    const timeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    const dateStr = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+    const bhBanner = (dept.bankHolidays && dept.bankHolidays[todayIso])
+      ? `<div class="cb-bh">Bank holiday</div>` : "";
+
+    let bodyHtml;
+    if (!theatres.length) {
+      bodyHtml = `<div class="cb-noboard">No theatres configured yet — add them in Administration.</div>`;
+    } else if (isWeekend) {
+      const odpOc = [odpRota[`${day}_oncall_odp1`], odpRota[`${day}_oncall_odp2`]].filter(Boolean).join(", ") || "—";
+      const odpOcAnaes = odpRota[`${day}_oncall_anaes`] || "—";
+      const odpWlOdp = odpRota[`${day}_wl_odp`] || "—";
+      const odpWlAnaes = odpRota[`${day}_wl_anaes`] || "—";
+
+      const nurOc = [1, 2, 3].map(n => nursingRota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
+      const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
+      const nurWl = [1, 2, 3].map(n => nursingRota[`${day}_wl_nurse${n}`]).filter(Boolean).join(", ") || "—";
+      const nurWlHca = nursingRota[`${day}_wl_hca`] || "—";
+      const nurWlSurgeon = nursingRota[`${day}_wl_surgeon`] || "—";
+
+      bodyHtml = `<div class="cb-strip">
+        <div class="card"><div class="card-label">ODP on call</div><div class="card-value">${odpOc}<br><span style="color:var(--ink-500);font-size:13px;">${odpOcAnaes}</span></div></div>
+        <div class="card"><div class="card-label">ODP waiting list</div><div class="card-value">${odpWlOdp}<br><span style="color:var(--ink-500);font-size:13px;">${odpWlAnaes}</span></div></div>
+        <div class="card"><div class="card-label">Nursing on call</div><div class="card-value">${nurOc}<br><span style="color:var(--ink-500);font-size:13px;">HCA: ${nurOcHca}</span></div></div>
+        <div class="card"><div class="card-label">Nursing waiting list</div><div class="card-value">${nurWl}<br><span style="color:var(--ink-500);font-size:13px;">HCA: ${nurWlHca} · ${nurWlSurgeon}</span></div></div>
+      </div>`;
+    } else {
+      const theatreCardsHtml = theatres.map(t => theatreCardHtml(day, t)).join("");
+
+      const supportOdps = [odpRota[`${day}_support1`], odpRota[`${day}_support2`], odpRota[`${day}_support3`]].filter(Boolean).join(", ") || "—";
+      const odpOc = odpRota[`${day}_oncall_odp`] || "—";
+      const odpOcAnaes = odpRota[`${day}_oncall_anaes`] || "—";
+      const odpOcHome = !!odpRota[`${day}_oncall_home`];
+
+      const supportNurses = [1, 2].map(n => nursingRota[`${day}_support_nurse${n}`]).filter(Boolean).join(", ") || "—";
+      const supportHcas = [1, 2].map(n => nursingRota[`${day}_support_hca${n}`]).filter(Boolean).join(", ") || "—";
+      const nurOc = [1, 2, 3].map(n => nursingRota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
+      const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
+      const coordinator = nursingRota[`${day}_coordinator`] || "—";
+
+      bodyHtml = `
+        <div class="cb-theatres">${theatreCardsHtml}</div>
+        <div class="cb-strip">
+          <div class="card"><div class="card-label">ODP support</div><div class="card-value">${supportOdps}</div></div>
+          <div class="card"><div class="card-label">ODP on call</div><div class="card-value">${odpOc}${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}<br><span style="color:var(--ink-500);font-size:13px;">${odpOcAnaes}</span></div></div>
+          <div class="card"><div class="card-label">Nursing support</div><div class="card-value">Nurses: ${supportNurses}<br><span style="color:var(--ink-500);font-size:13px;">HCAs: ${supportHcas}</span></div></div>
+          <div class="card"><div class="card-label">Nursing on call</div><div class="card-value">${nurOc}<br><span style="color:var(--ink-500);font-size:13px;">HCA: ${nurOcHca}</span></div></div>
+          <div class="card"><div class="card-label">Coordinator</div><div class="card-value">${coordinator}</div></div>
+        </div>
+      `;
+    }
+
+    root.innerHTML = `
+      <div class="cb-head">
+        <div>
+          <div class="cb-org">${dept.hospitalName || ""}</div>
+          <div class="cb-dept">${dept.name || "Theatres"}</div>
+          ${bhBanner}
+        </div>
+        <div class="cb-clock">
+          <div class="cb-time">${timeStr}</div>
+          <div class="cb-date">${dateStr}</div>
+        </div>
+      </div>
+      ${bodyHtml}
+    `;
+  }
+
+  await loadBoth();
+  render();
+
+  // Clock ticks every second; rota data (which only changes when someone
+  // saves/publishes elsewhere) refreshes every 5 minutes — this screen
+  // is unattended, so it has to catch changes on its own rather than
+  // waiting for a manual reload. Crossing midnight is covered by the
+  // same 5-minute cycle picking up the new day within a few minutes.
+  setInterval(render, 1000);
+  setInterval(async () => { await loadBoth(); render(); }, 5 * 60 * 1000);
+</script>
+</body>
+</html>

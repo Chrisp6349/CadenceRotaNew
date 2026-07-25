@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadence — Administration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/cadence.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0B6E64">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+</head>
+<body>
+<div id="shellRoot"></div>
+
+<script type="module">
+  import { requireSession } from "./js/auth.js";
+  import { renderShell } from "./js/shell.js";
+  import { getDepartment } from "./js/department.js";
+  import { renderAdmin } from "./js/admin.js";
+  import { applyTheme } from "./js/theme.js";
+  applyTheme();
+
+  const { user, profile } = await requireSession();
+  const dept = await getDepartment(profile.departmentId);
+  profile.departmentName = dept?.name || "Department";
+
+  const content = renderShell({ profile, activePage: "admin", title: "Administration" });
+
+  if (profile.role !== "admin") {
+    content.innerHTML = `<p style="color:var(--ink-500);">This page is only available to admins.</p>`;
+  } else {
+    renderAdmin(content, profile.departmentId, dept, user.uid);
+  }
+</script>
+</body>
+</html>

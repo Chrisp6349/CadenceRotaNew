@@ -1,0 +1,243 @@
+/* =====================================================================
+   Cadence design system — shared tokens & components
+   Reused across login, dashboard shell, rota, and admin screens.
+   ===================================================================== */
+
+:root{
+  --ink-900:#10141F; --ink-700:#2B3245; --ink-500:#5B6472; --ink-300:#A0A8B4;
+  --ink-150:#E4E7EC; --ink-100:#EDEFF3; --canvas:#F5F7FA; --surface:#FFFFFF;
+
+  --teal-700:#08514D; --teal-600:#0B6E64; --teal-500:#128577;
+  --teal-100:#E6F2F0; --teal-50:#F2F8F7;
+
+  --status-available:#3FA66B; --status-available-bg:#E9F6EF;
+  --status-inlist:#0B6E64;    --status-inlist-bg:#E6F2F0;
+  --status-turnover:#DB9A2C;  --status-turnover-bg:#FBF1DF;
+  --status-oncall:#E0554F;    --status-oncall-bg:#FBEAE9;
+  --status-closed:#8891A0;    --status-closed-bg:#EEF0F3;
+
+  --shadow-sm:0 1px 2px rgba(16,20,31,.06);
+  --shadow-md:0 4px 12px rgba(16,20,31,.08);
+  --shadow-lg:0 12px 32px rgba(16,20,31,.12);
+
+  --r-sm:6px; --r-md:10px; --r-lg:16px; --r-pill:999px;
+
+  --ease-standard:cubic-bezier(.4,0,.2,1);
+  --ease-out:cubic-bezier(.16,1,.3,1);
+  --dur-micro:120ms; --dur-standard:220ms; --dur-panel:380ms;
+
+  --font-display:'Manrope',sans-serif;
+  --font-body:'Inter',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+
+  --toast-bg:#10141F;
+  --sidebar-bg:#10141F;
+}
+
+/* ---------- Dark mode ----------
+   Almost every component below is built on these tokens, so flipping
+   them here re-themes the whole app. The sidebar is already dark in
+   light mode and is left as-is. */
+html[data-theme="dark"]{
+  --ink-900:#EDEFF3; --ink-700:#C7CCD6; --ink-500:#9AA3B2; --ink-300:#6B7280;
+  --ink-150:#2A2F3B; --ink-100:#232833; --canvas:#12151C; --surface:#1B1F29;
+
+  --teal-100:#12312E; --teal-50:#182420;
+
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  --shadow-md:0 4px 12px rgba(0,0,0,.35);
+  --shadow-lg:0 12px 32px rgba(0,0,0,.45);
+
+  --toast-bg:#2A2F3B;
+}
+html[data-theme="dark"] ::selection{background:var(--teal-700);color:#fff;}
+
+*{box-sizing:border-box;}
+body{margin:0;background:var(--canvas);color:var(--ink-900);font-family:var(--font-body);-webkit-font-smoothing:antialiased;}
+h1,h2,h3,h4{font-family:var(--font-display);margin:0;letter-spacing:-0.02em;}
+a{color:inherit;}
+::selection{background:var(--teal-100);color:var(--teal-700);}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.001ms !important;transition-duration:.001ms !important;}}
+
+/* Accessible keyboard focus everywhere, without the default browser ring
+   showing on mouse/touch clicks — the quality-floor item every page gets
+   for free just by using real <button>/<a>/<input> elements. */
+:focus{outline:none;}
+:focus-visible{outline:2px solid var(--teal-500);outline-offset:2px;border-radius:2px;}
+
+/* ---------- Buttons ---------- */
+.btn{font-family:var(--font-body);font-weight:600;font-size:14px;border-radius:var(--r-sm);border:1px solid transparent;
+  padding:10px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;
+  transition:all var(--dur-micro) var(--ease-standard);}
+.btn:active{transform:translateY(1px);}
+.btn-primary{background:var(--teal-600);color:#fff;box-shadow:var(--shadow-sm);}
+.btn-primary:hover{background:var(--teal-700);box-shadow:var(--shadow-md);}
+.btn-secondary{background:var(--surface);color:var(--ink-900);border-color:var(--ink-150);}
+.btn-secondary:hover{border-color:var(--ink-300);background:var(--ink-100);}
+.btn-ghost{background:transparent;color:var(--ink-500);}
+.btn-ghost:hover{background:var(--ink-100);color:var(--ink-900);}
+.btn-destructive{background:var(--status-oncall-bg);color:var(--status-oncall);}
+.btn-destructive:hover{background:var(--status-oncall);color:#fff;}
+.btn-sm{padding:6px 12px;font-size:12.5px;}
+.btn[disabled]{opacity:.4;cursor:not-allowed;}
+
+/* ---------- Cards ---------- */
+.card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);padding:20px;
+  transition:box-shadow var(--dur-standard) var(--ease-out), transform var(--dur-standard) var(--ease-out);}
+.card:hover{box-shadow:var(--shadow-md);}
+.card .card-label{font-family:var(--font-mono);font-size:11px;color:var(--ink-300);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+.card .card-value{font-family:var(--font-display);font-size:32px;font-weight:800;}
+.card .card-sub{font-size:12.5px;color:var(--ink-500);margin-top:6px;}
+
+/* ---------- Skeleton loading ----------
+   Placeholders shaped like the real content they'll become (a theatre
+   card, a stat card, a calendar cell) rather than a generic spinner —
+   the page reads as "this is what's coming", not just "please wait". */
+@keyframes skeleton-shimmer{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
+.skeleton{background:linear-gradient(90deg, var(--ink-100) 25%, var(--ink-150) 37%, var(--ink-100) 63%);
+  background-size:400% 100%;animation:skeleton-shimmer 1.6s ease-in-out infinite;border-radius:var(--r-sm);}
+.skeleton-text{height:12px;margin:6px 0;}
+.skeleton-text.w-60{width:60%;} .skeleton-text.w-40{width:40%;} .skeleton-text.w-80{width:80%;}
+.skeleton-card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-md);padding:14px;}
+@media (prefers-reduced-motion: reduce){.skeleton{animation:none;background:var(--ink-100);}}
+
+/* ---------- Empty states ----------
+   An empty screen is an invitation to act, not just an absence — a
+   small icon plus a plain-language next step, used wherever a list or
+   panel has genuinely nothing in it yet. */
+.empty-state{display:flex;flex-direction:column;align-items:center;text-align:center;padding:36px 20px;color:var(--ink-500);}
+.empty-state svg{width:32px;height:32px;stroke:var(--ink-300);margin-bottom:12px;}
+.empty-state .es-title{font-family:var(--font-display);font-weight:700;font-size:14.5px;color:var(--ink-700);margin-bottom:4px;}
+.empty-state .es-sub{font-size:13px;max-width:320px;line-height:1.5;}
+
+/* ---------- Status chips ---------- */
+.status-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:var(--r-pill);font-size:12.5px;font-weight:600;}
+.status-chip .dot{width:7px;height:7px;border-radius:50%;}
+.status-chip.available{background:var(--status-available-bg);color:var(--status-available);}
+.status-chip.available .dot{background:var(--status-available);}
+.status-chip.inlist{background:var(--status-inlist-bg);color:var(--status-inlist);}
+.status-chip.inlist .dot{background:var(--status-inlist);animation:pulse-dot 1.8s infinite;}
+.status-chip.turnover{background:var(--status-turnover-bg);color:var(--status-turnover);}
+.status-chip.turnover .dot{background:var(--status-turnover);}
+.status-chip.oncall{background:var(--status-oncall-bg);color:var(--status-oncall);}
+.status-chip.oncall .dot{background:var(--status-oncall);}
+.status-chip.closed{background:var(--status-closed-bg);color:var(--status-closed);}
+.status-chip.closed .dot{background:var(--status-closed);}
+@keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+/* ---------- App shell: sidebar + topbar ---------- */
+.app-shell{display:flex;height:100vh;overflow:hidden;}
+.app-sidebar{width:236px;flex-shrink:0;background:var(--sidebar-bg);color:#fff;display:flex;flex-direction:column;
+  transition:width var(--dur-panel) var(--ease-out);}
+.app-sidebar.collapsed{width:72px;}
+.sb-trust{display:flex;align-items:center;gap:10px;padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.08);}
+.sb-trust .logo-mark{width:30px;height:30px;border-radius:8px;background:var(--teal-500);display:flex;align-items:center;
+  justify-content:center;font-family:var(--font-display);font-weight:800;font-size:13px;flex-shrink:0;}
+.sb-trust .dept-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sb-trust .dept-sub{font-size:10.5px;color:rgba(255,255,255,.45);white-space:nowrap;}
+.app-sidebar.collapsed .dept-name,.app-sidebar.collapsed .dept-sub,
+.app-sidebar.collapsed .nav-label,.app-sidebar.collapsed .nav-section-label{display:none;}
+.sb-nav{flex:1;padding:14px 10px;overflow-y:auto;}
+.nav-section-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  color:rgba(255,255,255,.35);padding:14px 10px 6px;}
+.nav-item{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:var(--r-sm);font-size:13px;font-weight:500;
+  color:rgba(255,255,255,.65);cursor:pointer;transition:background var(--dur-micro) var(--ease-standard),color var(--dur-micro) var(--ease-standard);margin-bottom:2px;
+  text-decoration:none;}
+.nav-item svg{width:17px;height:17px;stroke:currentColor;flex-shrink:0;}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff;}
+.nav-item.active{background:var(--teal-600);color:#fff;}
+.sb-foot{padding:12px 16px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px;}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--teal-100);color:var(--teal-700);display:flex;
+  align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:11px;flex-shrink:0;}
+.sb-foot .who{font-size:12px;font-weight:600;white-space:nowrap;}
+.sb-foot .role{font-size:10.5px;color:rgba(255,255,255,.45);white-space:nowrap;text-transform:capitalize;}
+.sb-collapse-btn{margin-left:auto;background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;padding:4px;}
+
+.app-main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--canvas);}
+.app-topbar{height:60px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--ink-150);
+  display:flex;align-items:center;padding:0 20px;gap:16px;}
+.app-topbar h3{font-size:16px;font-weight:700;}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:14px;}
+.icon-btn{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:var(--ink-100);cursor:pointer;border:none;transition:background var(--dur-micro) var(--ease-standard);}
+.icon-btn:hover{background:var(--ink-150);}
+.icon-btn svg{width:15px;height:15px;stroke:var(--ink-700);}
+.app-content{flex:1;overflow-y:auto;padding:24px;}
+
+@keyframes shell-in{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+.app-shell{animation:shell-in var(--dur-panel) var(--ease-out);}
+
+.mobile-menu-btn{display:none;}
+.sidebar-backdrop{display:none;}
+
+@media (max-width:900px){
+  .mobile-menu-btn{display:flex;}
+  .app-sidebar{position:fixed;z-index:21;height:100%;box-shadow:var(--shadow-lg);}
+  .app-sidebar:not(.mobile-open){display:none;}
+  .sidebar-backdrop.show{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;}
+}
+
+/* ---------- Forms ---------- */
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
+.field label{font-size:12.5px;font-weight:600;color:var(--ink-700);}
+.field input,.field select{
+  font-family:var(--font-body);font-size:14px;padding:10px 12px;border-radius:var(--r-sm);
+  border:1px solid var(--ink-150);background:var(--surface);color:var(--ink-900);
+}
+.field input:focus,.field select:focus{outline:2px solid var(--teal-500);outline-offset:1px;}
+/* ---------- Administration ---------- */
+.admin-grid{column-count:1;column-gap:32px;}
+@media (min-width:820px){.admin-grid{column-count:2;}}
+.admin-grid section{break-inside:avoid-column;-webkit-column-break-inside:avoid;page-break-inside:avoid;
+  margin:0 0 28px;background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);padding:20px;}
+h4.admin-h{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-500);margin:0 0 12px;}
+.inline-form{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.inline-form input,.inline-form select{
+  font-family:var(--font-body);font-size:13.5px;padding:8px 10px;border-radius:var(--r-sm);
+  border:1px solid var(--ink-150);background:var(--surface);color:var(--ink-900);flex:1;min-width:140px;
+}
+.admin-row select{font-family:var(--font-body);font-size:12.5px;padding:4px 8px;border-radius:var(--r-sm);
+  border:1px solid var(--ink-150);background:var(--surface);color:var(--ink-900);}
+.admin-list{display:flex;flex-direction:column;gap:6px;}
+.admin-list.collapsed{display:none;}
+.admin-row{display:flex;align-items:center;justify-content:space-between;background:var(--surface);
+  border:1px solid var(--ink-150);border-radius:var(--r-sm);padding:8px 12px;font-size:13.5px;}
+.tag-mini{font-family:var(--font-mono);font-size:10px;color:var(--ink-500);background:var(--ink-100);
+  padding:2px 6px;border-radius:4px;margin-left:6px;}
+.empty-note{color:var(--ink-300);font-size:13px;}
+
+.section-list-head{display:flex;align-items:center;gap:10px;margin:4px 0 8px;flex-wrap:wrap;}
+.section-list-head .count{font-family:var(--font-mono);font-size:11px;color:var(--ink-500);white-space:nowrap;}
+.list-toggle-btn{background:none;border:none;color:var(--teal-600);font-size:12px;font-weight:600;
+  cursor:pointer;padding:0;text-decoration:underline;white-space:nowrap;margin-left:auto;}
+.list-filter{font-family:var(--font-body);font-size:12.5px;padding:5px 10px;border-radius:var(--r-pill);
+  border:1px solid var(--ink-150);background:var(--canvas);color:var(--ink-900);width:140px;
+  transition:width var(--dur-standard) var(--ease-standard);}
+.list-filter:focus{width:180px;}
+.admin-row.filtered-out{display:none;}
+
+.audit-entry{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-sm);
+  padding:10px 12px;font-size:13px;margin-bottom:6px;}
+.audit-entry .audit-headline{color:var(--ink-900);}
+.audit-entry .audit-time{font-family:var(--font-mono);font-size:11px;color:var(--ink-500);float:right;}
+.audit-entry .audit-changes{margin-top:6px;font-size:12px;color:var(--ink-500);line-height:1.5;}
+.audit-entry .audit-changes div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* ---------- Toast ---------- */
+.toast{position:fixed;bottom:24px;left:50%;transform:translate(-50%,8px);background:var(--toast-bg);color:#fff;
+  padding:10px 18px;border-radius:var(--r-sm);font-size:13px;font-weight:600;opacity:0;pointer-events:none;
+  transition:all var(--dur-panel) var(--ease-out);z-index:50;}
+.toast.show{opacity:1;transform:translate(-50%,0);}
+.toast.error{background:var(--status-oncall);}
+
+/* ---------- Text size ----------
+   Scales the main content area via CSS zoom (well supported in the
+   WebKit browsers this app targets — Safari/iPadOS). Sidebar/topbar
+   chrome stays fixed size so navigation doesn't jump around. */
+html[data-text-size="sm"] .app-content{zoom:0.88;}
+html[data-text-size="lg"] .app-content{zoom:1.18;}
+
+/* ---------- Topbar display controls ---------- */
+.topbar-right .icon-btn.active{background:var(--teal-100);}
+.topbar-right .icon-btn.active svg{stroke:var(--teal-700);}
+.text-size-label{font-family:var(--font-mono);font-size:11px;color:var(--ink-500);width:16px;text-align:center;}

@@ -1,0 +1,132 @@
+// -----------------------------------------------------------------------
+// shell.js
+// Renders the Cadence sidebar + topbar into #shellRoot on every page,
+// with nav items shown/hidden by role. Leave/annual-leave intentionally
+// left out. Calendar and Staff Profiles are implemented; a broader
+// "Insights" page beyond the Dashboard's Theatre Intelligence card is
+// still a placeholder for later.
+// -----------------------------------------------------------------------
+
+import { logout } from "./auth.js";
+import { initThemeControls } from "./theme.js";
+import { registerServiceWorker } from "./pwa.js";
+
+const ICONS = {
+  dashboard: `<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>`,
+  rota: `<rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/>`,
+  nursing: `<path d="M12 21s-7-4.35-9.5-8.5C.5 8.5 3 5 6.5 5c2 0 3.3 1 5.5 3.2C14.2 6 15.5 5 17.5 5 21 5 23.5 8.5 21.5 12.5 19 16.65 12 21 12 21z"/><path d="M12 8v6M9 11h6"/>`,
+  board: `<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 20h8M12 17v3"/>`,
+  calendar: `<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>`,
+  admin: `<path d="M12 2l8 3v6c0 5-3.4 8.4-8 11-4.6-2.6-8-6-8-11V5l8-3z"/>`,
+  staff: `<circle cx="12" cy="8" r="3.2"/><path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7"/>`,
+  settings: `<circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.6 1.6 0 00.32 1.76"/>`,
+  moon: `<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>`,
+  minus: `<path d="M5 12h14"/>`,
+  plus: `<path d="M12 5v14M5 12h14"/>`,
+  menu: `<path d="M4 6h16M4 12h16M4 18h16"/>`,
+  key: `<circle cx="8" cy="15" r="4"/><path d="M10.5 12.5L20 3M17 6l3 3M14 9l2.5 2.5"/>`,
+  help: `<path d="M4 4h11l5 5v11a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5"/><path d="M8 13h6M8 16h4"/>`
+};
+
+function iconSvg(key){
+  return `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[key]}</svg>`;
+}
+
+// pages: [{ key, label, href, icon, roles: [...] }]
+const NAV = [
+  { section: "Overview" },
+  { key: "dashboard", label: "Dashboard", href: "dashboard.html", icon: "dashboard", roles: ["viewer","editor","admin"] },
+  { key: "rota", label: "Rota", href: "rota.html", icon: "rota", roles: ["viewer","editor","admin"] },
+  { key: "nursingRota", label: "Nursing Rota", href: "nursing-rota.html", icon: "nursing", roles: ["viewer","editor","admin"] },
+  { key: "nursingDashboard", label: "Nursing Dashboard", href: "nursing-dashboard.html", icon: "nursing", roles: ["viewer","editor","admin"] },
+  { key: "corridorBoard", label: "Theatre Board", href: "corridor-board.html", icon: "board", roles: ["viewer","editor","admin"] },
+  { key: "calendar", label: "On Call Calendar", href: "calendar.html", icon: "calendar", roles: ["viewer","editor","admin"] },
+  { key: "staff", label: "Staff Profiles", href: "staff.html", icon: "staff", roles: ["viewer","editor","admin"] },
+  { section: "System" },
+  { key: "admin", label: "Administration", href: "admin.html", icon: "admin", roles: ["admin"] },
+];
+
+export function renderShell({ profile, activePage, title }) {
+  registerServiceWorker();
+  const root = document.getElementById("shellRoot");
+  const initials = (profile.displayName || "?").split(" ").map(s => s[0]).slice(0,2).join("").toUpperCase();
+
+  let navHtml = "";
+  NAV.forEach(item => {
+    if (item.section) { navHtml += `<div class="nav-section-label">${item.section}</div>`; return; }
+    if (!item.roles.includes(profile.role)) return;
+    navHtml += `<a class="nav-item ${item.key === activePage ? "active" : ""}" href="${item.href}">
+      ${iconSvg(item.icon)}<span class="nav-label">${item.label}</span></a>`;
+  });
+
+  root.innerHTML = `
+    <div class="app-shell">
+      <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+      <aside class="app-sidebar" id="sidebar">
+        <div class="sb-trust">
+          <div class="logo-mark">${(profile.departmentName || "??").slice(0,2).toUpperCase()}</div>
+          <div style="flex:1;min-width:0;">
+            <div class="dept-name">${profile.departmentName || "Department"}</div>
+            <div class="dept-sub">${profile.role}</div>
+          </div>
+          <button class="sb-collapse-btn" id="collapseBtn" aria-label="Collapse sidebar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 4l-6 8 6 8M21 4l-6 8 6 8"/></svg>
+          </button>
+        </div>
+        <div class="sb-nav">${navHtml}</div>
+        <div class="sb-foot">
+          <div class="avatar">${initials}</div>
+          <div style="min-width:0;flex:1;">
+            <div class="who">${profile.displayName || "—"}</div>
+            <div class="role">${profile.role}</div>
+          </div>
+          <a class="btn btn-ghost btn-sm" href="account.html" title="Account">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${ICONS.key}</svg>
+          </a>
+          <a class="btn btn-ghost btn-sm" href="Cadence-User-Guide.pdf" target="_blank" rel="noopener" title="User guide">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS.help}</svg>
+          </a>
+          <button class="btn btn-ghost btn-sm" id="logoutBtn" title="Sign out">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          </button>
+        </div>
+      </aside>
+      <div class="app-main">
+        <div class="app-topbar">
+          <button class="icon-btn mobile-menu-btn" id="mobileMenuBtn" aria-label="Open menu">${iconSvg("menu")}</button>
+          <h3>${title}</h3>
+          <div class="topbar-right">
+            <button class="icon-btn" id="textSizeDownBtn" title="Smaller text">${iconSvg("minus")}</button>
+            <span class="text-size-label" id="textSizeLabel">M</span>
+            <button class="icon-btn" id="textSizeUpBtn" title="Larger text">${iconSvg("plus")}</button>
+            <button class="icon-btn" id="darkModeBtn" title="Toggle dark mode">${iconSvg("moon")}</button>
+          </div>
+        </div>
+        <div class="app-content" id="pageContent"></div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("collapseBtn").addEventListener("click", () => {
+    document.getElementById("sidebar").classList.toggle("collapsed");
+  });
+  document.getElementById("logoutBtn").addEventListener("click", logout);
+  initThemeControls(root);
+
+  // Mobile nav: the sidebar is hidden entirely below 900px (see cadence.css)
+  // so it doesn't cover the whole screen on a phone. This button and the
+  // backdrop are how you get it back — tap the icon to open, tap the
+  // backdrop (or navigate to another page) to close.
+  const sidebarEl = document.getElementById("sidebar");
+  const backdropEl = document.getElementById("sidebarBackdrop");
+  document.getElementById("mobileMenuBtn").addEventListener("click", () => {
+    sidebarEl.classList.add("mobile-open");
+    backdropEl.classList.add("show");
+  });
+  backdropEl.addEventListener("click", () => {
+    sidebarEl.classList.remove("mobile-open");
+    backdropEl.classList.remove("show");
+  });
+
+  return document.getElementById("pageContent");
+}
