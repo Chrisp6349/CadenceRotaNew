@@ -101,6 +101,7 @@
   let weekOffset = 0;
   let selectedDayIdx = ALL_DAYS.indexOf(todayName);
   let rota = {};
+  let loadError = null;
 
   if (linkedWeek) {
     const currentMonday = new Date(mondayOfCurrentWeek() + "T00:00:00");
@@ -123,8 +124,13 @@
   function longDate(d) { return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }); }
 
   async function loadRota() {
-    const week = await loadNursingWeek(profile.departmentId, weekStartIso(weekOffset));
-    rota = week.data || {};
+    try {
+      const week = await loadNursingWeek(profile.departmentId, weekStartIso(weekOffset));
+      rota = week.data || {};
+      loadError = null;
+    } catch (err) {
+      loadError = err;
+    }
   }
 
   // ---- Theatre status (for the currently selected day) -------------------
@@ -161,6 +167,7 @@
     }
     m = suffix.match(/^(.+)_surgeon$/);
     if (m) {
+      if (m[1] === "oncall") return "On call · Surgeon";
       if (m[1] === "wl") return "Weekend waiting list · Surgeon";
       const th = theatres.find(x => x.id === m[1]);
       return th ? `${th.name} · Surgeon` : null;
@@ -236,6 +243,14 @@
 
   // ---- Main render ---------------------------------------------------------
   function render() {
+    if (loadError) {
+      content.innerHTML = `<div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+        <div class="es-title">Couldn't load the nursing dashboard</div>
+        <div class="es-sub">${loadError.code === "permission-denied" ? "Your account doesn't have access to this yet — check Firestore rules include nursingWeeks." : "Check your connection and try reloading."}</div>
+      </div>`;
+      return;
+    }
     const day = ALL_DAYS[selectedDayIdx];
     const isWeekend = day === "Saturday" || day === "Sunday";
     const dayIso = localIso(isoPlusDays(weekStartIso(weekOffset), selectedDayIdx));
@@ -301,6 +316,7 @@
     // of the week. The weekend waiting list only exists Sat/Sun.
     const onCallNurses = [1, 2, 3].map(n => rota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
     const onCallHca = rota[`${day}_oncall_hca`] || "—";
+    const onCallSurgeon = rota[`${day}_oncall_surgeon`] || "—";
     const coordinator = !isWeekend ? (rota[`${day}_coordinator`] || "—") : null;
 
     const supportNurses = [1, 2].map(n => rota[`${day}_support_nurse${n}`]).filter(Boolean).join(", ") || "—";
@@ -316,7 +332,7 @@
       statCards.push(`<div class="card"><div class="card-label">Support</div><div class="card-value" style="font-size:16px;">Nurses: ${supportNurses}<br>HCAs: ${supportHcas}</div></div>`);
       statCards.push(`<div class="card"><div class="card-label">Coordinator</div><div class="card-value" style="font-size:20px;">${coordinator}</div></div>`);
     }
-    statCards.push(`<div class="card"><div class="card-label">On call</div><div class="card-value" style="font-size:16px;">Nurses: ${onCallNurses}<br>HCA: ${onCallHca}</div></div>`);
+    statCards.push(`<div class="card"><div class="card-label">On call</div><div class="card-value" style="font-size:16px;">Nurses: ${onCallNurses}<br>HCA: ${onCallHca}<br>Surgeon: ${onCallSurgeon}</div></div>`);
     if (isWeekend) {
       statCards.push(`<div class="card"><div class="card-label">Weekend waiting list</div><div class="card-value" style="font-size:16px;">Nurses: ${wlNurses}<br>HCA: ${wlHca}<br>Surgeon: ${wlSurgeon}</div></div>`);
     }
