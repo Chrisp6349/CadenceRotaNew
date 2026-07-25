@@ -17,7 +17,7 @@
      viewer account. Large type throughout since it's read from a
      distance, not held in the hand. */
   html,body{height:100%;margin:0;background:var(--canvas);}
-  body{padding:28px 36px;box-sizing:border-box;overflow:hidden;}
+  body{padding:28px 36px;box-sizing:border-box;}
   .cb-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;}
   .cb-org{font-family:var(--font-display);font-weight:800;font-size:26px;color:var(--ink-900);}
   .cb-dept{font-size:14px;color:var(--ink-500);margin-top:2px;}
@@ -65,6 +65,31 @@
   .cb-oncall-item .oc-name{font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--ink-900);}
 
   .cb-noboard{color:var(--ink-500);font-size:16px;padding:40px 0;text-align:center;}
+
+  /* Team Board — sized up a little from the dashboard version since
+     this is read (and typed on) from a shared screen, not a phone. */
+  .cb-tb-card{margin-top:24px;}
+  .tb-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .tb-title{font-family:var(--font-mono);font-size:11px;color:var(--ink-500);text-transform:uppercase;letter-spacing:.05em;}
+  .tb-toggle{background:none;border:none;color:var(--teal-600);font-size:13px;font-weight:600;
+    cursor:pointer;padding:0;text-decoration:underline;}
+  .tb-list{display:flex;flex-direction:column;gap:14px;max-height:260px;overflow-y:auto;margin-bottom:16px;padding-right:4px;}
+  .tb-msg{display:flex;gap:12px;align-items:flex-start;}
+  .tb-avatar{width:32px;height:32px;border-radius:50%;background:var(--teal-100);color:var(--teal-700);
+    display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:12px;flex-shrink:0;}
+  .tb-body{flex:1;min-width:0;}
+  .tb-meta{font-size:12px;color:var(--ink-500);margin-bottom:2px;}
+  .tb-meta strong{color:var(--ink-700);font-weight:600;}
+  .tb-text{font-size:15px;color:var(--ink-900);line-height:1.45;overflow-wrap:break-word;}
+  .tb-del{background:none;border:none;color:var(--ink-300);cursor:pointer;font-size:17px;line-height:1;padding:2px;flex-shrink:0;}
+  .tb-del:hover{color:var(--status-oncall);}
+  .tb-form{display:flex;gap:10px;}
+  .tb-form input{flex:1;font-family:var(--font-body);font-size:15px;padding:11px 16px;border-radius:var(--r-pill);
+    border:1px solid var(--ink-150);background:var(--canvas);color:var(--ink-900);}
+  .tb-date-group{margin-bottom:18px;}
+  .tb-date-group:last-child{margin-bottom:0;}
+  .tb-date-label{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-500);text-transform:uppercase;
+    letter-spacing:.04em;margin-bottom:8px;}
 </style>
 </head>
 <body>
@@ -75,6 +100,7 @@
   import { getDepartment, listTheatres } from "./js/department.js";
   import { loadWeek, mondayOfCurrentWeek } from "./js/rota.js";
   import { loadNursingWeek } from "./js/nursing-rota.js";
+  import { postMessage, deleteMessage, watchTodayMessages, loadArchive, buildArchiveGroups } from "./js/messages.js";
   import { applyTheme } from "./js/theme.js";
   applyTheme();
 
@@ -82,10 +108,10 @@
   // permanently open on the corridor screen is the intended setup) —
   // requireSession() still runs so an unattended device without a
   // saved session lands back on the login page rather than showing
-  // nothing.
-  const { profile } = await requireSession();
+  // nothing. `user` is needed here (unlike before) because this page
+  // now has its own postable Team Board.
+  const { user, profile } = await requireSession();
   const dept = await getDepartment(profile.departmentId);
-  const root = document.getElementById("boardRoot");
 
   const theatres = await listTheatres(profile.departmentId);
 
@@ -99,6 +125,7 @@
     return d;
   }
   const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const todayIso = localIso(new Date());
 
   let odpRota = {}, nursingRota = {};
 
@@ -159,21 +186,53 @@
     </div>`;
   }
 
-  function render() {
+  // ---- Page skeleton, built once ------------------------------------------
+  // The clock ticks every second, but rebuilding the whole page every
+  // second would blow away whatever someone's mid-typing into the Team
+  // Board form below. So the skeleton (head + body containers) is built
+  // exactly once; only #cbTime/#cbDate update every second, #boardBody
+  // updates every 5 minutes (or on load), and #teamBoardCard updates
+  // only when the message list actually changes.
+  const root = document.getElementById("boardRoot");
+  root.innerHTML = `
+    <div class="cb-head">
+      <div>
+        <div class="cb-org">${dept.hospitalName || ""}</div>
+        <div class="cb-dept">${dept.name || "Theatres"}</div>
+        <div id="cbBhBanner"></div>
+      </div>
+      <div class="cb-clock">
+        <div class="cb-time" id="cbTime"></div>
+        <div class="cb-date" id="cbDate"></div>
+      </div>
+    </div>
+    <div id="boardBody"></div>
+    <div class="cb-card cb-tb-card" id="teamBoardCard"></div>
+  `;
+
+  function tickClock() {
     const now = new Date();
-    const todayIso = localIso(now);
+    document.getElementById("cbTime").textContent = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    document.getElementById("cbDate").textContent = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  }
+
+  function renderBody() {
+    const now = new Date();
+    const todayIsoNow = localIso(now);
     const day = ALL_DAYS[(now.getDay() + 6) % 7];
     const isWeekend = day === "Saturday" || day === "Sunday";
 
-    const timeStr = now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-    const dateStr = now.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
-    const bhBanner = (dept.bankHolidays && dept.bankHolidays[todayIso])
+    document.getElementById("cbBhBanner").innerHTML = (dept.bankHolidays && dept.bankHolidays[todayIsoNow])
       ? `<div class="cb-bh">Bank holiday</div>` : "";
 
-    let bodyHtml;
+    const body = document.getElementById("boardBody");
+
     if (!theatres.length) {
-      bodyHtml = `<div class="cb-noboard">No theatres configured yet — add them in Administration.</div>`;
-    } else if (isWeekend) {
+      body.innerHTML = `<div class="cb-noboard">No theatres configured yet — add them in Administration.</div>`;
+      return;
+    }
+
+    if (isWeekend) {
       const odpOc = [odpRota[`${day}_oncall_odp1`], odpRota[`${day}_oncall_odp2`]].filter(Boolean).join(", ") || "—";
       const odpOcAnaes = odpRota[`${day}_oncall_anaes`] || "—";
       const odpWlOdp = odpRota[`${day}_wl_odp`] || "—";
@@ -186,7 +245,7 @@
       const nurWlHca = nursingRota[`${day}_wl_hca`] || "—";
       const nurWlSurgeon = nursingRota[`${day}_wl_surgeon`] || "—";
 
-      bodyHtml = `<div class="cb-strip">
+      body.innerHTML = `<div class="cb-strip">
         <div class="card"><div class="card-label">ODP on call</div><div class="card-value">${odpOc}<br><span style="color:var(--ink-500);font-size:13px;">${odpOcAnaes}</span></div></div>
         <div class="card"><div class="card-label">ODP waiting list</div><div class="card-value">${odpWlOdp}<br><span style="color:var(--ink-500);font-size:13px;">${odpWlAnaes}</span></div></div>
         <div class="card"><div class="card-label">Nursing on call</div><div class="card-value">${nurOc}<br><span style="color:var(--ink-500);font-size:13px;">HCA: ${nurOcHca} · Surgeon: ${nurOcSurgeon}</span></div></div>
@@ -207,7 +266,7 @@
       const coordinator = nursingRota[`${day}_coordinator`] || "—";
       const oncallSurgeon = nursingRota[`${day}_oncall_surgeon`] || "—";
 
-      bodyHtml = `
+      body.innerHTML = `
         <div class="cb-coord-wrap">
           <div class="cb-coord-card">
             <div class="cb-coord-label">Coordinator</div>
@@ -231,33 +290,139 @@
         </div>
       `;
     }
-
-    root.innerHTML = `
-      <div class="cb-head">
-        <div>
-          <div class="cb-org">${dept.hospitalName || ""}</div>
-          <div class="cb-dept">${dept.name || "Theatres"}</div>
-          ${bhBanner}
-        </div>
-        <div class="cb-clock">
-          <div class="cb-time">${timeStr}</div>
-          <div class="cb-date">${dateStr}</div>
-        </div>
-      </div>
-      ${bodyHtml}
-    `;
   }
 
-  await loadBoth();
-  render();
+  // ---- Team Board -----------------------------------------------------
+  // A third, fully separate board from both dashboards' — its own
+  // Firestore collection (departments/{deptId}/theatreMessages) — since
+  // this screen is shared by the whole department (both teams and
+  // anyone else who walks past with a login), not owned by either team.
+  // Same open-posting rule as the other two boards: anyone signed into
+  // the department can post; only the author or an admin can delete.
+  const THEATRE_MESSAGES = "theatreMessages";
+  let todayMessages = [];
+  let boardMode = "today"; // "today" | "archive"
+  let archiveGroups = null;
 
-  // Clock ticks every second; rota data (which only changes when someone
-  // saves/publishes elsewhere) refreshes every 5 minutes — this screen
-  // is unattended, so it has to catch changes on its own rather than
-  // waiting for a manual reload. Crossing midnight is covered by the
-  // same 5-minute cycle picking up the new day within a few minutes.
-  setInterval(render, 1000);
-  setInterval(async () => { await loadBoth(); render(); }, 5 * 60 * 1000);
+  function initials(name) {
+    return (name || "?").split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase();
+  }
+  function formatMsgTime(ts, clientTime) {
+    if (ts?.toDate) return ts.toDate().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    if (clientTime) return new Date(clientTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+    return "sending…";
+  }
+  // Message text is always set via textContent after insertion (see the
+  // two loops below), never interpolated into the HTML string — so a
+  // posted message can never be interpreted as markup.
+  function msgRowHtml(id, displayName, createdAt, clientTime, canDelete) {
+    return `<div class="tb-msg">
+      <div class="tb-avatar">${initials(displayName)}</div>
+      <div class="tb-body">
+        <div class="tb-meta"><strong>${displayName || "Someone"}</strong> · ${formatMsgTime(createdAt, clientTime)}</div>
+        <div class="tb-text" data-msg-id="${id}"></div>
+      </div>
+      ${canDelete ? `<button class="tb-del" data-del="${id}" title="Delete">×</button>` : ""}
+    </div>`;
+  }
+
+  async function toggleBoardMode() {
+    boardMode = boardMode === "today" ? "archive" : "today";
+    renderTeamBoard();
+    if (boardMode === "archive" && !archiveGroups) {
+      const msgs = await loadArchive(profile.departmentId, todayIso, 300, THEATRE_MESSAGES);
+      archiveGroups = buildArchiveGroups(msgs);
+      renderTeamBoard();
+    }
+  }
+
+  function renderTeamBoard() {
+    const el = document.getElementById("teamBoardCard");
+    if (!el) return;
+
+    const headHtml = `<div class="tb-head"><span class="tb-title">Team Board</span>
+      <button class="tb-toggle" id="tbToggleBtn">${boardMode === "today" ? "Archive" : "Today"}</button></div>`;
+
+    if (boardMode === "archive") {
+      let bodyHtml;
+      if (!archiveGroups) {
+        bodyHtml = `<div class="skeleton skeleton-text w-40"></div><div class="skeleton skeleton-text w-80" style="margin-top:10px;"></div>`;
+      } else if (!archiveGroups.length) {
+        bodyHtml = `<div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5"/></svg>
+          <div class="es-title">Nothing archived yet</div>
+          <div class="es-sub">Once today ends, anything posted here moves into the archive automatically.</div>
+        </div>`;
+      } else {
+        bodyHtml = `<div class="tb-list" style="max-height:340px;">${archiveGroups.map(g => `
+          <div class="tb-date-group">
+            <div class="tb-date-label">${new Date(g.dateKey + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div>
+            ${g.messages.map(m => msgRowHtml(m.id, m.displayName, m.createdAt, m.clientTime, false)).join("")}
+          </div>`).join("")}</div>`;
+      }
+      el.innerHTML = headHtml + bodyHtml;
+      if (archiveGroups) {
+        archiveGroups.flatMap(g => g.messages).forEach(m => {
+          const node = el.querySelector(`[data-msg-id="${m.id}"]`);
+          if (node) node.textContent = m.text;
+        });
+      }
+    } else {
+      const listHtml = todayMessages.length
+        ? `<div class="tb-list">${todayMessages.map(m => msgRowHtml(m.id, m.displayName, m.createdAt, m.clientTime, m.uid === user.uid || profile.role === "admin")).join("")}</div>`
+        : `<div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-9.9 8.25 8.5 8.5 0 01-6.32-3.17L3 21l1.42-4.24a8.5 8.5 0 01-.9-3.76 8.38 8.38 0 018.25-9.9 8.5 8.5 0 018.23 8.4z"/></svg>
+            <div class="es-title">No messages yet today</div>
+            <div class="es-sub">Anyone can post here — it's shared by the whole department.</div>
+          </div>`;
+      el.innerHTML = `${headHtml}${listHtml}
+        <form class="tb-form" id="tbForm">
+          <input type="text" id="tbInput" placeholder="Share something with everyone…" maxlength="500" autocomplete="off">
+          <button class="btn btn-primary btn-sm" type="submit">Post</button>
+        </form>`;
+      todayMessages.forEach(m => {
+        const node = el.querySelector(`[data-msg-id="${m.id}"]`);
+        if (node) node.textContent = m.text;
+      });
+
+      el.querySelectorAll("[data-del]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Delete this message?")) return;
+          await deleteMessage(profile.departmentId, btn.dataset.del, THEATRE_MESSAGES);
+        });
+      });
+      document.getElementById("tbForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const input = document.getElementById("tbInput");
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = "";
+        await postMessage(profile.departmentId, user.uid, profile.displayName || "Someone", text, todayIso, THEATRE_MESSAGES);
+      });
+      const listEl = el.querySelector(".tb-list");
+      if (listEl) listEl.scrollTop = listEl.scrollHeight;
+    }
+
+    document.getElementById("tbToggleBtn").addEventListener("click", toggleBoardMode);
+  }
+
+  tickClock();
+  renderBody();
+  renderTeamBoard();
+  await loadBoth();
+  renderBody();
+
+  // Clock ticks every second (cheap — two textContent writes, never
+  // touches the Team Board). Rota data refreshes every 5 minutes, same
+  // as before — this screen is unattended, so it has to catch changes
+  // on its own. Team Board is separately live via watchTodayMessages,
+  // so a new message appears the instant it's posted, not on a timer.
+  setInterval(tickClock, 1000);
+  setInterval(async () => { await loadBoth(); renderBody(); }, 5 * 60 * 1000);
+  watchTodayMessages(profile.departmentId, todayIso, (msgs) => {
+    todayMessages = msgs;
+    if (boardMode === "today") renderTeamBoard();
+  }, THEATRE_MESSAGES);
 </script>
 </body>
 </html>
