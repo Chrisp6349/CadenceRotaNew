@@ -27,9 +27,19 @@
   .cb-bh{display:inline-block;margin-top:22px;background:var(--status-oncall-bg);color:var(--status-oncall);
     font-weight:700;font-size:14px;padding:8px 18px;border-radius:var(--r-sm);}
 
+  .cb-coord-wrap{display:flex;justify-content:center;margin-bottom:22px;}
+  .cb-coord-card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);
+    padding:14px 32px;text-align:center;min-width:280px;}
+  .cb-coord-label{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-300);text-transform:uppercase;
+    letter-spacing:.05em;margin-bottom:6px;}
+  .cb-coord-name{font-family:var(--font-display);font-weight:800;font-size:24px;color:var(--ink-900);}
+
+  .cb-theatre-sub{font-size:13.5px;color:var(--ink-700);line-height:1.6;margin-bottom:10px;}
+  .cb-theatre-sub b{color:var(--ink-900);}
+
   .cb-theatres{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:18px;}
   .cb-card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);padding:16px 18px;}
-  .cb-card-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .cb-card-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
   .cb-card-head .dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
   .cb-card-head .dot.available{background:var(--status-available);}
   .cb-card-head .dot.inlist{background:var(--status-inlist);animation:pulse-dot 1.8s infinite;}
@@ -49,6 +59,10 @@
   .cb-strip .card{padding:14px 18px;}
   .cb-strip .card-label{font-size:11px;}
   .cb-strip .card-value{font-size:17px;line-height:1.5;}
+  .cb-oncall-card{grid-column:1/-1;}
+  .cb-oncall-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;}
+  .cb-oncall-item .oc-role{font-family:var(--font-mono);font-size:10px;color:var(--ink-300);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
+  .cb-oncall-item .oc-name{font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--ink-900);}
 
   .cb-noboard{color:var(--ink-500);font-size:16px;padding:40px 0;text-align:center;}
 </style>
@@ -119,20 +133,22 @@
 
   function theatreCardHtml(day, t) {
     const i = theatreInfo(day, t);
-    const odpRows = [i.odp1, i.odp2, i.anaes].filter(Boolean)
-      .map(n => `<div class="cb-person${n === i.anaes ? " cb-lead" : ""}">${n}</div>`).join("");
+    const odpRows = [i.odp1, i.odp2].filter(Boolean).map(n => `<div class="cb-person">${n}</div>`).join("");
     const nursingRows = [...i.nurses.map(n => `<div class="cb-person">${n}</div>`),
-      ...i.hcas.map(n => `<div class="cb-person">${n}</div>`),
-      i.surgeon ? `<div class="cb-person cb-lead">${i.surgeon}</div>` : ""].filter(Boolean).join("");
+      ...i.hcas.map(n => `<div class="cb-person">${n}</div>`)].filter(Boolean).join("");
 
     return `<div class="cb-card">
       <div class="cb-card-head">
         <span class="dot ${i.status}"></span>
         <span class="cb-theatre-name">${t.name}</span>
       </div>
+      <div class="cb-theatre-sub">
+        Anaesthetist: <b>${i.anaes || "—"}</b><br>
+        Surgeon: <b>${i.surgeon || "—"}</b>
+      </div>
       <div class="cb-team">
         <div class="cb-team-block">
-          <div class="cb-team-label">ODP team ${i.odpList ? `<span class="cb-list-tag">${i.odpList}</span>` : ""}</div>
+          <div class="cb-team-label">ODP ${i.odpList ? `<span class="cb-list-tag">${i.odpList}</span>` : ""}</div>
           ${odpRows || `<div class="cb-empty">No allocation</div>`}
         </div>
         <div class="cb-team-block">
@@ -188,15 +204,31 @@
       const nurOc = [1, 2, 3].map(n => nursingRota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
       const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
       const coordinator = nursingRota[`${day}_coordinator`] || "—";
+      // Weekdays don't currently have an on-call surgeon field (only the
+      // weekend waiting list does) — shown as an em dash rather than invented.
+      const oncallSurgeon = "—";
 
       bodyHtml = `
+        <div class="cb-coord-wrap">
+          <div class="cb-coord-card">
+            <div class="cb-coord-label">Coordinator</div>
+            <div class="cb-coord-name">${coordinator}</div>
+          </div>
+        </div>
         <div class="cb-theatres">${theatreCardsHtml}</div>
         <div class="cb-strip">
           <div class="card"><div class="card-label">ODP support</div><div class="card-value">${supportOdps}</div></div>
-          <div class="card"><div class="card-label">ODP on call</div><div class="card-value">${odpOc}${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}<br><span style="color:var(--ink-500);font-size:13px;">${odpOcAnaes}</span></div></div>
           <div class="card"><div class="card-label">Nursing support</div><div class="card-value">Nurses: ${supportNurses}<br><span style="color:var(--ink-500);font-size:13px;">HCAs: ${supportHcas}</span></div></div>
-          <div class="card"><div class="card-label">Nursing on call</div><div class="card-value">${nurOc}<br><span style="color:var(--ink-500);font-size:13px;">HCA: ${nurOcHca}</span></div></div>
-          <div class="card"><div class="card-label">Coordinator</div><div class="card-value">${coordinator}</div></div>
+          <div class="card cb-oncall-card">
+            <div class="card-label">On call${odpOcHome ? ` <span class="cb-list-tag">ODP FROM HOME</span>` : ""}</div>
+            <div class="cb-oncall-grid">
+              <div class="cb-oncall-item"><div class="oc-role">Anaesthetist</div><div class="oc-name">${odpOcAnaes}</div></div>
+              <div class="cb-oncall-item"><div class="oc-role">Surgeon</div><div class="oc-name">${oncallSurgeon}</div></div>
+              <div class="cb-oncall-item"><div class="oc-role">ODP</div><div class="oc-name">${odpOc}</div></div>
+              <div class="cb-oncall-item"><div class="oc-role">Nurses</div><div class="oc-name">${nurOc}</div></div>
+              <div class="cb-oncall-item"><div class="oc-role">HCA</div><div class="oc-name">${nurOcHca}</div></div>
+            </div>
+          </div>
         </div>
       `;
     }
