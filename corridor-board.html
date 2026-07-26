@@ -113,10 +113,12 @@
   // saved session lands back on the login page rather than showing
   // nothing. `user` is needed here (unlike before) because this page
   // now has its own postable Team Board.
-  const { user, profile } = await requireSession();
-  const dept = await getDepartment(profile.departmentId);
-
-  const theatres = await listTheatres(profile.departmentId);
+   const { user, profile } = await requireSession();
+  // Fired together — dept and theatres don't depend on each other.
+  const deptPromise = getDepartment(profile.departmentId);
+  const theatresPromise = listTheatres(profile.departmentId);
+  const dept = await deptPromise;
+  const theatres = await theatresPromise;
 
   function localIso(d) {
     const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
