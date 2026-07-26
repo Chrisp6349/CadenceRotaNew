@@ -103,10 +103,10 @@
   const theatres = await listTheatres(profile.departmentId);
   const staffList = await listStaff(profile.departmentId);
   const staff = splitStaff(staffList);
-  // My Week picker covers everyone who can appear on the nursing rota —
-  // nurses, HCAs, and surgeons — not just nurses, since HCAs and
-  // surgeons want to check their own week too.
-  const myWeekStaff = staffList.filter(s => ["nurse", "hca", "surgeon"].includes(s.type));
+   // My Week picker covers everyone who can appear on the nursing rota —
+  // any banded nurse type, HCAs, and surgeons — not just one type, since
+  // everyone wants to check their own week too.
+  const myWeekStaff = staffList.filter(s => ["nurse", "nurse_band5", "nurse_band6", "nurse_aptap", "hca", "surgeon"].includes(s.type));
 
   const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   function localIso(d) {
@@ -235,7 +235,8 @@
     });
   }
 
-  const TYPE_LABELS = { nurse: "Nurse", hca: "HCA", surgeon: "Surgeon" };
+   const TYPE_LABELS = { nurse: "Nurse", nurse_band5: "Band 5 Nurse", nurse_band6: "Band 6 Nurse", nurse_aptap: "AP/TAP", hca: "HCA", surgeon: "Surgeon" };
+
   function renderMyWeekPicker() {
     const sorted = [...myWeekStaff].sort((a, b) => a.name.localeCompare(b.name));
     const options = sorted.map(s => `<option value="${s.name}">${s.name} (${TYPE_LABELS[s.type]})</option>`).join("");
