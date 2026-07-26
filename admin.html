@@ -15,7 +15,7 @@
 <div id="shellRoot"></div>
 
 <script type="module">
-  import { requireSession } from "./js/auth.js";
+  import { requireSession, blockBoardOnly } from "./js/auth.js";
   import { renderShell } from "./js/shell.js";
   import { getDepartment } from "./js/department.js";
   import { renderAdmin } from "./js/admin.js";
@@ -23,6 +23,7 @@
   applyTheme();
 
   const { user, profile } = await requireSession();
+  await blockBoardOnly(profile);
   const dept = await getDepartment(profile.departmentId);
   profile.departmentName = dept?.name || "Department";
 
@@ -31,7 +32,7 @@
   if (profile.role !== "admin") {
     content.innerHTML = `<p style="color:var(--ink-500);">This page is only available to admins.</p>`;
   } else {
-    renderAdmin(content, profile.departmentId, dept, user.uid);
+    renderAdmin(content, profile.departmentId, dept, user.uid, profile.displayName);
   }
 </script>
 </body>
