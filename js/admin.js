@@ -284,12 +284,51 @@ export function renderAdmin(container, deptId, dept, myUid) {
       staff.sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
         const row = document.createElement("div");
         row.className = "admin-row";
-        row.innerHTML = `<span>${s.name}${s.rotaName ? ` <span class="tag-mini">shows as: ${s.rotaName}</span>` : ""}</span><button class="btn btn-ghost btn-sm" data-id="${s.id}">Remove</button>`;
-        row.querySelector("button").addEventListener("click", async () => {
-          if (!confirm(`Remove ${s.name}?`)) return;
-          await deleteStaff(deptId, s.id);
-          refresh();
-        });
+
+        function renderView() {
+          row.innerHTML = `<span>${s.name}${s.rotaName ? ` <span class="tag-mini">shows as: ${s.rotaName}</span>` : ""}</span>
+            <span style="display:flex;gap:6px;flex-shrink:0;">
+              <button class="btn btn-ghost btn-sm" data-edit="${s.id}">Edit</button>
+              <button class="btn btn-ghost btn-sm" data-remove="${s.id}">Remove</button>
+            </span>`;
+          row.querySelector("[data-edit]").addEventListener("click", renderEdit);
+          row.querySelector("[data-remove]").addEventListener("click", async () => {
+            if (!confirm(`Remove ${s.name}?`)) return;
+            await deleteStaff(deptId, s.id);
+            refresh();
+          });
+        }
+
+        // Saves back to the SAME doc ID (s.id) rather than creating a new
+        // one — so a name change (e.g. a surname change after marriage)
+        // updates this person's existing record in place instead of
+        // starting a fresh one. Doesn't touch anything already published
+        // on past rotas — those keep showing whatever name was picked at
+        // the time, since the rota stores the name as plain text, not a
+        // reference back to this record.
+        function renderEdit() {
+          row.innerHTML = `
+            <input type="text" class="edit-name" value="${s.name}" placeholder="Full name" style="flex:1;min-width:120px;">
+            ${st.hasRotaName ? `<input type="text" class="edit-rotaname" value="${s.rotaName || ""}" placeholder="How it shows on the rota" style="flex:1;min-width:120px;">` : ""}
+            <span style="display:flex;gap:6px;flex-shrink:0;">
+              <button class="btn btn-primary btn-sm" data-save="${s.id}">Save</button>
+              <button class="btn btn-ghost btn-sm" data-cancel="${s.id}">Cancel</button>
+            </span>`;
+          row.querySelector("[data-save]").addEventListener("click", async () => {
+            const newName = row.querySelector(".edit-name").value.trim();
+            if (!newName) return;
+            const rotaNameInput = row.querySelector(".edit-rotaname");
+            const newRotaName = rotaNameInput ? rotaNameInput.value.trim() : "";
+            await saveStaff(deptId, s.id, { name: newName, type: st.type, rotaName: newRotaName });
+            s.name = newName;
+            s.rotaName = newRotaName;
+            renderView();
+            applyFilter(filterEl, listEl);
+          });
+          row.querySelector("[data-cancel]").addEventListener("click", renderView);
+        }
+
+        renderView();
         listEl.appendChild(row);
       });
       applyListCollapse(`staff_${st.type}`, listEl, toggleBtn, countEl, staff.length, st.singular.toLowerCase());
