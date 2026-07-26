@@ -34,13 +34,15 @@ function iconSvg(key){
 
 // pages: [{ key, label, href, icon, roles: [...] }]
 const NAV = [
-  { section: "Overview" },
-  { key: "dashboard", label: "ODP Dashboard", href: "dashboard.html", icon: "dashboard", roles: ["viewer","editor","admin"] },
+  { key: "corridorBoard", label: "Theatre Board", href: "corridor-board.html", icon: "board", roles: ["viewer","editor","admin","board"] },
+  { section: "ODP" },
   { key: "rota", label: "ODP Rota", href: "rota.html", icon: "rota", roles: ["viewer","editor","admin"] },
+  { key: "dashboard", label: "ODP Dashboard", href: "dashboard.html", icon: "dashboard", roles: ["viewer","editor","admin"] },
+  { key: "odpCalendar", label: "ODP On Call Calendar", href: "calendar.html", icon: "calendar", roles: ["viewer","editor","admin"] },
+  { section: "Nursing" },
   { key: "nursingRota", label: "Nursing Rota", href: "nursing-rota.html", icon: "nursing", roles: ["viewer","editor","admin"] },
   { key: "nursingDashboard", label: "Nursing Dashboard", href: "nursing-dashboard.html", icon: "nursing", roles: ["viewer","editor","admin"] },
-  { key: "corridorBoard", label: "Theatre Board", href: "corridor-board.html", icon: "board", roles: ["viewer","editor","admin"] },
-  { key: "calendar", label: "On Call Calendar", href: "calendar.html", icon: "calendar", roles: ["viewer","editor","admin"] },
+  { key: "nursingCalendar", label: "Nursing On Call Calendar", href: "nursing-calendar.html", icon: "calendar", roles: ["viewer","editor","admin"] },
   { key: "staff", label: "Staff Profiles", href: "staff.html", icon: "staff", roles: ["viewer","editor","admin"] },
   { section: "System" },
   { key: "admin", label: "Administration", href: "admin.html", icon: "admin", roles: ["admin"] },
