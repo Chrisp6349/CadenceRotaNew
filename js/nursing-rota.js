@@ -230,8 +230,10 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
         ${field(d, "oncall_nurse1", staff.nurses, null, "Nurse")}
         ${field(d, "oncall_nurse2", staff.nurses, null, "Nurse")}
         ${field(d, "oncall_nurse3", staff.nurses, null, "Nurse")}
-        ${field(d, "oncall_hca", staff.hcas, null, "HCA")}
-        ${field(d, "oncall_surgeon", staff.surgeons, null, "Surgeon")}
+       ${field(d, "oncall_hca", [...staff.hcas, ...staff.aptaps], null, "HCA")}
+${field(d, "oncall_surgeon", staff.surgeons, null, "Surgeon")}
+
+
       </td><td>
         ${field(d, "coordinator", staff.nurses, null, "Coordinator")}
       </td></tr>`;
@@ -244,7 +246,8 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
       <td>${field(d, "oncall_nurse1", staff.nurses, null, "Nurse")}
           ${field(d, "oncall_nurse2", staff.nurses, null, "Nurse")}
           ${field(d, "oncall_nurse3", staff.nurses, null, "Nurse")}
-          ${field(d, "oncall_hca", staff.hcas, null, "HCA")}
+        ${field(d, "oncall_hca", [...staff.hcas, ...staff.aptaps], null, "HCA")}
+
           ${field(d, "oncall_surgeon", staff.surgeons, null, "Surgeon")}</td>
       <td>${field(d, "wl_nurse1", staff.nurses, null, "Nurse")}
           ${field(d, "wl_nurse2", staff.nurses, null, "Nurse")}
