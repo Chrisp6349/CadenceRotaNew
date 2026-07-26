@@ -328,11 +328,13 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
               <button class="btn btn-ghost btn-sm" data-remove="${s.id}">Remove</button>
             </span>`;
           row.querySelector("[data-edit]").addEventListener("click", renderEdit);
-          row.querySelector("[data-remove]").addEventListener("click", async () => {
+                   row.querySelector("[data-remove]").addEventListener("click", async () => {
             if (!confirm(`Remove ${s.name}?`)) return;
             await deleteStaff(deptId, s.id);
+            staffCache = null;
             refresh();
           });
+
         }
 
         // Saves back to the SAME doc ID (s.id) rather than creating a new
@@ -379,10 +381,12 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       if (!name) return;
       const rotaNameInput = st.hasRotaName ? container.querySelector(`#staffRotaName_${st.type}`) : null;
       const rotaName = rotaNameInput ? rotaNameInput.value.trim() : "";
-      await saveStaff(deptId, slugId(name), { name, type: st.type, rotaName });
+           await saveStaff(deptId, slugId(name), { name, type: st.type, rotaName });
       nameInput.value = "";
       if (rotaNameInput) rotaNameInput.value = "";
+      staffCache = null;
       refresh();
+
     });
   });
   function refreshAllStaff() { refreshStaffFns.forEach(fn => fn()); }
