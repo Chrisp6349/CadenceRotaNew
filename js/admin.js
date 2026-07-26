@@ -20,12 +20,23 @@ const DEFAULT_LIST_OPTIONS = ["ROUTINE", "EMERGENCY", "URGENT"];
 // itself stays one flat "staff" list, same as before the nursing
 // module existed). Adding a new role later just means adding a row
 // here, no schema change.
+//
+// The three nurse_* types are separate admin boxes (so banding is
+// tracked) but all count as "nurse" for rota purposes — department.js's
+// splitStaff() merges them into one combined nurses list, so anyone
+// added under any of the three shows up in the same Nurse dropdowns on
+// the nursing rota. A pre-existing plain "nurse" type (from before
+// banding existed) is also still merged in, so nobody already added
+// disappears — they just won't have a band until re-added/edited under
+// one of the three boxes below.
 const STAFF_TYPES = [
-  { type: "odp",          label: "ODPs",          singular: "ODP" },
-  { type: "anaesthetist", label: "Anaesthetists", singular: "Anaesthetist" },
-  { type: "nurse",        label: "Nurses",        singular: "Nurse" },
-  { type: "hca",          label: "HCAs",          singular: "HCA" },
-  { type: "surgeon",      label: "Surgeons",      singular: "Surgeon" }
+  { type: "odp",          label: "ODPs",             singular: "ODP" },
+  { type: "anaesthetist", label: "Anaesthetists",    singular: "Anaesthetist" },
+  { type: "nurse_band5",  label: "Band 5 Nurses",     singular: "Band 5 Nurse" },
+  { type: "nurse_band6",  label: "Band 6 Nurses",     singular: "Band 6 Nurse" },
+  { type: "nurse_aptap",  label: "Band 4 AP/TAP",     singular: "AP/TAP" },
+  { type: "hca",          label: "HCAs",              singular: "HCA" },
+  { type: "surgeon",      label: "Surgeons",          singular: "Surgeon" }
 ];
 
 function slugId(name) {
@@ -97,11 +108,6 @@ export function renderAdmin(container, deptId, dept, myUid) {
   // array/object each time something changes, same pattern as the rest
   // of this screen.
   let listOptions = (dept.listOptions && dept.listOptions.length) ? [...dept.listOptions] : [...DEFAULT_LIST_OPTIONS];
-  // Nursing list types are a separate admin-managed list from the
-  // theatre/ODP one — different values (e.g. CARDIAC), no shared
-  // defaults, so nothing is auto-seeded here; it just starts empty
-  // until the department adds their own.
-  let nursingListOptions = [...(dept.nursingListOptions || [])];
   let bankHolidays = { ...(dept.bankHolidays || {}) };
   // If the department has never had list types set, seed the defaults
   // into Firestore now so the rota page (which reads dept.listOptions
@@ -153,22 +159,12 @@ export function renderAdmin(container, deptId, dept, myUid) {
 
       <section>
         <h4 class="admin-h">Theatre list types</h4>
-        <p class="empty-note" style="margin:-6px 0 10px;">Shown as options in each theatre and support box on the ODP rota — e.g. ROUTINE, EMERGENCY, URGENT, or your own.</p>
+        <p class="empty-note" style="margin:-6px 0 10px;">Shown as options throughout both the ODP rota and the nursing rota — e.g. ROUTINE, EMERGENCY, CARDIAC, NO LIST, or your own.</p>
         <form id="listForm" class="inline-form">
           <input type="text" id="listValue" placeholder="e.g. NO LIST, THORACIC" required>
           <button class="btn btn-primary btn-sm" type="submit">Add value</button>
         </form>
         <div id="listOptionsList" class="admin-list"></div>
-      </section>
-
-      <section>
-        <h4 class="admin-h">Nursing list types</h4>
-        <p class="empty-note" style="margin:-6px 0 10px;">Shown as options in each theatre box on the nursing rota — e.g. CARDIAC, NO LIST, NO SURGEON, or your own.</p>
-        <form id="nursingListForm" class="inline-form">
-          <input type="text" id="nursingListValue" placeholder="e.g. CARDIAC, NO LIST" required>
-          <button class="btn btn-primary btn-sm" type="submit">Add value</button>
-        </form>
-        <div id="nursingListOptionsList" class="admin-list"></div>
       </section>
 
       <section>
@@ -342,35 +338,6 @@ export function renderAdmin(container, deptId, dept, myUid) {
     refreshListOptions();
   });
 
-  // ---- Nursing list types ----------------------------------------------
-  const nursingListOptionsEl = container.querySelector("#nursingListOptionsList");
-  function refreshNursingListOptions() {
-    nursingListOptionsEl.innerHTML = nursingListOptions.length ? "" :
-      emptyState("tag", "No nursing list types yet", "Add CARDIAC, NO LIST, or your own values above.");
-    nursingListOptions.forEach(val => {
-      const row = document.createElement("div");
-      row.className = "admin-row";
-      row.innerHTML = `<span>${val}</span><button class="btn btn-ghost btn-sm">Remove</button>`;
-      row.querySelector("button").addEventListener("click", async () => {
-        nursingListOptions = nursingListOptions.filter(v => v !== val);
-        await updateDepartment(deptId, { nursingListOptions });
-        refreshNursingListOptions();
-      });
-      nursingListOptionsEl.appendChild(row);
-    });
-  }
-
-  container.querySelector("#nursingListForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const input = container.querySelector("#nursingListValue");
-    const val = input.value.trim().toUpperCase();
-    if (!val || nursingListOptions.includes(val)) return;
-    nursingListOptions = [...nursingListOptions, val];
-    await updateDepartment(deptId, { nursingListOptions });
-    input.value = "";
-    refreshNursingListOptions();
-  });
-
   // ---- Bank holidays ----------------------------------------------------
   const bhListEl = container.querySelector("#bhList");
   const bhCountEl = container.querySelector("#bhCount");
@@ -518,7 +485,6 @@ export function renderAdmin(container, deptId, dept, myUid) {
   refreshTheatres();
   refreshAllStaff();
   refreshListOptions();
-  refreshNursingListOptions();
   refreshBankHolidays();
   refreshUsers();
   refreshAuditLog();
