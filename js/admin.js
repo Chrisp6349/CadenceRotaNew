@@ -21,6 +21,16 @@ const DEFAULT_LIST_OPTIONS = ["ROUTINE", "EMERGENCY", "URGENT"];
 // module existed). Adding a new role later just means adding a row
 // here, no schema change.
 //
+// `hasRotaName`: everyone except anaesthetists and surgeons also gets a
+// second "how this appears on the rota" field, since a full legal name
+// like "Chris Parrish" is what you look someone up by, but "Chris" is
+// what actually fits in a rota box and is faster to scan. Full name
+// stays the doc's identity (used for the doc ID and the admin list);
+// rotaName is only ever a display override, falling back to the full
+// name when left blank — see splitStaff() in department.js. Two people
+// sharing the same rota name would show as indistinguishable on the
+// rota itself, so it's worth keeping short names reasonably unique.
+//
 // The three nurse_* types are separate admin boxes (so banding is
 // tracked) but all count as "nurse" for rota purposes — department.js's
 // splitStaff() merges them into one combined nurses list, so anyone
@@ -30,13 +40,13 @@ const DEFAULT_LIST_OPTIONS = ["ROUTINE", "EMERGENCY", "URGENT"];
 // disappears — they just won't have a band until re-added/edited under
 // one of the three boxes below.
 const STAFF_TYPES = [
-  { type: "odp",          label: "ODPs",             singular: "ODP" },
-  { type: "anaesthetist", label: "Anaesthetists",    singular: "Anaesthetist" },
-  { type: "nurse_band5",  label: "Band 5 Nurses",     singular: "Band 5 Nurse" },
-  { type: "nurse_band6",  label: "Band 6 Nurses",     singular: "Band 6 Nurse" },
-  { type: "nurse_aptap",  label: "Band 4 AP/TAP",     singular: "AP/TAP" },
-  { type: "hca",          label: "HCAs",              singular: "HCA" },
-  { type: "surgeon",      label: "Surgeons",          singular: "Surgeon" }
+  { type: "odp",          label: "ODPs",             singular: "ODP",          hasRotaName: true },
+  { type: "anaesthetist", label: "Anaesthetists",    singular: "Anaesthetist", hasRotaName: false },
+  { type: "nurse_band5",  label: "Band 5 Nurses",     singular: "Band 5 Nurse", hasRotaName: true },
+  { type: "nurse_band6",  label: "Band 6 Nurses",     singular: "Band 6 Nurse", hasRotaName: true },
+  { type: "nurse_aptap",  label: "Band 4 AP/TAP",     singular: "AP/TAP",       hasRotaName: true },
+  { type: "hca",          label: "HCAs",              singular: "HCA",          hasRotaName: true },
+  { type: "surgeon",      label: "Surgeons",          singular: "Surgeon",      hasRotaName: false }
 ];
 
 function slugId(name) {
@@ -147,6 +157,7 @@ export function renderAdmin(container, deptId, dept, myUid) {
         <h4 class="admin-h">${st.label}</h4>
         <form id="staffForm_${st.type}" class="inline-form">
           <input type="text" id="staffName_${st.type}" placeholder="Full name" required>
+          ${st.hasRotaName ? `<input type="text" id="staffRotaName_${st.type}" placeholder="How it shows on the rota, e.g. Chris (optional)">` : ""}
           <button class="btn btn-primary btn-sm" type="submit">Add ${st.singular}</button>
         </form>
         <div class="section-list-head">
@@ -273,7 +284,7 @@ export function renderAdmin(container, deptId, dept, myUid) {
       staff.sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
         const row = document.createElement("div");
         row.className = "admin-row";
-        row.innerHTML = `<span>${s.name}</span><button class="btn btn-ghost btn-sm" data-id="${s.id}">Remove</button>`;
+        row.innerHTML = `<span>${s.name}${s.rotaName ? ` <span class="tag-mini">shows as: ${s.rotaName}</span>` : ""}</span><button class="btn btn-ghost btn-sm" data-id="${s.id}">Remove</button>`;
         row.querySelector("button").addEventListener("click", async () => {
           if (!confirm(`Remove ${s.name}?`)) return;
           await deleteStaff(deptId, s.id);
@@ -291,8 +302,11 @@ export function renderAdmin(container, deptId, dept, myUid) {
       const nameInput = container.querySelector(`#staffName_${st.type}`);
       const name = nameInput.value.trim();
       if (!name) return;
-      await saveStaff(deptId, slugId(name), { name, type: st.type });
+      const rotaNameInput = st.hasRotaName ? container.querySelector(`#staffRotaName_${st.type}`) : null;
+      const rotaName = rotaNameInput ? rotaNameInput.value.trim() : "";
+      await saveStaff(deptId, slugId(name), { name, type: st.type, rotaName });
       nameInput.value = "";
+      if (rotaNameInput) rotaNameInput.value = "";
       refresh();
     });
   });
