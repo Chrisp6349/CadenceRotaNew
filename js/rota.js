@@ -142,14 +142,17 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     return { o, a };
   }
 
-  function field(day, key, list, type, restricted = true) {
+  function field(day, key, list, type, restricted = true, placeholder) {
     const fkey = `${day}_${key}`;
     const current = rota[fkey] || "";
     if (!editable) {
       return `<span class="ro-field">${current}</span>`;
     }
     const u = used(day);
-    let h = `<select data-key="${fkey}"><option value=""></option>`;
+    // The blank option shows the role name (e.g. "ODP", "Anaesthetist")
+    // instead of being empty, so whoever's filling in the rota can tell
+    // what each box is for before they've picked anyone.
+    let h = `<select data-key="${fkey}"><option value="">${placeholder || ""}</option>`;
     [...list].sort().forEach(n => {
       let hide = false;
       if (restricted) {
@@ -184,10 +187,10 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
   }
 
   function theatreCell(day, theatreId) {
-    return field(day, `${theatreId}_odp1`, staff.odps, "odp")
-      + field(day, `${theatreId}_odp2`, staff.odps, "odp")
-      + field(day, `${theatreId}_anaes`, staff.anaesthetists, "anaes")
-      + field(day, `${theatreId}_list`, dept.listOptions || [], "list", false);
+    return field(day, `${theatreId}_odp1`, staff.odps, "odp", true, "ODP")
+      + field(day, `${theatreId}_odp2`, staff.odps, "odp", true, "ODP")
+      + field(day, `${theatreId}_anaes`, staff.anaesthetists, "anaes", true, "Anaesthetist")
+      + field(day, `${theatreId}_list`, dept.listOptions || [], "list", false, "List type");
   }
 
   const theatreCols = theatres.map(t => `<th class="theatre-col">${t.name}</th>`).join("");
@@ -196,14 +199,14 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
   WEEKDAYS.forEach((d, i) => {
     const cells = theatres.map(t => `<td>${theatreCell(d, t.id)}</td>`).join("");
     h += `<tr${isToday(i) ? " class='today'" : ""}><td class="daycell">${dayLabel(i)}</td>${cells}<td>
-        ${field(d, "support1", staff.odps, "odp")}
-        ${field(d, "support2", staff.odps, "odp")}
-        ${field(d, "support3", staff.odps, "odp")}
-        <br>${field(d, "support_list", dept.listOptions || [], "list", false)}
+        ${field(d, "support1", staff.odps, "odp", true, "ODP")}
+        ${field(d, "support2", staff.odps, "odp", true, "ODP")}
+        ${field(d, "support3", staff.odps, "odp", true, "ODP")}
+        <br>${field(d, "support_list", dept.listOptions || [], "list", false, "List type")}
       </td><td>
-        ${field(d, "oncall_odp", staff.odps, "odp", false)}
-        ${field(d, "oncall_extra", dept.extraOnCall || ["", "EXTRA O/C"], "list", false)}
-        ${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false)}
+        ${field(d, "oncall_odp", staff.odps, "odp", false, "ODP")}
+        ${field(d, "oncall_extra", dept.extraOnCall || ["", "EXTRA O/C"], "list", false, "Extra on-call")}
+        ${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}
         ${homeCheckbox(d)}
       </td></tr>`;
   });
@@ -212,10 +215,10 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
   let w = `<table class="rota-table weekend-table"><tr><th>Day</th><th>On Call ODP</th><th>On Call Anaesthetist</th><th>Waiting List</th></tr>`;
   WEEKENDS.forEach((d, i) => {
     w += `<tr${isToday(i + 5) ? " class='today'" : ""}><td class="daycell">${dayLabel(i + 5)}</td>
-      <td>${field(d, "oncall_odp1", staff.odps, "odp", false)}${field(d, "oncall_session1", ["ALL DAY","AM","PM"], "list", false)}<br>
-          ${field(d, "oncall_odp2", staff.odps, "odp", false)}${field(d, "oncall_session2", ["ALL DAY","AM","PM"], "list", false)}</td>
-      <td>${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false)}</td>
-      <td>${field(d, "wl_odp", staff.odps, "odp", false)}${field(d, "wl_anaes", staff.anaesthetists, "anaes", false)}</td>
+      <td>${field(d, "oncall_odp1", staff.odps, "odp", false, "ODP")}${field(d, "oncall_session1", ["ALL DAY","AM","PM"], "list", false, "Session")}<br>
+          ${field(d, "oncall_odp2", staff.odps, "odp", false, "ODP")}${field(d, "oncall_session2", ["ALL DAY","AM","PM"], "list", false, "Session")}</td>
+      <td>${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}</td>
+      <td>${field(d, "wl_odp", staff.odps, "odp", false, "ODP")}${field(d, "wl_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}</td>
     </tr>`;
   });
   w += "</table>";
