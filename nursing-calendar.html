@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadence — Nursing On Call Calendar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/cadence.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0B6E64">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  .cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .cal-nav button{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-sm);
+    padding:7px 12px;font-family:var(--font-body);font-size:12.5px;font-weight:600;color:var(--ink-700);cursor:pointer;}
+  .cal-nav button:hover{background:var(--ink-100);}
+  .cal-nav .this-month-btn{color:var(--teal-600);border-color:var(--teal-100);}
+  .cal-nav-label{font-family:var(--font-display);font-weight:800;font-size:16px;flex:1;text-align:center;}
+
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .cal-dow{font-family:var(--font-mono);font-size:10px;color:var(--ink-500);text-transform:uppercase;
+    letter-spacing:.05em;text-align:center;padding-bottom:4px;}
+  .cal-cell{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-sm);
+    padding:8px;min-height:78px;cursor:pointer;transition:box-shadow .15s;}
+  .cal-cell:hover{box-shadow:var(--shadow-sm);}
+  .cal-cell.outside{background:var(--canvas);opacity:.5;}
+  .cal-cell.today{border-color:var(--teal-500);background:var(--teal-50);}
+  .cal-cell.bh{border-color:var(--status-oncall);}
+  .cal-date{font-family:var(--font-mono);font-size:11px;color:var(--ink-500);display:flex;align-items:center;gap:4px;margin-bottom:5px;}
+  .cal-bh-dot{width:6px;height:6px;border-radius:50%;background:var(--status-oncall);flex-shrink:0;}
+  .cal-oncall{font-size:11.5px;color:var(--ink-900);line-height:1.4;}
+  .cal-empty{font-size:11px;color:var(--ink-300);font-style:italic;}
+
+  @media (max-width:700px){
+    .cal-cell{min-height:60px;padding:6px;}
+    .cal-oncall{font-size:10.5px;}
+  }
+</style>
+</head>
+<body>
+<div id="shellRoot"></div>
+
+<script type="module">
+  import { requireSession, blockBoardOnly } from "./js/auth.js";
+  import { renderShell } from "./js/shell.js";
+  import { getDepartment } from "./js/department.js";
+  import { loadNursingWeek } from "./js/nursing-rota.js";
+  import { applyTheme } from "./js/theme.js";
+  applyTheme();
+
+  const { user, profile } = await requireSession();
+  await blockBoardOnly(profile);
+  const dept = await getDepartment(profile.departmentId);
+  profile.departmentName = dept?.name || "Department";
+
+  const content = renderShell({ profile, activePage: "nursingCalendar", title: "Nursing On Call Calendar" });
+
+  const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  function localIso(d) {
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  function addDays(d, n) {
+    const r = new Date(d);
+    r.setDate(r.getDate() + n);
+    return r;
+  }
+  const todayIso = localIso(new Date());
+
+  // ---- State: which month is displayed -----------------------------------
+  let viewDate = new Date();
+  viewDate.setDate(1);
+
+  function mondayOnOrBefore(d) {
+    const r = new Date(d);
+    const offset = (r.getDay() + 6) % 7;
+    r.setDate(r.getDate() - offset);
+    return r;
+  }
+
+  function renderSkeletonGrid() {
+    const dowHtml = ALL_DAYS.map(d => `<div class="cal-dow">${d.slice(0, 3)}</div>`).join("");
+    const cells = Array.from({ length: 35 }, () =>
+      `<div class="cal-cell"><div class="skeleton skeleton-text w-40"></div><div class="skeleton skeleton-text w-80" style="margin-top:10px;"></div></div>`
+    ).join("");
+    content.innerHTML = `
+      <div class="cal-nav">
+        <button disabled style="opacity:.4;">‹ Previous month</button>
+        <span class="cal-nav-label">${viewDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</span>
+        <button disabled style="opacity:.4;">Next month ›</button>
+      </div>
+      <div class="cal-grid">${dowHtml}${cells}</div>
+    `;
+  }
+
+  async function render() {
+    renderSkeletonGrid();
+
+    const monthStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+    const monthEnd = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
+    const gridStart = mondayOnOrBefore(monthStart);
+    const gridEnd = mondayOnOrBefore(monthEnd);
+    gridEnd.setDate(gridEnd.getDate() + 6);
+    const numRows = Math.round((gridEnd - gridStart) / 86400000 / 7) + 1;
+
+    const weekMondays = Array.from({ length: numRows }, (_, r) => addDays(gridStart, r * 7));
+    const weekDatas = await Promise.all(
+      weekMondays.map(m => loadNursingWeek(profile.departmentId, localIso(m)).then(w => w.data || {}))
+    );
+
+    // Nursing on call is the same shape every day (Mon-Sun) — unlike the
+    // ODP rota there's no separate weekday/weekend key layout to branch
+    // on here, which keeps this simpler than calendar.html's version.
+    function onCallSummary(rota, dayName) {
+      const nurses = [1, 2, 3].map(n => rota[`${dayName}_oncall_nurse${n}`]).filter(Boolean);
+      const hca = rota[`${dayName}_oncall_hca`] || "";
+      const surgeon = rota[`${dayName}_oncall_surgeon`] || "";
+      return { nurses, hca, surgeon };
+    }
+
+    let gridHtml = "";
+    for (let r = 0; r < numRows; r++) {
+      for (let c = 0; c < 7; c++) {
+        const date = addDays(weekMondays[r], c);
+        const iso = localIso(date);
+        const dayName = ALL_DAYS[c];
+        const isOutside = date.getMonth() !== viewDate.getMonth();
+        const isToday = iso === todayIso;
+        const isBh = !!(dept.bankHolidays && dept.bankHolidays[iso]);
+        const info = onCallSummary(weekDatas[r], dayName);
+
+        const oncallHtml = (info.nurses.length || info.hca || info.surgeon)
+          ? info.nurses.map(n => `<div>${n}</div>`).join("") +
+            (info.hca ? `<div>${info.hca}</div>` : "") +
+            (info.surgeon ? `<div>${info.surgeon}</div>` : "")
+          : `<div class="cal-empty">—</div>`;
+
+        gridHtml += `<div class="cal-cell${isOutside ? " outside" : ""}${isToday ? " today" : ""}${isBh ? " bh" : ""}"
+            data-week="${localIso(weekMondays[r])}" data-day-idx="${c}">
+          <div class="cal-date">${date.getDate()}${isBh ? `<span class="cal-bh-dot" title="Bank holiday"></span>` : ""}</div>
+          <div class="cal-oncall">${oncallHtml}</div>
+        </div>`;
+      }
+    }
+
+    const dowHtml = ALL_DAYS.map(d => `<div class="cal-dow">${d.slice(0, 3)}</div>`).join("");
+    const monthLabel = viewDate.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    const isCurrentMonth = viewDate.getFullYear() === new Date().getFullYear() && viewDate.getMonth() === new Date().getMonth();
+
+    content.innerHTML = `
+      <div class="cal-nav">
+        <button id="prevMonthBtn">‹ Previous month</button>
+        <span class="cal-nav-label">${monthLabel}</span>
+        ${!isCurrentMonth ? `<button class="this-month-btn" id="thisMonthBtn">This month</button>` : ""}
+        <button id="nextMonthBtn">Next month ›</button>
+      </div>
+      <div class="cal-grid">${dowHtml}${gridHtml}</div>
+    `;
+
+    document.getElementById("prevMonthBtn").addEventListener("click", () => changeMonth(-1));
+    document.getElementById("nextMonthBtn").addEventListener("click", () => changeMonth(1));
+    const thisMonthBtn = document.getElementById("thisMonthBtn");
+    if (thisMonthBtn) thisMonthBtn.addEventListener("click", () => changeMonth(0, true));
+
+    document.querySelectorAll(".cal-cell").forEach(cell => {
+      cell.addEventListener("click", () => {
+        const week = cell.dataset.week;
+        const dayIdx = cell.dataset.dayIdx;
+        window.location.href = `nursing-dashboard.html?week=${week}&day=${dayIdx}`;
+      });
+    });
+  }
+
+  function changeMonth(delta, jumpToThisMonth) {
+    if (jumpToThisMonth) {
+      viewDate = new Date();
+      viewDate.setDate(1);
+    } else {
+      viewDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + delta, 1);
+    }
+    render();
+  }
+
+  render();
+</script>
+</body>
+</html>
