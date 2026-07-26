@@ -137,3 +137,19 @@ export async function changeOwnPassword(currentPassword, newPassword) {
 export function hasRole(profile, ...allowed) {
   return allowed.includes(profile.role);
 }
+
+// For "board" accounts — generic shared logins meant to sit on a
+// hospital kiosk/terminal purely for viewing the corridor Theatre Board
+// and posting to its Team Board, nothing else. Every protected page
+// except corridor-board.html calls this right after requireSession();
+// it redirects away and then blocks forever (the awaited promise never
+// resolves) so nothing on that page runs or renders for a board login —
+// no rota data, no staff names, nothing beyond what corridor-board.html
+// itself shows. account.html is included in that block too, since this
+// is a shared credential — nobody should be able to change its password
+// from a public terminal.
+export async function blockBoardOnly(profile) {
+  if (profile.role !== "board") return;
+  window.location.href = "corridor-board.html";
+  await new Promise(() => {}); // navigation takes over; nothing after this line should ever run
+}
