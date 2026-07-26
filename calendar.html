@@ -55,7 +55,8 @@
   const dept = await getDepartment(profile.departmentId);
   profile.departmentName = dept?.name || "Department";
 
-  const content = renderShell({ profile, activePage: "calendar", title: "On Call Calendar" });
+    const content = renderShell({ profile, activePage: "odpCalendar", title: "ODP On Call Calendar" });
+
 
   const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
