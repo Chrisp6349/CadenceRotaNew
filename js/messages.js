@@ -43,15 +43,23 @@ export function deleteMessage(deptId, messageId, collectionName = "messages") {
 // board updates for everyone without a refresh. Returns an unsubscribe
 // function (not that this app currently bothers calling it, since every
 // navigation is a full page load that tears the listener down anyway).
-export function watchTodayMessages(deptId, dateKey, callback, collectionName = "messages") {
+//
+// `onError` is optional but important: without it, a listener that fails
+// partway through (a permissions problem, a missing index, anything)
+// just stops silently — the page keeps showing whatever it last had,
+// looking exactly like "new messages don't appear until I refresh"
+// even though the real cause is the live connection having died. Pass
+// onError to find out what actually went wrong instead of guessing.
+export function watchTodayMessages(deptId, dateKey, callback, collectionName = "messages", onError) {
   const q = query(
     collection(db, "departments", deptId, collectionName),
     where("dateKey", "==", dateKey),
     orderBy("clientTime", "asc")
   );
-  return onSnapshot(q, (snap) => {
-    callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-  });
+  return onSnapshot(q,
+    (snap) => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    onError || (() => {})
+  );
 }
 
 // One-off load of everything before today, most recent day first. Only
