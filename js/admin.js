@@ -418,12 +418,18 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
   // Fixes "I filled in the wrong week" without hand-retyping every box.
   // Reuses the exact same load/save functions the rota pages themselves
   // use, so a copied/moved week goes through the normal audit log too.
-  function mondayOf(dateStr) {
+   function mondayOf(dateStr) {
     const d = new Date(dateStr + "T00:00:00");
     const offset = (d.getDay() + 6) % 7; // Mon=0..Sun=6
     d.setDate(d.getDate() - offset);
-    return d.toISOString().split("T")[0];
+    // Never .toISOString() a locally-constructed date — it converts to
+    // UTC first and silently shifts the date back a day during British
+    // Summer Time. Building the string from local getFullYear/getMonth/
+    // getDate instead (same pattern used everywhere else in this app).
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
   }
+
 
   container.querySelector("#copyWeekForm").addEventListener("submit", async (e) => {
     e.preventDefault();
