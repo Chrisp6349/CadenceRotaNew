@@ -454,8 +454,17 @@
       </button>`;
     }).join("")}</div>`;
 
-    // Theatre grid for the selected day
-    const theatreCardsHtml = theatres.length
+      // Theatre grid for the selected day — no theatres on weekends (there's
+    // no weekday-style theatre programme then, just on call/waiting list),
+    // matching how the nursing dashboard handles it.
+    const theatreCardsHtml = isWeekend
+      ? `<div class="empty-state" style="grid-column:1/-1;">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18M14 11.5v1"/></svg>
+          <div class="es-title">No theatres on ${day}</div>
+          <div class="es-sub">Weekends run on call and the waiting list only — see below.</div>
+        </div>`
+      : theatres.length
+
       ? theatres.map(t => {
           const info = theatreInfo(day, t);
           const rows = [info.odp1, info.odp2, info.anaes].filter(Boolean)
@@ -499,9 +508,28 @@
     // Support is a day-level field (not tied to any one theatre — see the
     // Support column in rota.js), so it only ever appears on weekdays and
     // needs its own card rather than living inside a theatre card.
-    const supportOdps = [rota[`${day}_support1`], rota[`${day}_support2`], rota[`${day}_support3`]]
+        const supportOdps = [rota[`${day}_support1`], rota[`${day}_support2`], rota[`${day}_support3`]]
       .filter(Boolean).join(", ") || "—";
     const supportList = rota[`${day}_support_list`] || "";
+
+    // Weekend waiting list — separate ODP/anaesthetist fields, only
+    // relevant (and only ever populated) on Saturday/Sunday.
+    const wlOdp = isWeekend ? (rota[`${day}_wl_odp`] || "—") : null;
+    const wlAnaes = isWeekend ? (rota[`${day}_wl_anaes`] || "—") : null;
+
+    const statCards = [];
+    if (!isWeekend) {
+      statCards.push(`<div class="card"><div class="card-label">Sessions</div><div class="card-value">${sessionsCount} / ${theatres.length}</div></div>`);
+      statCards.push(`<div class="card"><div class="card-label">Support ODP</div><div class="card-value" style="font-size:20px;">${supportOdps}${supportList ? ` <span class="tc-list" style="font-size:9px;">${supportList}</span>` : ""}</div></div>`);
+    }
+    statCards.push(`<div class="card"><div class="card-label">On call ODP</div><div class="card-value" style="font-size:20px;">${onCallOdp}${onCallHome ? ` <span class="tc-list" style="font-size:9px;">FROM HOME</span>` : ""}</div></div>`);
+    statCards.push(`<div class="card"><div class="card-label">On call anaesthetist</div><div class="card-value" style="font-size:20px;">${onCallAnaes}</div></div>`);
+    if (isWeekend) {
+      statCards.push(`<div class="card"><div class="card-label">Waiting list ODP</div><div class="card-value" style="font-size:20px;">${wlOdp}</div></div>`);
+      statCards.push(`<div class="card"><div class="card-label">Waiting list anaesthetist</div><div class="card-value" style="font-size:20px;">${wlAnaes}</div></div>`);
+    }
+
+    content.innerHTML = `
 
     content.innerHTML = `
       ${weekNavHtml}
@@ -510,12 +538,8 @@
       <div class="card" id="teamBoardCard" style="margin-bottom:24px;"></div>
       <div class="strip-label">Live theatre status — ${day}${isActualToday ? " (today)" : ""}</div>
       <div class="theatre-grid">${theatreCardsHtml}</div>
-      <div class="stat-grid">
-        <div class="card"><div class="card-label">Sessions</div><div class="card-value">${sessionsCount} / ${theatres.length}</div></div>
-        <div class="card"><div class="card-label">Support ODP</div><div class="card-value" style="font-size:20px;">${supportOdps}${supportList ? ` <span class="tc-list" style="font-size:9px;">${supportList}</span>` : ""}</div></div>
-        <div class="card"><div class="card-label">On call ODP</div><div class="card-value" style="font-size:20px;">${onCallOdp}${onCallHome ? ` <span class="tc-list" style="font-size:9px;">FROM HOME</span>` : ""}</div></div>
-        <div class="card"><div class="card-label">On call anaesthetist</div><div class="card-value" style="font-size:20px;">${onCallAnaes}</div></div>
-      </div>
+            <div class="stat-grid">${statCards.join("")}</div>
+
       <div class="strip-label ti-card">Theatre Intelligence</div>
       <div class="card" id="tiCard"></div>
       <div class="strip-label myweek-card">My Week</div>
