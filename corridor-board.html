@@ -11,6 +11,11 @@
 <meta name="theme-color" content="#0B6E64">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
+  /* This page is a standalone full-bleed wall board, not a normal app
+     screen — no sidebar/topbar (renderShell is never called), designed
+     to sit permanently open on a corridor TV/monitor logged in as a
+     viewer account. Large type throughout since it's read from a
+     distance, not held in the hand. */
   html,body{height:100%;margin:0;background:var(--canvas);}
   body{padding:28px 36px;box-sizing:border-box;}
   .cb-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;}
@@ -19,6 +24,9 @@
   .cb-clock{text-align:right;}
   .cb-time{font-family:var(--font-mono);font-size:30px;font-weight:600;color:var(--teal-700);line-height:1;}
   .cb-date{font-size:13px;color:var(--ink-500);margin-top:4px;}
+  .cb-open-app{display:inline-block;margin-top:8px;font-family:var(--font-body);font-size:12px;font-weight:600;
+    color:var(--teal-600);text-decoration:none;}
+  .cb-open-app:hover{text-decoration:underline;}
   .cb-bh{display:inline-block;margin-top:22px;background:var(--status-oncall-bg);color:var(--status-oncall);
     font-weight:700;font-size:14px;padding:8px 18px;border-radius:var(--r-sm);}
 
@@ -189,6 +197,12 @@
   // updates every 5 minutes (or on load), and #teamBoardCard updates
   // only when the message list actually changes.
   const root = document.getElementById("boardRoot");
+  // Small, unobtrusive way back into the rest of the app — this page is
+  // now everyone's landing page after login, but deliberately has no
+  // sidebar of its own (it's meant to also run as a bare kiosk display).
+  // Board-only accounts don't get this: they're meant to stay here.
+  const openAppLinkHtml = profile.role !== "board"
+    ? `<a href="dashboard.html" class="cb-open-app">Open full app →</a>` : "";
   root.innerHTML = `
     <div class="cb-head">
       <div>
@@ -199,6 +213,7 @@
       <div class="cb-clock">
         <div class="cb-time" id="cbTime"></div>
         <div class="cb-date" id="cbDate"></div>
+        ${openAppLinkHtml}
       </div>
     </div>
     <div id="boardBody"></div>
@@ -240,10 +255,11 @@
       const nurWlHca = nursingRota[`${day}_wl_hca`] || "—";
       const nurWlSurgeon = nursingRota[`${day}_wl_surgeon`] || "—";
 
-           // Six cards: ODP/Nurses/HCA share an "On call" box and a "Waiting
+      // Six cards: ODP/Nurses/HCA share an "On call" box and a "Waiting
       // list" box (neither of them is a single named lead the way an
       // anaesthetist or surgeon is), while Anaesthetist and Surgeon each
-      // get their own box for both on call and the waiting list.
+      // get their own box for both on call and the waiting list — so
+      // six boxes in total, not four.
       body.innerHTML = `<div class="cb-strip">
         <div class="card"><div class="card-label">On call</div><div class="card-value" style="font-size:16px;">ODP: ${odpOc}<br>Nurses: ${nurOc}<br>HCA: ${nurOcHca}</div></div>
         <div class="card"><div class="card-label">Anaesthetist on call</div><div class="card-value">${odpOcAnaes}</div></div>
@@ -252,7 +268,6 @@
         <div class="card"><div class="card-label">Waiting list anaesthetist</div><div class="card-value">${odpWlAnaes}</div></div>
         <div class="card"><div class="card-label">Waiting list surgeon</div><div class="card-value">${nurWlSurgeon}</div></div>
       </div>`;
-
     } else {
       const theatreCardsHtml = theatres.map(t => theatreCardHtml(day, t)).join("");
 
@@ -278,16 +293,14 @@
         <div class="cb-theatres">${theatreCardsHtml}</div>
         <div class="cb-strip">
           <div class="card"><div class="card-label">ODP support</div><div class="card-value">${supportOdps}</div></div>
-        <div class="card"><div class="card-label">Nursing support</div><div class="card-value">Nurses: ${supportNurses}<br>HCAs: ${supportHcas}</div></div>
-
+          <div class="card"><div class="card-label">Nursing support</div><div class="card-value">Nurses: ${supportNurses}<br>HCAs: ${supportHcas}</div></div>
           <div class="card cb-oncall-card">
-            <div class="card-label">On call${odpOcHome ? ` <span class="cb-list-tag">ODP FROM HOME</span>` : ""}</div>
             <div class="card-label">On call</div>
- <div class="cb-oncall-item"><div class="oc-role">Anaesthetist</div><div class="oc-name">${odpOcAnaes}</div></div>
+            <div class="cb-oncall-grid">
+              <div class="cb-oncall-item"><div class="oc-role">Anaesthetist</div><div class="oc-name">${odpOcAnaes}</div></div>
               <div class="cb-oncall-item"><div class="oc-role">Surgeon</div><div class="oc-name">${oncallSurgeon}</div></div>
-              <div class="cb-oncall-item"><div class="oc-role">ODP</div><div class="oc-name">${odpOc}</div></div>
-             <div class="cb-oncall-item"><div class="oc-role">ODP${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}</div><div class="oc-name">${odpOc}</div></div>
- 
+              <div class="cb-oncall-item"><div class="oc-role">ODP${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}</div><div class="oc-name">${odpOc}</div></div>
+              <div class="cb-oncall-item"><div class="oc-role">Nurses</div><div class="oc-name">${nurOc}</div></div>
               <div class="cb-oncall-item"><div class="oc-role">HCA</div><div class="oc-name">${nurOcHca}</div></div>
             </div>
           </div>
@@ -350,7 +363,7 @@
         <div class="empty-state">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
           <div class="es-title">Live updates aren't connecting</div>
-          <div class="es-sub">${tbError.code || tbError.message || String(tbError)}</div>
+          <div class="es-sub" style="word-break:break-word;">${tbError.message || tbError.code || String(tbError)}</div>
         </div>`;
       return;
     }
@@ -439,7 +452,7 @@
   // so a new message appears the instant it's posted, not on a timer.
   setInterval(tickClock, 1000);
   setInterval(async () => { await loadBoth(); renderBody(); }, 5 * 60 * 1000);
-   watchTodayMessages(profile.departmentId, todayIso, (msgs) => {
+  watchTodayMessages(profile.departmentId, todayIso, (msgs) => {
     todayMessages = msgs;
     tbError = null;
     if (boardMode === "today") renderTeamBoard();
@@ -475,6 +488,5 @@
     });
   }
 </script>
-
 </body>
 </html>
