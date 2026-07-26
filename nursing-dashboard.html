@@ -273,6 +273,7 @@
   let todayMessages = [];
   let boardMode = "today"; // "today" | "archive"
   let archiveGroups = null;
+  let tbError = null;
 
   function initials(name) {
     return (name || "?").split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase();
@@ -309,6 +310,16 @@
   function renderTeamBoard() {
     const el = document.getElementById("teamBoardCard");
     if (!el) return;
+
+    if (tbError) {
+      el.innerHTML = `<div class="tb-head"><span class="strip-label" style="margin:0;">Team Board</span></div>
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+          <div class="es-title">Live updates aren't connecting</div>
+          <div class="es-sub">${tbError.code || tbError.message || String(tbError)}</div>
+        </div>`;
+      return;
+    }
 
     const headHtml = `<div class="tb-head"><span class="strip-label" style="margin:0;">Team Board</span>
       <button class="tb-toggle" id="tbToggleBtn">${boardMode === "today" ? "Archive" : "Today"}</button></div>`;
@@ -367,7 +378,12 @@
         const text = input.value.trim();
         if (!text) return;
         input.value = "";
-        await postMessage(profile.departmentId, user.uid, profile.displayName || "Someone", text, todayIso, NURSING_MESSAGES);
+        try {
+          await postMessage(profile.departmentId, user.uid, profile.displayName || "Someone", text, todayIso, NURSING_MESSAGES);
+        } catch (err) {
+          tbError = err;
+          renderTeamBoard();
+        }
       });
       const listEl = el.querySelector(".tb-list");
       if (listEl) listEl.scrollTop = listEl.scrollHeight;
@@ -515,8 +531,12 @@
   // cached data.
   watchTodayMessages(profile.departmentId, todayIso, (msgs) => {
     todayMessages = msgs;
+    tbError = null;
     if (boardMode === "today") renderTeamBoard();
-  }, NURSING_MESSAGES);
+  }, NURSING_MESSAGES, (err) => {
+    tbError = err;
+    renderTeamBoard();
+  });
 </script>
 </body>
 </html>
