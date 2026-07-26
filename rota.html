@@ -61,7 +61,8 @@
 <div class="toast" id="toast"></div>
 
 <script type="module">
-  import { requireSession } from "./js/auth.js";
+  import { requireSession, blockBoardOnly } from "./js/auth.js";
+
   import { renderShell } from "./js/shell.js";
   import { getDepartment, listTheatres, listStaff, splitStaff } from "./js/department.js";
   import { loadWeek, saveWeek, mondayOfCurrentWeek, renderGrid, attachChangeHandlers } from "./js/rota.js";
