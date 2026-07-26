@@ -11,11 +11,6 @@
 <meta name="theme-color" content="#0B6E64">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
-  /* This page is a standalone full-bleed wall board, not a normal app
-     screen — no sidebar/topbar (renderShell is never called), designed
-     to sit permanently open on a corridor TV/monitor logged in as a
-     viewer account. Large type throughout since it's read from a
-     distance, not held in the hand. */
   html,body{height:100%;margin:0;background:var(--canvas);}
   body{padding:28px 36px;box-sizing:border-box;}
   .cb-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px;}
@@ -303,6 +298,7 @@
   let todayMessages = [];
   let boardMode = "today"; // "today" | "archive"
   let archiveGroups = null;
+  let tbError = null;
 
   function initials(name) {
     return (name || "?").split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase();
@@ -339,6 +335,16 @@
   function renderTeamBoard() {
     const el = document.getElementById("teamBoardCard");
     if (!el) return;
+
+    if (tbError) {
+      el.innerHTML = `<div class="tb-head"><span class="tb-title">Team Board</span></div>
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+          <div class="es-title">Live updates aren't connecting</div>
+          <div class="es-sub">${tbError.code || tbError.message || String(tbError)}</div>
+        </div>`;
+      return;
+    }
 
     const headHtml = `<div class="tb-head"><span class="tb-title">Team Board</span>
       <button class="tb-toggle" id="tbToggleBtn">${boardMode === "today" ? "Archive" : "Today"}</button></div>`;
@@ -397,7 +403,12 @@
         const text = input.value.trim();
         if (!text) return;
         input.value = "";
-        await postMessage(profile.departmentId, user.uid, profile.displayName || "Someone", text, todayIso, THEATRE_MESSAGES);
+        try {
+          await postMessage(profile.departmentId, user.uid, profile.displayName || "Someone", text, todayIso, THEATRE_MESSAGES);
+        } catch (err) {
+          tbError = err;
+          renderTeamBoard();
+        }
       });
       const listEl = el.querySelector(".tb-list");
       if (listEl) listEl.scrollTop = listEl.scrollHeight;
@@ -421,8 +432,12 @@
   setInterval(async () => { await loadBoth(); renderBody(); }, 5 * 60 * 1000);
   watchTodayMessages(profile.departmentId, todayIso, (msgs) => {
     todayMessages = msgs;
+    tbError = null;
     if (boardMode === "today") renderTeamBoard();
-  }, THEATRE_MESSAGES);
+  }, THEATRE_MESSAGES, (err) => {
+    tbError = err;
+    renderTeamBoard();
+  });
 </script>
 </body>
 </html>
