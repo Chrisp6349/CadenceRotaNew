@@ -240,12 +240,19 @@
       const nurWlHca = nursingRota[`${day}_wl_hca`] || "—";
       const nurWlSurgeon = nursingRota[`${day}_wl_surgeon`] || "—";
 
+           // Six cards: ODP/Nurses/HCA share an "On call" box and a "Waiting
+      // list" box (neither of them is a single named lead the way an
+      // anaesthetist or surgeon is), while Anaesthetist and Surgeon each
+      // get their own box for both on call and the waiting list.
       body.innerHTML = `<div class="cb-strip">
-        <div class="card"><div class="card-label">ODP on call</div><div class="card-value">${odpOc}<br><span style="color:var(--ink-500);font-size:13px;">${odpOcAnaes}</span></div></div>
-        <div class="card"><div class="card-label">ODP waiting list</div><div class="card-value">${odpWlOdp}<br><span style="color:var(--ink-500);font-size:13px;">${odpWlAnaes}</span></div></div>
-        <div class="card"><div class="card-label">Nursing on call</div><div class="card-value">${nurOc}<br><span style="color:var(--ink-500);font-size:13px;">HCA: ${nurOcHca} · Surgeon: ${nurOcSurgeon}</span></div></div>
-        <div class="card"><div class="card-label">Nursing waiting list</div><div class="card-value">${nurWl}<br><span style="color:var(--ink-500);font-size:13px;">HCA: ${nurWlHca} · ${nurWlSurgeon}</span></div></div>
+        <div class="card"><div class="card-label">On call</div><div class="card-value" style="font-size:16px;">ODP: ${odpOc}<br>Nurses: ${nurOc}<br>HCA: ${nurOcHca}</div></div>
+        <div class="card"><div class="card-label">Anaesthetist on call</div><div class="card-value">${odpOcAnaes}</div></div>
+        <div class="card"><div class="card-label">Surgeon on call</div><div class="card-value">${nurOcSurgeon}</div></div>
+        <div class="card"><div class="card-label">Waiting list</div><div class="card-value" style="font-size:16px;">ODP: ${odpWlOdp}<br>Nurses: ${nurWl}<br>HCA: ${nurWlHca}</div></div>
+        <div class="card"><div class="card-label">Waiting list anaesthetist</div><div class="card-value">${odpWlAnaes}</div></div>
+        <div class="card"><div class="card-label">Waiting list surgeon</div><div class="card-value">${nurWlSurgeon}</div></div>
       </div>`;
+
     } else {
       const theatreCardsHtml = theatres.map(t => theatreCardHtml(day, t)).join("");
 
