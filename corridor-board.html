@@ -281,11 +281,12 @@
           <div class="card"><div class="card-label">Nursing support</div><div class="card-value">Nurses: ${supportNurses}<br><span style="color:var(--ink-500);font-size:13px;">HCAs: ${supportHcas}</span></div></div>
           <div class="card cb-oncall-card">
             <div class="card-label">On call${odpOcHome ? ` <span class="cb-list-tag">ODP FROM HOME</span>` : ""}</div>
-            <div class="cb-oncall-grid">
-              <div class="cb-oncall-item"><div class="oc-role">Anaesthetist</div><div class="oc-name">${odpOcAnaes}</div></div>
+            <div class="card-label">On call</div>
+ <div class="cb-oncall-item"><div class="oc-role">Anaesthetist</div><div class="oc-name">${odpOcAnaes}</div></div>
               <div class="cb-oncall-item"><div class="oc-role">Surgeon</div><div class="oc-name">${oncallSurgeon}</div></div>
               <div class="cb-oncall-item"><div class="oc-role">ODP</div><div class="oc-name">${odpOc}</div></div>
-              <div class="cb-oncall-item"><div class="oc-role">Nurses</div><div class="oc-name">${nurOc}</div></div>
+             <div class="cb-oncall-item"><div class="oc-role">ODP${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}</div><div class="oc-name">${odpOc}</div></div>
+ 
               <div class="cb-oncall-item"><div class="oc-role">HCA</div><div class="oc-name">${nurOcHca}</div></div>
             </div>
           </div>
