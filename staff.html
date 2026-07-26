@@ -50,14 +50,21 @@
   import { applyTheme } from "./js/theme.js";
   applyTheme();
 
-  const { user, profile } = await requireSession();
-  const dept = await getDepartment(profile.departmentId);
+   const { user, profile } = await requireSession();
+  await blockBoardOnly(profile);
+  // Fired together, not one-after-another — see rota.html for the same
+  // pattern and why.
+  const deptPromise = getDepartment(profile.departmentId);
+  const theatresPromise = listTheatres(profile.departmentId);
+  const staffListPromise = listStaff(profile.departmentId);
+
+  const dept = await deptPromise;
   profile.departmentName = dept?.name || "Department";
 
   const content = renderShell({ profile, activePage: "staff", title: "Staff Profiles" });
 
-    const theatres = await listTheatres(profile.departmentId);
-  const staffList = await listStaff(profile.departmentId);
+  const theatres = await theatresPromise;
+  const staffList = await staffListPromise;
   // This page has always been ODP/anaesthetist-only in intent (its own
   // empty-state text says so) — now needs to actually filter for it,
   // since staffList holds every role across the department once the
