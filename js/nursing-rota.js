@@ -10,7 +10,7 @@
 //   "<theatreId>_nurse1".."nurse4"   4 nurses per theatre (Mon-Fri only)
 //   "<theatreId>_hca1".."hca2"       2 HCAs per theatre (Mon-Fri only)
 //   "<theatreId>_surgeon"            1 surgeon per theatre (Mon-Fri only)
-//   "<theatreId>_list"               nursing list type (dept.nursingListOptions)
+//   "<theatreId>_list"               list type (dept.listOptions, shared with the ODP rota)
 //   "support_nurse1".."nurse2"       support column, Mon-Fri
 //   "support_hca1".."hca2"           support column, Mon-Fri
 //   "coordinator"                    one nurse, Mon-Fri, free pick (never restricted)
@@ -137,7 +137,7 @@ export async function saveNursingWeek(deptId, weekStart, data, publish, uid, the
 }
 
 // ---- Grid rendering --------------------------------------------------------
-// `dept`   = department doc (nursingListOptions, bankHolidays — shared
+// `dept`   = department doc (listOptions, bankHolidays — shared
 //            with the ODP rota since bank holidays are dept-wide)
 // `theatres` = [{id, name}, ...] in display order (shared theatre list)
 // `staff`  = { nurses: [...], hcas: [...], surgeons: [...] }
@@ -170,7 +170,7 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
     return s;
   }
 
-  function field(day, key, list, restrictKind) {
+  function field(day, key, list, restrictKind, placeholder) {
     const fkey = `${day}_${key}`;
     const current = rota[fkey] || "";
     if (!editable) {
@@ -180,7 +180,11 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
     if (restrictKind === "nurse") hideSet = used(day).n;
     if (restrictKind === "hca") hideSet = used(day).h;
     if (restrictKind === "surgeon") hideSet = usedSurgeons(day);
-    let h = `<select data-key="${fkey}"><option value=""></option>`;
+    // The blank option shows the role name (e.g. "Nurse", "HCA") instead
+    // of being empty, so whoever's filling in the rota can tell what
+    // each box is for before they've picked anyone — particularly useful
+    // on the nursing side where a theatre has eight boxes in a row.
+    let h = `<select data-key="${fkey}"><option value="">${placeholder || ""}</option>`;
     [...list].sort().forEach(name => {
       const hide = hideSet.includes(name) && name !== current;
       if (!hide) h += `<option title="${name}" ${current === name ? "selected" : ""}>${name}</option>`;
@@ -202,14 +206,14 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
   }
 
   function theatreCell(day, theatreId) {
-    return field(day, `${theatreId}_nurse1`, staff.nurses, "nurse")
-      + field(day, `${theatreId}_nurse2`, staff.nurses, "nurse")
-      + field(day, `${theatreId}_nurse3`, staff.nurses, "nurse")
-      + field(day, `${theatreId}_nurse4`, staff.nurses, "nurse")
-      + field(day, `${theatreId}_hca1`, staff.hcas, "hca")
-      + field(day, `${theatreId}_hca2`, staff.hcas, "hca")
-      + field(day, `${theatreId}_surgeon`, staff.surgeons, "surgeon")
-      + field(day, `${theatreId}_list`, dept.nursingListOptions || [], null);
+    return field(day, `${theatreId}_nurse1`, staff.nurses, "nurse", "Nurse")
+      + field(day, `${theatreId}_nurse2`, staff.nurses, "nurse", "Nurse")
+      + field(day, `${theatreId}_nurse3`, staff.nurses, "nurse", "Nurse")
+      + field(day, `${theatreId}_nurse4`, staff.nurses, "nurse", "Nurse")
+      + field(day, `${theatreId}_hca1`, staff.hcas, "hca", "HCA")
+      + field(day, `${theatreId}_hca2`, staff.hcas, "hca", "HCA")
+      + field(day, `${theatreId}_surgeon`, staff.surgeons, "surgeon", "Surgeon")
+      + field(day, `${theatreId}_list`, dept.listOptions || [], null, "List type");
   }
 
   const theatreCols = theatres.map(t => `<th class="theatre-col">${t.name}</th>`).join("");
@@ -218,18 +222,18 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
   WEEKDAYS.forEach((d, i) => {
     const cells = theatres.map(t => `<td>${theatreCell(d, t.id)}</td>`).join("");
     h += `<tr${isToday(i) ? " class='today'" : ""}><td class="daycell">${dayLabel(i)}</td>${cells}<td>
-        ${field(d, "support_nurse1", staff.nurses, "nurse")}
-        ${field(d, "support_nurse2", staff.nurses, "nurse")}
-        ${field(d, "support_hca1", staff.hcas, "hca")}
-        ${field(d, "support_hca2", staff.hcas, "hca")}
+        ${field(d, "support_nurse1", staff.nurses, "nurse", "Nurse")}
+        ${field(d, "support_nurse2", staff.nurses, "nurse", "Nurse")}
+        ${field(d, "support_hca1", staff.hcas, "hca", "HCA")}
+        ${field(d, "support_hca2", staff.hcas, "hca", "HCA")}
       </td><td>
-        ${field(d, "oncall_nurse1", staff.nurses, null)}
-        ${field(d, "oncall_nurse2", staff.nurses, null)}
-        ${field(d, "oncall_nurse3", staff.nurses, null)}
-        ${field(d, "oncall_hca", staff.hcas, null)}
-        ${field(d, "oncall_surgeon", staff.surgeons, null)}
+        ${field(d, "oncall_nurse1", staff.nurses, null, "Nurse")}
+        ${field(d, "oncall_nurse2", staff.nurses, null, "Nurse")}
+        ${field(d, "oncall_nurse3", staff.nurses, null, "Nurse")}
+        ${field(d, "oncall_hca", staff.hcas, null, "HCA")}
+        ${field(d, "oncall_surgeon", staff.surgeons, null, "Surgeon")}
       </td><td>
-        ${field(d, "coordinator", staff.nurses, null)}
+        ${field(d, "coordinator", staff.nurses, null, "Coordinator")}
       </td></tr>`;
   });
   h += "</table>";
@@ -237,16 +241,16 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
   let w = `<table class="rota-table weekend-table"><tr><th>Day</th><th>On Call</th><th>Weekend Waiting List</th></tr>`;
   WEEKENDS.forEach((d, i) => {
     w += `<tr${isToday(i + 5) ? " class='today'" : ""}><td class="daycell">${dayLabel(i + 5)}</td>
-      <td>${field(d, "oncall_nurse1", staff.nurses, null)}
-          ${field(d, "oncall_nurse2", staff.nurses, null)}
-          ${field(d, "oncall_nurse3", staff.nurses, null)}
-          ${field(d, "oncall_hca", staff.hcas, null)}
-          ${field(d, "oncall_surgeon", staff.surgeons, null)}</td>
-      <td>${field(d, "wl_nurse1", staff.nurses, null)}
-          ${field(d, "wl_nurse2", staff.nurses, null)}
-          ${field(d, "wl_nurse3", staff.nurses, null)}
-          ${field(d, "wl_hca", staff.hcas, null)}
-          ${field(d, "wl_surgeon", staff.surgeons, null)}</td>
+      <td>${field(d, "oncall_nurse1", staff.nurses, null, "Nurse")}
+          ${field(d, "oncall_nurse2", staff.nurses, null, "Nurse")}
+          ${field(d, "oncall_nurse3", staff.nurses, null, "Nurse")}
+          ${field(d, "oncall_hca", staff.hcas, null, "HCA")}
+          ${field(d, "oncall_surgeon", staff.surgeons, null, "Surgeon")}</td>
+      <td>${field(d, "wl_nurse1", staff.nurses, null, "Nurse")}
+          ${field(d, "wl_nurse2", staff.nurses, null, "Nurse")}
+          ${field(d, "wl_nurse3", staff.nurses, null, "Nurse")}
+          ${field(d, "wl_hca", staff.hcas, null, "HCA")}
+          ${field(d, "wl_surgeon", staff.surgeons, null, "Surgeon")}</td>
     </tr>`;
   });
   w += "</table>";
