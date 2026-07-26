@@ -11,6 +11,8 @@ import {
   updateDepartment, listRecentAuditLog
 } from "./department.js";
 import { listUsers, createUserAccount, updateUserRole, revokeUserAccess } from "./users.js";
+import { loadWeek, saveWeek } from "./rota.js";
+import { loadNursingWeek, saveNursingWeek } from "./nursing-rota.js";
 
 const DEFAULT_LIST_OPTIONS = ["ROUTINE", "EMERGENCY", "URGENT"];
 
@@ -113,7 +115,7 @@ function applyListCollapse(key, listEl, toggleBtn, countEl, count, noun) {
   };
 }
 
-export function renderAdmin(container, deptId, dept, myUid) {
+export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") {
   // Local working copies — saved back to the department doc as a whole
   // array/object each time something changes, same pattern as the rest
   // of this screen.
@@ -179,6 +181,26 @@ export function renderAdmin(container, deptId, dept, myUid) {
       </section>
 
       <section>
+        <h4 class="admin-h">Copy a week's rota</h4>
+        <p class="empty-note" style="margin:-6px 0 10px;">Filled in the wrong week by mistake? Move (or copy) one week's saved data onto another week — pick any date that falls within each week, it'll snap to that week's Monday.</p>
+        <form id="copyWeekForm" class="inline-form">
+          <select id="copyWeekRotaType">
+            <option value="odp">ODP rota</option>
+            <option value="nursing">Nursing rota</option>
+          </select>
+          <input type="date" id="copyWeekFrom" required title="Any date in the week you want to copy FROM">
+          <span style="align-self:center;color:var(--ink-500);">→</span>
+          <input type="date" id="copyWeekTo" required title="Any date in the week you want to copy TO">
+          <select id="copyWeekAction">
+            <option value="move">Move (clears the original)</option>
+            <option value="copy">Copy (keeps the original too)</option>
+          </select>
+          <button class="btn btn-primary btn-sm" type="submit">Go</button>
+        </form>
+        <div id="copyWeekMsg" class="empty-note" style="display:none;"></div>
+      </section>
+
+      <section>
         <h4 class="admin-h">Bank holidays</h4>
         <p class="empty-note" style="margin:-6px 0 10px;">Marked on the rota for the week they fall in.</p>
         <form id="bhForm" class="inline-form">
@@ -205,6 +227,7 @@ export function renderAdmin(container, deptId, dept, myUid) {
             <option value="viewer">Viewer</option>
             <option value="editor">Editor</option>
             <option value="admin">Admin</option>
+            <option value="board">Board only (kiosk login)</option>
           </select>
           <button class="btn btn-primary btn-sm" type="submit">Create account</button>
         </form>
@@ -391,6 +414,66 @@ export function renderAdmin(container, deptId, dept, myUid) {
     refreshListOptions();
   });
 
+  // ---- Copy a week's rota -------------------------------------------------
+  // Fixes "I filled in the wrong week" without hand-retyping every box.
+  // Reuses the exact same load/save functions the rota pages themselves
+  // use, so a copied/moved week goes through the normal audit log too.
+  function mondayOf(dateStr) {
+    const d = new Date(dateStr + "T00:00:00");
+    const offset = (d.getDay() + 6) % 7; // Mon=0..Sun=6
+    d.setDate(d.getDate() - offset);
+    return d.toISOString().split("T")[0];
+  }
+
+  container.querySelector("#copyWeekForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msgEl = container.querySelector("#copyWeekMsg");
+    msgEl.style.display = "none";
+
+    const rotaType = container.querySelector("#copyWeekRotaType").value;
+    const fromRaw = container.querySelector("#copyWeekFrom").value;
+    const toRaw = container.querySelector("#copyWeekTo").value;
+    if (!fromRaw || !toRaw) return;
+    const fromWeek = mondayOf(fromRaw);
+    const toWeek = mondayOf(toRaw);
+    if (fromWeek === toWeek) { alert("Those two dates fall in the same week."); return; }
+
+    const action = container.querySelector("#copyWeekAction").value;
+    const label = rotaType === "odp" ? "ODP" : "Nursing";
+    const load = rotaType === "odp" ? loadWeek : loadNursingWeek;
+    const save = rotaType === "odp" ? saveWeek : saveNursingWeek;
+
+    const verb = action === "move" ? "Move" : "Copy";
+    const warning = action === "move"
+      ? "The original week will be cleared afterwards."
+      : "Any existing data already saved on the destination week will be overwritten.";
+    if (!confirm(`${verb} the ${label} rota from week commencing ${fromWeek} to week commencing ${toWeek}?\n\n${warning}`)) return;
+
+    const submitBtn = e.target.querySelector("button[type=submit]");
+    submitBtn.disabled = true;
+    try {
+      const sourceWeek = await load(deptId, fromWeek);
+      const sourceData = sourceWeek.data || {};
+      if (!Object.keys(sourceData).length) {
+        alert("That source week doesn't have any saved data to copy.");
+        return;
+      }
+      const theatres = await listTheatres(deptId);
+      await save(deptId, toWeek, sourceData, sourceWeek.published, myUid, theatres, myDisplayName);
+      if (action === "move") {
+        await save(deptId, fromWeek, {}, false, myUid, theatres, myDisplayName);
+      }
+      msgEl.textContent = `Done — ${label} rota ${action === "move" ? "moved" : "copied"} from week commencing ${fromWeek} to week commencing ${toWeek}.`;
+      msgEl.style.display = "block";
+      e.target.reset();
+      refreshAuditLog();
+    } catch (err) {
+      alert("Something went wrong — please try again.");
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+
   // ---- Bank holidays ----------------------------------------------------
   const bhListEl = container.querySelector("#bhList");
   const bhCountEl = container.querySelector("#bhCount");
@@ -439,7 +522,7 @@ export function renderAdmin(container, deptId, dept, myUid) {
   const userToggleBtn = container.querySelector("#userToggleBtn");
   const userFilterEl = container.querySelector("#userFilter");
   userFilterEl.addEventListener("input", () => applyFilter(userFilterEl, userListEl));
-  const ROLE_LABELS = { viewer: "Viewer", editor: "Editor", admin: "Admin" };
+  const ROLE_LABELS = { viewer: "Viewer", editor: "Editor", admin: "Admin", board: "Board only" };
 
   async function refreshUsers() {
     const users = (await listUsers(deptId)).sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
