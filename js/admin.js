@@ -292,7 +292,19 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
   // "staff" collection via listStaff/saveStaff/deleteStaff, just
   // filtered/tagged by `type` — so a new role is one line in
   // STAFF_TYPES, not a new collection or new department.js function.
-  const refreshStaffFns = [];
+   const refreshStaffFns = [];
+  // All 7 role sections read the exact same "staff" collection, just
+  // filtered client-side by type — fetching it fresh per section (7
+  // reads for what's really one) was the single biggest reason
+  // Administration felt slow to load. One shared, invalidatable cache:
+  // populated on first use, wiped whenever any type's own add/edit/
+  // remove happens so that type's next refresh re-fetches, everyone
+  // else keeps using the still-accurate cached copy.
+  let staffCache = null;
+  async function getAllStaff() {
+    if (!staffCache) staffCache = await listStaff(deptId);
+    return staffCache;
+  }
   STAFF_TYPES.forEach(st => {
     const listEl = container.querySelector(`#staffList_${st.type}`);
     const countEl = container.querySelector(`#staffCount_${st.type}`);
@@ -301,7 +313,8 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
     filterEl.addEventListener("input", () => applyFilter(filterEl, listEl));
 
     async function refresh() {
-      const staff = (await listStaff(deptId)).filter(s => s.type === st.type);
+      const staff = (await getAllStaff()).filter(s => s.type === st.type);
+
       listEl.innerHTML = staff.length ? "" :
         emptyState("staff", `No ${st.label.toLowerCase()} yet`, `Add your first ${st.singular.toLowerCase()} above — they'll appear as options throughout the rota.`);
       staff.sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
