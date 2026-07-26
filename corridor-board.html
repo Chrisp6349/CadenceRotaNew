@@ -437,7 +437,7 @@
   // so a new message appears the instant it's posted, not on a timer.
   setInterval(tickClock, 1000);
   setInterval(async () => { await loadBoth(); renderBody(); }, 5 * 60 * 1000);
-  watchTodayMessages(profile.departmentId, todayIso, (msgs) => {
+   watchTodayMessages(profile.departmentId, todayIso, (msgs) => {
     todayMessages = msgs;
     tbError = null;
     if (boardMode === "today") renderTeamBoard();
@@ -445,6 +445,34 @@
     tbError = err;
     renderTeamBoard();
   });
+
+  // Keep the screen from sleeping/dimming while this page is open — this
+  // is meant to sit permanently on a corridor TV. Wake Lock is well
+  // supported (Chrome, Edge, and Safari 16.4+/iOS 16.4+), but it's still
+  // only a second layer: the device's own display/sleep settings are the
+  // main thing to check, since Wake Lock can't override those, and older
+  // or unusual browsers without the API just silently skip this — the
+  // page still works identically, it just relies on the device settings
+  // alone in that case. A lock is also released automatically whenever
+  // the tab goes into the background (e.g. switching apps), so it's
+  // re-requested on visibilitychange to pick back up once this tab is
+  // visible again.
+  if ("wakeLock" in navigator) {
+    let wakeLock = null;
+    async function requestWakeLock() {
+      try {
+        wakeLock = await navigator.wakeLock.request("screen");
+      } catch (err) {
+        // Permission denied, battery saver, or similar — nothing to do
+        // but rely on the device's own sleep settings instead.
+      }
+    }
+    requestWakeLock();
+    document.addEventListener("visibilitychange", () => {
+      if (wakeLock !== null && document.visibilityState === "visible") requestWakeLock();
+    });
+  }
 </script>
+
 </body>
 </html>
