@@ -65,6 +65,12 @@ export function splitStaff(staffList) {
     anaesthetists: staffList.filter(s => s.type === "anaesthetist").map(s => s.name),
     nurses: staffList.filter(s => NURSE_TYPES.includes(s.type)).map(displayName),
     hcas: staffList.filter(s => s.type === "hca").map(displayName),
+    // Isolated separately (rather than only being folded into `nurses`
+    // above) so the nursing rota's on-call HCA slot can offer AP/TAPs
+    // alongside actual HCAs — they still show up in every Nurse slot
+    // too, via the combined `nurses` list above; this is additive, not
+    // instead-of.
+    aptaps: staffList.filter(s => s.type === "nurse_aptap").map(displayName),
     surgeons: staffList.filter(s => s.type === "surgeon").map(s => s.name)
   };
 }
