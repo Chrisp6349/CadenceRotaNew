@@ -46,12 +46,17 @@ export async function deleteStaff(deptId, staffId) {
   await deleteDoc(doc(db, "departments", deptId, "staff", staffId));
 }
 
-// Convenience splits used by the rota grid
+// Convenience splits used by the rota grid. Nurses combine every
+// nurse-shaped type — the three banded admin boxes (nurse_band5,
+// nurse_band6, nurse_aptap) plus the legacy plain "nurse" type from
+// before banding existed — into one list, since the rota's Nurse
+// dropdowns don't distinguish band, just who can fill the slot.
+const NURSE_TYPES = ["nurse", "nurse_band5", "nurse_band6", "nurse_aptap"];
 export function splitStaff(staffList) {
   return {
     odps: staffList.filter(s => s.type === "odp").map(s => s.name),
     anaesthetists: staffList.filter(s => s.type === "anaesthetist").map(s => s.name),
-    nurses: staffList.filter(s => s.type === "nurse").map(s => s.name),
+    nurses: staffList.filter(s => NURSE_TYPES.includes(s.type)).map(s => s.name),
     hcas: staffList.filter(s => s.type === "hca").map(s => s.name),
     surgeons: staffList.filter(s => s.type === "surgeon").map(s => s.name)
   };
