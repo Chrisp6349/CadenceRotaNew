@@ -35,11 +35,24 @@ export const db = getFirestore(app);
 // lock, leaving every other tab's live listeners (Team Board, rota
 // grids) silently stuck until manually refreshed even though writes
 // still succeed. Multi-tab persistence shares the lock across tabs
-// instead, so live updates keep working in all of them. Still silently
+// instead, so live updates keep working in all of them.
+//
+// Skipped entirely on Safari: Safari's IndexedDB implementation has
+// well-documented reliability problems with Firestore's persistence
+// layer specifically — when it gets into a bad state, every subsequent
+// Firestore read (including the very first one, fetching the signed-in
+// user's own profile) can hang indefinitely instead of failing cleanly,
+// which is exactly what "Taking longer than expected" on auth.js's
+// timeout screen looks like. Firestore works completely normally
+// without persistence — it just does a live network fetch each time
+// instead of reading a local cache first — so on Safari that's the
+// more reliable choice, not a degraded one. Elsewhere it still silently
 // no-ops rather than breaking the app if it can't enable (very old/
-// unusual browsers being the realistic remaining failure case) — that
-// just means no offline read/write cache, same as today.
-enableMultiTabIndexedDbPersistence(db).catch(() => {});
+// unusual browsers being the realistic remaining failure case there).
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+if (!isSafari) {
+  enableMultiTabIndexedDbPersistence(db).catch(() => {});
+}
 
 export {
   onAuthStateChanged, signInWithEmailAndPassword, signOut,
