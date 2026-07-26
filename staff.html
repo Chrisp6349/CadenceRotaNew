@@ -56,8 +56,13 @@
 
   const content = renderShell({ profile, activePage: "staff", title: "Staff Profiles" });
 
-  const theatres = await listTheatres(profile.departmentId);
+    const theatres = await listTheatres(profile.departmentId);
   const staffList = await listStaff(profile.departmentId);
+  // This page has always been ODP/anaesthetist-only in intent (its own
+  // empty-state text says so) — now needs to actually filter for it,
+  // since staffList holds every role across the department once the
+  // nursing module's staff share the same collection.
+  const profileStaff = staffList.filter(s => ["odp", "anaesthetist"].includes(s.type));
 
   function localIso(d) {
     const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
@@ -69,9 +74,10 @@
     <div class="sp-picker">
       <select id="staffSelect">
         <option value="">Select someone…</option>
-        ${[...staffList].sort((a, b) => a.name.localeCompare(b.name)).map(s =>
-          `<option value="${s.name}" data-type="${s.type}">${s.name}${s.type === "anaesthetist" ? " (Anaesthetist)" : ""}</option>`
-        ).join("")}
+               ${[...profileStaff].sort((a, b) => a.name.localeCompare(b.name)).map(s => {
+          const shown = s.type === "anaesthetist" ? s.name : (s.rotaName || s.name);
+          return `<option value="${shown}" data-type="${s.type}">${shown} — ${s.name}${s.type === "anaesthetist" ? " (Anaesthetist)" : ""}</option>`;
+        }).join("")}
       </select>
     </div>
     <div id="profileArea">${emptyStateHtml("staff", "Pick a name to see their history", "Choose an ODP or anaesthetist above — sessions, on-call, and their favourite theatre all pull from the published rota.")}</div>
