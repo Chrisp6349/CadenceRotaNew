@@ -35,8 +35,8 @@ function iconSvg(key){
 // pages: [{ key, label, href, icon, roles: [...] }]
 const NAV = [
   { section: "Overview" },
-  { key: "dashboard", label: "Dashboard", href: "dashboard.html", icon: "dashboard", roles: ["viewer","editor","admin"] },
-  { key: "rota", label: "Rota", href: "rota.html", icon: "rota", roles: ["viewer","editor","admin"] },
+  { key: "dashboard", label: "ODP Dashboard", href: "dashboard.html", icon: "dashboard", roles: ["viewer","editor","admin"] },
+  { key: "rota", label: "ODP Rota", href: "rota.html", icon: "rota", roles: ["viewer","editor","admin"] },
   { key: "nursingRota", label: "Nursing Rota", href: "nursing-rota.html", icon: "nursing", roles: ["viewer","editor","admin"] },
   { key: "nursingDashboard", label: "Nursing Dashboard", href: "nursing-dashboard.html", icon: "nursing", roles: ["viewer","editor","admin"] },
   { key: "corridorBoard", label: "Theatre Board", href: "corridor-board.html", icon: "board", roles: ["viewer","editor","admin"] },
