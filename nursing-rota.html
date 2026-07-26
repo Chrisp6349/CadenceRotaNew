@@ -114,9 +114,10 @@
     <div class="table-scroll"><div id="weekendGrid">${rotaSkeleton(2)}</div></div>
   `;
 
-  const theatres = await listTheatres(profile.departmentId);
-  const staffList = await listStaff(profile.departmentId);
+   const theatres = await theatresPromise;
+  const staffList = await staffListPromise;
   const staff = splitStaff(staffList);
+
 
   const weekInput = document.getElementById("weekDate");
   weekInput.value = mondayOfCurrentWeek();
