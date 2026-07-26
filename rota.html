@@ -68,8 +68,16 @@
   import { applyTheme } from "./js/theme.js";
   applyTheme();
 
-  const { user, profile } = await requireSession();
-  const dept = await getDepartment(profile.departmentId);
+   const { user, profile } = await requireSession();
+  await blockBoardOnly(profile);
+  // Fired together, not one-after-another — none of these three reads
+  // depends on another's result or on anything built below, so there's
+  // no reason to pay for three separate round-trips in sequence.
+  const deptPromise = getDepartment(profile.departmentId);
+  const theatresPromise = listTheatres(profile.departmentId);
+  const staffListPromise = listStaff(profile.departmentId);
+
+  const dept = await deptPromise;
   profile.departmentName = dept?.name || "Department";
   const editable = ["editor", "admin"].includes(profile.role);
 
@@ -110,8 +118,8 @@
     <div class="table-scroll"><div id="weekendGrid">${rotaSkeleton(2)}</div></div>
   `;
 
-  const theatres = await listTheatres(profile.departmentId);
-  const staffList = await listStaff(profile.departmentId);
+   const theatres = await theatresPromise;
+  const staffList = await staffListPromise;
   const staff = splitStaff(staffList);
 
   const weekInput = document.getElementById("weekDate");
