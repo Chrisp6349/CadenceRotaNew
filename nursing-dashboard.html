@@ -94,15 +94,23 @@
   import { applyTheme } from "./js/theme.js";
   applyTheme();
 
-  const { user, profile } = await requireSession();
-  const dept = await getDepartment(profile.departmentId);
+    const { user, profile } = await requireSession();
+  await blockBoardOnly(profile);
+  // Fired together, not one-after-another — see dashboard.html for the
+  // same pattern and why.
+  const deptPromise = getDepartment(profile.departmentId);
+  const theatresPromise = listTheatres(profile.departmentId);
+  const staffListPromise = listStaff(profile.departmentId);
+
+  const dept = await deptPromise;
   profile.departmentName = dept?.name || "Department";
 
   const content = renderShell({ profile, activePage: "nursingDashboard", title: "Nursing Dashboard" });
 
-  const theatres = await listTheatres(profile.departmentId);
-  const staffList = await listStaff(profile.departmentId);
+  const theatres = await theatresPromise;
+  const staffList = await staffListPromise;
   const staff = splitStaff(staffList);
+
    // My Week picker covers everyone who can appear on the nursing rota —
   // any banded nurse type, HCAs, and surgeons — not just one type, since
   // everyone wants to check their own week too.
