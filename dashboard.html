@@ -109,6 +109,12 @@
 
   const theatres = await listTheatres(profile.departmentId);
   const staffList = await listStaff(profile.departmentId);
+  // My Week's picker is scoped to ODP + anaesthetist only — staffList
+  // itself now holds every role across the whole department (nurses,
+  // HCAs, surgeons too, since the nursing module shares the same
+  // Firestore staff collection), so this needs its own filtered view
+  // rather than using staffList directly.
+  const myWeekStaff = staffList.filter(s => ["odp", "anaesthetist"].includes(s.type));
 
   const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   // Formats a Date using its LOCAL year/month/day — never .toISOString(),
@@ -240,9 +246,13 @@
     });
   }
 
-  function renderMyWeekPicker() {
-    const sorted = [...staffList].sort((a, b) => a.name.localeCompare(b.name));
-    const options = sorted.map(s => `<option value="${s.name}">${s.name}${s.type === "anaesthetist" ? " (Anaesthetist)" : ""}</option>`).join("");
+    function renderMyWeekPicker() {
+    const sorted = [...myWeekStaff].sort((a, b) => a.name.localeCompare(b.name));
+    const options = sorted.map(s => {
+      const shown = s.type === "anaesthetist" ? s.name : (s.rotaName || s.name);
+      return `<option value="${shown}">${shown} — ${s.name}${s.type === "anaesthetist" ? " (Anaesthetist)" : ""}</option>`;
+    }).join("");
+
     document.getElementById("myweekCard").innerHTML = `
       <div class="myweek-select-row">
         <select id="myweekSelect">
@@ -258,9 +268,10 @@
     });
   }
 
-  function initMyWeek() {
+   function initMyWeek() {
     const saved = localStorage.getItem(MYWEEK_KEY);
-    if (saved && staffList.some(s => s.name === saved)) {
+    if (saved && myWeekStaff.some(s => (s.type === "anaesthetist" ? s.name : (s.rotaName || s.name)) === saved)) {
+
       renderMyWeekResult(saved);
     } else {
       renderMyWeekPicker();
