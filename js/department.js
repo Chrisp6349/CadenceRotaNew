@@ -51,13 +51,20 @@ export async function deleteStaff(deptId, staffId) {
 // nurse_band6, nurse_aptap) plus the legacy plain "nurse" type from
 // before banding existed — into one list, since the rota's Nurse
 // dropdowns don't distinguish band, just who can fill the slot.
+//
+// Everyone except anaesthetists/surgeons uses their rotaName ("Chris")
+// over their full name ("Chris Parrish") wherever set — that's what
+// actually gets shown and stored throughout the rota (grid, dashboards,
+// print, corridor board), matching what admin.js collects when adding
+// them. Falls back to the full name when no rotaName was given.
 const NURSE_TYPES = ["nurse", "nurse_band5", "nurse_band6", "nurse_aptap"];
+function displayName(s) { return s.rotaName || s.name; }
 export function splitStaff(staffList) {
   return {
-    odps: staffList.filter(s => s.type === "odp").map(s => s.name),
+    odps: staffList.filter(s => s.type === "odp").map(displayName),
     anaesthetists: staffList.filter(s => s.type === "anaesthetist").map(s => s.name),
-    nurses: staffList.filter(s => NURSE_TYPES.includes(s.type)).map(s => s.name),
-    hcas: staffList.filter(s => s.type === "hca").map(s => s.name),
+    nurses: staffList.filter(s => NURSE_TYPES.includes(s.type)).map(displayName),
+    hcas: staffList.filter(s => s.type === "hca").map(displayName),
     surgeons: staffList.filter(s => s.type === "surgeon").map(s => s.name)
   };
 }
