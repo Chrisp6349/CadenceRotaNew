@@ -65,8 +65,15 @@
   import { applyTheme } from "./js/theme.js";
   applyTheme();
 
-  const { user, profile } = await requireSession();
-  const dept = await getDepartment(profile.departmentId);
+   const { user, profile } = await requireSession();
+  await blockBoardOnly(profile);
+  // Fired together, not one-after-another — see rota.html for the same
+  // pattern and why.
+  const deptPromise = getDepartment(profile.departmentId);
+  const theatresPromise = listTheatres(profile.departmentId);
+  const staffListPromise = listStaff(profile.departmentId);
+
+  const dept = await deptPromise;
   profile.departmentName = dept?.name || "Department";
   const editable = ["editor", "admin"].includes(profile.role);
 
