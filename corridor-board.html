@@ -162,10 +162,15 @@
     const surgeon = nursingRota[`${day}_${t.id}_surgeon`] || "";
     const nursingList = nursingRota[`${day}_${t.id}_list`] || "";
 
-    const hasAny = !!(odp1 || odp2 || anaes || nurses.length || hcas.length || surgeon);
+        const hasAny = !!(odp1 || odp2 || anaes || nurses.length || hcas.length || surgeon);
     const closedFlag = [odpList, nursingList].some(l => l.includes("NO LIST") || l.includes("NO SURGEON") || l.includes("MAINTENANCE"));
+    // closedFlag wins regardless of hasAny — a theatre marked NO LIST is
+    // closed whether or not someone's still sitting in one of its boxes
+    // (that's exactly the "closed but nobody's cleared the leftover
+    // allocation" case this whole feature exists to simplify away).
     let status = "available";
-    if (hasAny) status = closedFlag ? "closed" : "inlist";
+    if (closedFlag) status = "closed";
+    else if (hasAny) status = "inlist";
 
         return { odp1, odp2, anaes, odpList, nurses, hcas, surgeon, nursingList, status, hasAny };
   }
