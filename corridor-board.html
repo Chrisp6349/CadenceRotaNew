@@ -282,20 +282,22 @@
 
       const nurOc = [1, 2, 3].map(n => nursingRota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
       const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
-      const nurOcSurgeon = nursingRota[`${day}_oncall_surgeon`] || "—";
+      const nurOcSurgeonCardiac = nursingRota[`${day}_oncall_surgeon`] || "—";
+      const nurOcSurgeonThoracic = nursingRota[`${day}_oncall_surgeon_thoracic`] || "—";
       const nurWl = [1, 2, 3].map(n => nursingRota[`${day}_wl_nurse${n}`]).filter(Boolean).join(", ") || "—";
       const nurWlHca = nursingRota[`${day}_wl_hca`] || "—";
       const nurWlSurgeon = nursingRota[`${day}_wl_surgeon`] || "—";
 
-      // Six cards: ODP/Nurses/HCA share an "On call" box and a "Waiting
+      // Seven cards: ODP/Nurses/HCA share an "On call" box and a "Waiting
       // list" box (neither of them is a single named lead the way an
-      // anaesthetist or surgeon is), while Anaesthetist and Surgeon each
-      // get their own box for both on call and the waiting list — so
-      // six boxes in total, not four.
+      // anaesthetist or surgeon is), while Anaesthetist gets its own box
+      // and Surgeon on call is split into Cardiac/Thoracic — plus a single
+      // Waiting list surgeon box, which stays unsplit.
       body.innerHTML = `<div class="cb-strip">
         <div class="card"><div class="card-label">On call</div><div class="card-value" style="font-size:16px;">ODP: ${odpOc}<br>Nurses: ${nurOc}<br>HCA: ${nurOcHca}</div></div>
         <div class="card"><div class="card-label">Anaesthetist on call</div><div class="card-value">${odpOcAnaes}</div></div>
-        <div class="card"><div class="card-label">Surgeon on call</div><div class="card-value">${nurOcSurgeon}</div></div>
+        <div class="card"><div class="card-label">Cardiac surgeon on call</div><div class="card-value">${nurOcSurgeonCardiac}</div></div>
+        <div class="card"><div class="card-label">Thoracic surgeon on call</div><div class="card-value">${nurOcSurgeonThoracic}</div></div>
         <div class="card"><div class="card-label">Waiting list</div><div class="card-value" style="font-size:16px;">ODP: ${odpWlOdp}<br>Nurses: ${nurWl}<br>HCA: ${nurWlHca}</div></div>
         <div class="card"><div class="card-label">Waiting list anaesthetist</div><div class="card-value">${odpWlAnaes}</div></div>
         <div class="card"><div class="card-label">Waiting list surgeon</div><div class="card-value">${nurWlSurgeon}</div></div>
@@ -313,7 +315,8 @@
       const nurOc = [1, 2, 3].map(n => nursingRota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
       const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
       const coordinator = nursingRota[`${day}_coordinator`] || "—";
-      const oncallSurgeon = nursingRota[`${day}_oncall_surgeon`] || "—";
+      const oncallSurgeonCardiac = nursingRota[`${day}_oncall_surgeon`] || "—";
+      const oncallSurgeonThoracic = nursingRota[`${day}_oncall_surgeon_thoracic`] || "—";
 
       body.innerHTML = `
         <div class="cb-coord-wrap">
@@ -330,7 +333,8 @@
             <div class="card-label">On call</div>
             <div class="cb-oncall-grid">
               <div class="cb-oncall-item"><div class="oc-role">Anaesthetist</div><div class="oc-name">${odpOcAnaes}</div></div>
-              <div class="cb-oncall-item"><div class="oc-role">Surgeon</div><div class="oc-name">${oncallSurgeon}</div></div>
+              <div class="cb-oncall-item"><div class="oc-role">Surgeon (Cardiac)</div><div class="oc-name">${oncallSurgeonCardiac}</div></div>
+              <div class="cb-oncall-item"><div class="oc-role">Surgeon (Thoracic)</div><div class="oc-name">${oncallSurgeonThoracic}</div></div>
               <div class="cb-oncall-item"><div class="oc-role">ODP${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}</div><div class="oc-name">${odpOc}</div></div>
               <div class="cb-oncall-item"><div class="oc-role">Nurses</div><div class="oc-name">${nurOc}</div></div>
               <div class="cb-oncall-item"><div class="oc-role">HCA</div><div class="oc-name">${nurOcHca}</div></div>
