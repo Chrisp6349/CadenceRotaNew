@@ -184,7 +184,7 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
     // of being empty, so whoever's filling in the rota can tell what
     // each box is for before they've picked anyone — particularly useful
     // on the nursing side where a theatre has eight boxes in a row.
-    let h = `<select data-key="${fkey}"><option value="">${placeholder || ""}</option>`;
+        let h = `<select data-key="${fkey}" class="${current ? "" : "is-placeholder"}"><option value="">${placeholder || ""}</option>`;
     [...list].sort().forEach(name => {
       const hide = hideSet.includes(name) && name !== current;
       if (!hide) h += `<option title="${name}" ${current === name ? "selected" : ""}>${name}</option>`;
