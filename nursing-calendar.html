@@ -120,8 +120,9 @@
     function onCallSummary(rota, dayName) {
       const nurses = [1, 2, 3].map(n => rota[`${dayName}_oncall_nurse${n}`]).filter(Boolean);
       const hca = rota[`${dayName}_oncall_hca`] || "";
-      const surgeon = rota[`${dayName}_oncall_surgeon`] || "";
-      return { nurses, hca, surgeon };
+      const surgeonCardiac = rota[`${dayName}_oncall_surgeon`] || "";
+      const surgeonThoracic = rota[`${dayName}_oncall_surgeon_thoracic`] || "";
+      return { nurses, hca, surgeonCardiac, surgeonThoracic };
     }
 
     let gridHtml = "";
@@ -135,10 +136,11 @@
         const isBh = !!(dept.bankHolidays && dept.bankHolidays[iso]);
         const info = onCallSummary(weekDatas[r], dayName);
 
-        const oncallHtml = (info.nurses.length || info.hca || info.surgeon)
+        const oncallHtml = (info.nurses.length || info.hca || info.surgeonCardiac || info.surgeonThoracic)
           ? info.nurses.map(n => `<div>${n}</div>`).join("") +
             (info.hca ? `<div>${info.hca}</div>` : "") +
-            (info.surgeon ? `<div>${info.surgeon}</div>` : "")
+            (info.surgeonCardiac ? `<div>${info.surgeonCardiac}</div>` : "") +
+            (info.surgeonThoracic ? `<div>${info.surgeonThoracic}</div>` : "")
           : `<div class="cal-empty">—</div>`;
 
         gridHtml += `<div class="cal-cell${isOutside ? " outside" : ""}${isToday ? " today" : ""}${isBh ? " bh" : ""}"
