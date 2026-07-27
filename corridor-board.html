@@ -34,6 +34,11 @@
   .cb-bh{display:inline-block;margin-top:22px;background:var(--status-oncall-bg);color:var(--status-oncall);
     font-weight:700;font-size:14px;padding:8px 18px;border-radius:var(--r-sm);}
 
+  .cb-live{display:inline-flex;align-items:center;gap:6px;margin-left:12px;font-family:var(--font-mono);
+    font-size:11px;font-weight:600;color:var(--status-available);letter-spacing:.05em;vertical-align:middle;}
+  .cb-live-dot{width:8px;height:8px;border-radius:50%;background:var(--status-available);animation:pulse-dot 1.8s infinite;}
+  .cb-updated{font-size:11px;color:var(--ink-300);margin-top:2px;}
+
   .cb-coord-wrap{display:flex;justify-content:center;margin-bottom:22px;}
   .cb-coord-card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);
     padding:14px 32px;text-align:center;min-width:280px;}
@@ -149,6 +154,8 @@
     ]);
     odpRota = odpWeek.data || {};
     nursingRota = nursingWeek.data || {};
+    const el = document.getElementById("cbUpdated");
+    if (el) el.textContent = `Updated ${new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
   }
 
   function theatreInfo(day, t) {
@@ -238,13 +245,14 @@
   root.innerHTML = `
     <div class="cb-head">
       <div>
-        <div class="cb-org">${dept.hospitalName || ""}</div>
+        <div class="cb-org">${dept.hospitalName || ""}<span class="cb-live"><span class="cb-live-dot"></span>LIVE</span></div>
         <div class="cb-dept">${dept.name || "Theatres"}</div>
         <div id="cbBhBanner"></div>
       </div>
       <div class="cb-clock">
         <div class="cb-time" id="cbTime"></div>
         <div class="cb-date" id="cbDate"></div>
+        <div class="cb-updated" id="cbUpdated"></div>
         ${openAppLinkHtml}
       </div>
     </div>
@@ -523,6 +531,48 @@
       if (wakeLock !== null && document.visibilityState === "visible") requestWakeLock();
     });
   }
+
+  // Second layer, for devices/browsers where Wake Lock isn't supported
+  // (older embedded browsers, some kiosk setups). A continuously
+  // playing video is a well-established signal that stops many OSes
+  // and browsers treating the device as idle — it's how sites like
+  // Netflix/YouTube keep a laptop from sleeping mid-playback. Rather
+  // than shipping a video file (which is one more thing a hospital
+  // firewall could in principle block, and adds weight to the page),
+  // the "video" is generated entirely on the fly from a tiny 2x2
+  // canvas that repaints once a second — no network request at all,
+  // same-origin, nothing to whitelist. It's a backup, not a
+  // replacement: Wake Lock above is the more direct signal where it's
+  // supported, this just covers the gap where it isn't.
+  (function keepAliveVideo() {
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = 2;
+      canvas.height = 2;
+      const ctx = canvas.getContext("2d");
+      let toggle = false;
+      function paint() {
+        toggle = !toggle;
+        ctx.fillStyle = toggle ? "#000000" : "#010101";
+        ctx.fillRect(0, 0, 2, 2);
+      }
+      paint();
+      if (!canvas.captureStream) return; // unsupported browser — skip silently
+      const stream = canvas.captureStream(1);
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.setAttribute("aria-hidden", "true");
+      video.style.cssText = "position:fixed;bottom:0;right:0;width:1px;height:1px;opacity:0.01;pointer-events:none;";
+      document.body.appendChild(video);
+      video.play().catch(() => {});
+      setInterval(paint, 1000);
+    } catch (err) {
+      // Any failure here just means this backup layer isn't active —
+      // the page still works identically otherwise.
+    }
+  })();
 </script>
 </body>
 </html>
