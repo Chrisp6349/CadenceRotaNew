@@ -59,6 +59,9 @@
   .cb-person{font-size:14.5px;color:var(--ink-900);line-height:1.5;}
   .cb-person.cb-lead{font-weight:700;}
   .cb-empty{font-size:13px;color:var(--ink-300);font-style:italic;}
+.cb-closed-label{font-family:var(--font-mono);font-size:19px;font-weight:700;letter-spacing:.03em;
+  color:var(--status-closed);text-transform:uppercase;text-align:center;padding:18px 0 10px;}
+
   .cb-list-tag{display:inline-block;font-family:var(--font-mono);font-size:9.5px;background:var(--ink-100);color:var(--ink-500);
     padding:2px 7px;border-radius:4px;margin-left:6px;vertical-align:middle;}
 
@@ -164,12 +167,30 @@
     let status = "available";
     if (hasAny) status = closedFlag ? "closed" : "inlist";
 
-    return { odp1, odp2, anaes, odpList, nurses, hcas, surgeon, nursingList, status };
+        return { odp1, odp2, anaes, odpList, nurses, hcas, surgeon, nursingList, status, hasAny };
   }
 
   function theatreCardHtml(day, t) {
     const i = theatreInfo(day, t);
+
+    // A theatre marked NO LIST/NO SURGEON/MAINTENANCE with genuinely
+    // nobody allocated isn't running that day at all — showing a full
+    // card of "Anaesthetist: —", "Surgeon: —", and two "No allocation"
+    // blocks is just noise at that point. Show the list-type label on
+    // its own instead, nothing else.
+    if (i.status === "closed" && !i.hasAny) {
+      const label = i.odpList || i.nursingList;
+      return `<div class="cb-card">
+        <div class="cb-card-head">
+          <span class="dot closed"></span>
+          <span class="cb-theatre-name">${t.name}</span>
+        </div>
+        <div class="cb-closed-label">${label}</div>
+      </div>`;
+    }
+
     const odpRows = [i.odp1, i.odp2].filter(Boolean).map(n => `<div class="cb-person">${n}</div>`).join("");
+
     const nursingRows = [...i.nurses.map(n => `<div class="cb-person">${n}</div>`),
       ...i.hcas.map(n => `<div class="cb-person">${n}</div>`)].filter(Boolean).join("");
 
