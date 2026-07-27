@@ -152,7 +152,8 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     // The blank option shows the role name (e.g. "ODP", "Anaesthetist")
     // instead of being empty, so whoever's filling in the rota can tell
     // what each box is for before they've picked anyone.
-    let h = `<select data-key="${fkey}"><option value="">${placeholder || ""}</option>`;
+       let h = `<select data-key="${fkey}" class="${current ? "" : "is-placeholder"}"><option value="">${placeholder || ""}</option>`;
+
     [...list].sort().forEach(n => {
       let hide = false;
       if (restricted) {
