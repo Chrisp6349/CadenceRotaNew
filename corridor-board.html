@@ -81,6 +81,27 @@
 
   .cb-noboard{color:var(--ink-500);font-size:16px;padding:40px 0;text-align:center;}
 
+  /* Night mode (weeknight/Friday on-call only) and the restructured
+     weekend layout (waiting list stacked above on call) share the
+     board's normal card/strip styling but need a couple of their own
+     pieces: the pulsing "ON CALL" banner, night mode's larger centred
+     card grid (there's nothing else on screen so it can afford to be
+     bigger), and weekend's section labels splitting the two groups. */
+  .nm-banner{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px 0 34px;}
+  .nm-banner-dot{width:10px;height:10px;border-radius:50%;background:var(--status-oncall);animation:pulse-dot 1.8s infinite;}
+  .nm-banner-text{font-family:var(--font-mono);font-size:13px;font-weight:600;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--status-oncall);}
+  .nm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:920px;margin:0 auto;}
+  .nm-card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);
+    padding:26px 20px;text-align:center;box-shadow:var(--shadow-sm);}
+  .nm-role{font-family:var(--font-mono);font-size:11px;color:var(--ink-300);text-transform:uppercase;
+    letter-spacing:.07em;margin-bottom:10px;}
+  .nm-name{font-family:var(--font-display);font-weight:800;font-size:22px;color:var(--ink-900);line-height:1.3;}
+
+  .wk-section{margin-bottom:26px;}
+  .wk-label{font-family:var(--font-mono);font-size:11px;color:var(--ink-500);text-transform:uppercase;
+    letter-spacing:.06em;margin-bottom:12px;}
+
   /* Team Board — sized up a little from the dashboard version since
      this is read (and typed on) from a shared screen, not a phone. */
   .cb-tb-card{margin-top:24px;}
@@ -143,6 +164,56 @@
   }
   const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const todayIso = localIso(new Date());
+
+  // ---- Schedule: when the board shows the on-call-only / weekend view --
+  // Mon-Thu: daytime 06:30-19:00, then night (on-call only) 19:00 until
+  //   06:30 the next morning, using that day's on-call data throughout.
+  // Fri: daytime 06:30-19:00, then night 19:00 until Saturday 07:00 (not
+  //   06:30 — Friday's on-call runs an extra 30 minutes into Saturday
+  //   morning to meet the weekend view), using Friday's on-call data.
+  // Sat: weekend view (waiting list + on call) 07:00-Sunday 07:00, using
+  //   Saturday's data all the way through, day and night alike.
+  // Sun: weekend view 07:00 until Monday 06:30, using Sunday's data.
+  // The tricky part isn't the day-mode hours, it's that three of these
+  // windows cross midnight into the next calendar day — so "what mode is
+  // it, and whose data do I show" can't just be answered from today's
+  // weekday alone. Below checks two things for `now`: does today's own
+  // window (day/night/weekend) claim it, and failing that, does
+  // *yesterday's* window claim it because it hasn't ended yet.
+  function atTime(base, h, m) {
+    const d = new Date(base);
+    d.setHours(h, m, 0, 0);
+    return d;
+  }
+
+  function getDisplayState(now) {
+    const todayIdx = (now.getDay() + 6) % 7; // Monday=0 .. Sunday=6
+    const todayName = ALL_DAYS[todayIdx];
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yestIdx = (yesterday.getDay() + 6) % 7;
+    const yestName = ALL_DAYS[yestIdx];
+
+    // Does a window that STARTS today already claim `now`?
+    if (todayIdx <= 4) { // Mon-Fri: night starts 19:00
+      if (now >= atTime(now, 19, 0)) return { mode: "night", dataDay: todayName };
+    } else { // Sat/Sun: weekend view starts 07:00
+      if (now >= atTime(now, 7, 0)) return { mode: "weekend", dataDay: todayName };
+    }
+
+    // Otherwise, does YESTERDAY's window carry over into this morning?
+    if (yestIdx <= 3) { // yesterday Mon-Thu: night ends 06:30 today
+      if (now < atTime(now, 6, 30)) return { mode: "night", dataDay: yestName };
+    } else if (yestIdx === 4) { // yesterday Friday: night ends 07:00 today (Saturday)
+      if (now < atTime(now, 7, 0)) return { mode: "night", dataDay: yestName };
+    } else if (yestIdx === 5) { // yesterday Saturday: weekend ends 07:00 today (Sunday)
+      if (now < atTime(now, 7, 0)) return { mode: "weekend", dataDay: yestName };
+    } else { // yesterday Sunday: weekend ends 06:30 today (Monday)
+      if (now < atTime(now, 6, 30)) return { mode: "weekend", dataDay: yestName };
+    }
+
+    return { mode: "day", dataDay: todayName };
+  }
 
   let odpRota = {}, nursingRota = {};
 
@@ -269,20 +340,42 @@
   function renderBody() {
     const now = new Date();
     const todayIsoNow = localIso(now);
-    const day = ALL_DAYS[(now.getDay() + 6) % 7];
-    const isWeekend = day === "Saturday" || day === "Sunday";
+    const state = getDisplayState(now);
+    const day = state.dataDay;
 
     document.getElementById("cbBhBanner").innerHTML = (dept.bankHolidays && dept.bankHolidays[todayIsoNow])
       ? `<div class="cb-bh">Bank holiday</div>` : "";
 
     const body = document.getElementById("boardBody");
 
-    if (!theatres.length) {
-      body.innerHTML = `<div class="cb-noboard">No theatres configured yet — add them in Administration.</div>`;
+    if (state.mode === "night") {
+      // On-call only — no theatre grid, no coordinator, no support,
+      // since none of that is relevant once theatres are closed for
+      // the night. Same six roles as the weekday on-call strip, just
+      // given the whole screen since there's nothing else to show.
+      const anaes = odpRota[`${day}_oncall_anaes`] || "—";
+      const surgeonCardiac = nursingRota[`${day}_oncall_surgeon`] || "—";
+      const surgeonThoracic = nursingRota[`${day}_oncall_surgeon_thoracic`] || "—";
+      const odpOc = odpRota[`${day}_oncall_odp`] || "—";
+      const odpOcHome = !!odpRota[`${day}_oncall_home`];
+      const nurOc = [1, 2, 3].map(n => nursingRota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
+      const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
+
+      body.innerHTML = `
+        <div class="nm-banner"><span class="nm-banner-dot"></span><span class="nm-banner-text">On call</span></div>
+        <div class="nm-grid">
+          <div class="nm-card"><div class="nm-role">Anaesthetist</div><div class="nm-name">${anaes}</div></div>
+          <div class="nm-card"><div class="nm-role">Surgeon (Cardiac)</div><div class="nm-name">${surgeonCardiac}</div></div>
+          <div class="nm-card"><div class="nm-role">Surgeon (Thoracic)</div><div class="nm-name">${surgeonThoracic}</div></div>
+          <div class="nm-card"><div class="nm-role">ODP${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}</div><div class="nm-name">${odpOc}</div></div>
+          <div class="nm-card"><div class="nm-role">Nurses</div><div class="nm-name">${nurOc}</div></div>
+          <div class="nm-card"><div class="nm-role">HCA</div><div class="nm-name">${nurOcHca}</div></div>
+        </div>
+      `;
       return;
     }
 
-    if (isWeekend) {
+    if (state.mode === "weekend") {
       const odpOc = [odpRota[`${day}_oncall_odp1`], odpRota[`${day}_oncall_odp2`]].filter(Boolean).join(", ") || "—";
       const odpOcAnaes = odpRota[`${day}_oncall_anaes`] || "—";
       const odpWlOdp = odpRota[`${day}_wl_odp`] || "—";
@@ -292,287 +385,4 @@
       const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
       const nurOcSurgeonCardiac = nursingRota[`${day}_oncall_surgeon`] || "—";
       const nurOcSurgeonThoracic = nursingRota[`${day}_oncall_surgeon_thoracic`] || "—";
-      const nurWl = [1, 2, 3].map(n => nursingRota[`${day}_wl_nurse${n}`]).filter(Boolean).join(", ") || "—";
-      const nurWlHca = nursingRota[`${day}_wl_hca`] || "—";
-      const nurWlSurgeon = nursingRota[`${day}_wl_surgeon`] || "—";
-
-      // Seven cards: ODP/Nurses/HCA share an "On call" box and a "Waiting
-      // list" box (neither of them is a single named lead the way an
-      // anaesthetist or surgeon is), while Anaesthetist gets its own box
-      // and Surgeon on call is split into Cardiac/Thoracic — plus a single
-      // Waiting list surgeon box, which stays unsplit.
-      body.innerHTML = `<div class="cb-strip">
-        <div class="card"><div class="card-label">On call</div><div class="card-value" style="font-size:16px;">ODP: ${odpOc}<br>Nurses: ${nurOc}<br>HCA: ${nurOcHca}</div></div>
-        <div class="card"><div class="card-label">Anaesthetist on call</div><div class="card-value">${odpOcAnaes}</div></div>
-        <div class="card"><div class="card-label">Cardiac surgeon on call</div><div class="card-value">${nurOcSurgeonCardiac}</div></div>
-        <div class="card"><div class="card-label">Thoracic surgeon on call</div><div class="card-value">${nurOcSurgeonThoracic}</div></div>
-        <div class="card"><div class="card-label">Waiting list</div><div class="card-value" style="font-size:16px;">ODP: ${odpWlOdp}<br>Nurses: ${nurWl}<br>HCA: ${nurWlHca}</div></div>
-        <div class="card"><div class="card-label">Waiting list anaesthetist</div><div class="card-value">${odpWlAnaes}</div></div>
-        <div class="card"><div class="card-label">Waiting list surgeon</div><div class="card-value">${nurWlSurgeon}</div></div>
-      </div>`;
-    } else {
-      const theatreCardsHtml = theatres.map(t => theatreCardHtml(day, t)).join("");
-
-      const supportOdps = [odpRota[`${day}_support1`], odpRota[`${day}_support2`], odpRota[`${day}_support3`]].filter(Boolean).join(", ") || "—";
-      const odpOc = odpRota[`${day}_oncall_odp`] || "—";
-      const odpOcAnaes = odpRota[`${day}_oncall_anaes`] || "—";
-      const odpOcHome = !!odpRota[`${day}_oncall_home`];
-
-      const supportNurses = [1, 2].map(n => nursingRota[`${day}_support_nurse${n}`]).filter(Boolean).join(", ") || "—";
-      const supportHcas = [1, 2].map(n => nursingRota[`${day}_support_hca${n}`]).filter(Boolean).join(", ") || "—";
-      const nurOc = [1, 2, 3].map(n => nursingRota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
-      const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
-      const coordinator = nursingRota[`${day}_coordinator`] || "—";
-      const oncallSurgeonCardiac = nursingRota[`${day}_oncall_surgeon`] || "—";
-      const oncallSurgeonThoracic = nursingRota[`${day}_oncall_surgeon_thoracic`] || "—";
-
-      body.innerHTML = `
-        <div class="cb-coord-wrap">
-          <div class="cb-coord-card">
-            <div class="cb-coord-label">Coordinator</div>
-            <div class="cb-coord-name">${coordinator}</div>
-          </div>
-        </div>
-        <div class="cb-theatres">${theatreCardsHtml}</div>
-        <div class="cb-strip">
-          <div class="card"><div class="card-label">ODP support</div><div class="card-value">${supportOdps}</div></div>
-          <div class="card"><div class="card-label">Nursing support</div><div class="card-value">Nurses: ${supportNurses}<br>HCAs: ${supportHcas}</div></div>
-          <div class="card cb-oncall-card">
-            <div class="card-label">On call</div>
-            <div class="cb-oncall-grid">
-              <div class="cb-oncall-item"><div class="oc-role">Anaesthetist</div><div class="oc-name">${odpOcAnaes}</div></div>
-              <div class="cb-oncall-item"><div class="oc-role">Surgeon (Cardiac)</div><div class="oc-name">${oncallSurgeonCardiac}</div></div>
-              <div class="cb-oncall-item"><div class="oc-role">Surgeon (Thoracic)</div><div class="oc-name">${oncallSurgeonThoracic}</div></div>
-              <div class="cb-oncall-item"><div class="oc-role">ODP${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}</div><div class="oc-name">${odpOc}</div></div>
-              <div class="cb-oncall-item"><div class="oc-role">Nurses</div><div class="oc-name">${nurOc}</div></div>
-              <div class="cb-oncall-item"><div class="oc-role">HCA</div><div class="oc-name">${nurOcHca}</div></div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-  }
-
-  // ---- Team Board -----------------------------------------------------
-  // A third, fully separate board from both dashboards' — its own
-  // Firestore collection (departments/{deptId}/theatreMessages) — since
-  // this screen is shared by the whole department (both teams and
-  // anyone else who walks past with a login), not owned by either team.
-  // Same open-posting rule as the other two boards: anyone signed into
-  // the department can post; only the author or an admin can delete.
-  const THEATRE_MESSAGES = "theatreMessages";
-  let todayMessages = [];
-  let boardMode = "today"; // "today" | "archive"
-  let archiveGroups = null;
-  let tbError = null;
-
-  function initials(name) {
-    return (name || "?").split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase();
-  }
-  function formatMsgTime(ts, clientTime) {
-    if (ts?.toDate) return ts.toDate().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-    if (clientTime) return new Date(clientTime).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-    return "sending…";
-  }
-  // Message text is always set via textContent after insertion (see the
-  // two loops below), never interpolated into the HTML string — so a
-  // posted message can never be interpreted as markup.
-  function msgRowHtml(id, displayName, createdAt, clientTime, canDelete) {
-    return `<div class="tb-msg">
-      <div class="tb-avatar">${initials(displayName)}</div>
-      <div class="tb-body">
-        <div class="tb-meta"><strong>${displayName || "Someone"}</strong> · ${formatMsgTime(createdAt, clientTime)}</div>
-        <div class="tb-text" data-msg-id="${id}"></div>
-      </div>
-      ${canDelete ? `<button class="tb-del" data-del="${id}" title="Delete">×</button>` : ""}
-    </div>`;
-  }
-
-  async function toggleBoardMode() {
-    boardMode = boardMode === "today" ? "archive" : "today";
-    renderTeamBoard();
-    if (boardMode === "archive" && !archiveGroups) {
-      const msgs = await loadArchive(profile.departmentId, todayIso, 300, THEATRE_MESSAGES);
-      archiveGroups = buildArchiveGroups(msgs);
-      renderTeamBoard();
-    }
-  }
-
-  function renderTeamBoard() {
-    const el = document.getElementById("teamBoardCard");
-    if (!el) return;
-
-    if (tbError) {
-      el.innerHTML = `<div class="tb-head"><span class="tb-title">Team Board</span></div>
-        <div class="empty-state">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
-          <div class="es-title">Live updates aren't connecting</div>
-          <div class="es-sub" style="word-break:break-word;">${tbError.message || tbError.code || String(tbError)}</div>
-        </div>`;
-      return;
-    }
-
-    const headHtml = `<div class="tb-head"><span class="tb-title">Team Board</span>
-      <button class="tb-toggle" id="tbToggleBtn">${boardMode === "today" ? "Archive" : "Today"}</button></div>`;
-
-    if (boardMode === "archive") {
-      let bodyHtml;
-      if (!archiveGroups) {
-        bodyHtml = `<div class="skeleton skeleton-text w-40"></div><div class="skeleton skeleton-text w-80" style="margin-top:10px;"></div>`;
-      } else if (!archiveGroups.length) {
-        bodyHtml = `<div class="empty-state">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h11l5 5v11a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5"/></svg>
-          <div class="es-title">Nothing archived yet</div>
-          <div class="es-sub">Once today ends, anything posted here moves into the archive automatically.</div>
-        </div>`;
-      } else {
-        bodyHtml = `<div class="tb-list" style="max-height:340px;">${archiveGroups.map(g => `
-          <div class="tb-date-group">
-            <div class="tb-date-label">${new Date(g.dateKey + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</div>
-            ${g.messages.map(m => msgRowHtml(m.id, m.displayName, m.createdAt, m.clientTime, false)).join("")}
-          </div>`).join("")}</div>`;
-      }
-      el.innerHTML = headHtml + bodyHtml;
-      if (archiveGroups) {
-        archiveGroups.flatMap(g => g.messages).forEach(m => {
-          const node = el.querySelector(`[data-msg-id="${m.id}"]`);
-          if (node) node.textContent = m.text;
-        });
-      }
-    } else {
-      const listHtml = todayMessages.length
-        ? `<div class="tb-list">${todayMessages.map(m => msgRowHtml(m.id, m.displayName, m.createdAt, m.clientTime, m.uid === user.uid || profile.role === "admin")).join("")}</div>`
-        : `<div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 01-9.9 8.25 8.5 8.5 0 01-6.32-3.17L3 21l1.42-4.24a8.5 8.5 0 01-.9-3.76 8.38 8.38 0 018.25-9.9 8.5 8.5 0 018.23 8.4z"/></svg>
-            <div class="es-title">No messages yet today</div>
-            <div class="es-sub">Anyone can post here — it's shared by the whole department.</div>
-          </div>`;
-      el.innerHTML = `${headHtml}${listHtml}
-        <form class="tb-form" id="tbForm">
-          <input type="text" id="tbInput" placeholder="Share something with everyone…" maxlength="500" autocomplete="off">
-          <button class="btn btn-primary btn-sm" type="submit">Post</button>
-        </form>`;
-      todayMessages.forEach(m => {
-        const node = el.querySelector(`[data-msg-id="${m.id}"]`);
-        if (node) node.textContent = m.text;
-      });
-
-      el.querySelectorAll("[data-del]").forEach(btn => {
-        btn.addEventListener("click", async () => {
-          if (!confirm("Delete this message?")) return;
-          await deleteMessage(profile.departmentId, btn.dataset.del, THEATRE_MESSAGES);
-        });
-      });
-      document.getElementById("tbForm").addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const input = document.getElementById("tbInput");
-        const text = input.value.trim();
-        if (!text) return;
-        input.value = "";
-        try {
-          await postMessage(profile.departmentId, user.uid, profile.displayName || "Someone", text, todayIso, THEATRE_MESSAGES);
-        } catch (err) {
-          tbError = err;
-          renderTeamBoard();
-        }
-      });
-      const listEl = el.querySelector(".tb-list");
-      if (listEl) listEl.scrollTop = listEl.scrollHeight;
-    }
-
-    document.getElementById("tbToggleBtn").addEventListener("click", toggleBoardMode);
-  }
-
-  tickClock();
-  renderBody();
-  renderTeamBoard();
-  await loadBoth();
-  renderBody();
-
-  // Clock ticks every second (cheap — two textContent writes, never
-  // touches the Team Board). Rota data refreshes every 5 minutes, same
-  // as before — this screen is unattended, so it has to catch changes
-  // on its own. Team Board is separately live via watchTodayMessages,
-  // so a new message appears the instant it's posted, not on a timer.
-  setInterval(tickClock, 1000);
-  setInterval(async () => { await loadBoth(); renderBody(); }, 5 * 60 * 1000);
-  watchTodayMessages(profile.departmentId, todayIso, (msgs) => {
-    todayMessages = msgs;
-    tbError = null;
-    if (boardMode === "today") renderTeamBoard();
-  }, THEATRE_MESSAGES, (err) => {
-    tbError = err;
-    renderTeamBoard();
-  });
-
-  // Keep the screen from sleeping/dimming while this page is open — this
-  // is meant to sit permanently on a corridor TV. Wake Lock is well
-  // supported (Chrome, Edge, and Safari 16.4+/iOS 16.4+), but it's still
-  // only a second layer: the device's own display/sleep settings are the
-  // main thing to check, since Wake Lock can't override those, and older
-  // or unusual browsers without the API just silently skip this — the
-  // page still works identically, it just relies on the device settings
-  // alone in that case. A lock is also released automatically whenever
-  // the tab goes into the background (e.g. switching apps), so it's
-  // re-requested on visibilitychange to pick back up once this tab is
-  // visible again.
-  if ("wakeLock" in navigator) {
-    let wakeLock = null;
-    async function requestWakeLock() {
-      try {
-        wakeLock = await navigator.wakeLock.request("screen");
-      } catch (err) {
-        // Permission denied, battery saver, or similar — nothing to do
-        // but rely on the device's own sleep settings instead.
-      }
-    }
-    requestWakeLock();
-    document.addEventListener("visibilitychange", () => {
-      if (wakeLock !== null && document.visibilityState === "visible") requestWakeLock();
-    });
-  }
-
-  // Second layer, for devices/browsers where Wake Lock isn't supported
-  // (older embedded browsers, some kiosk setups). A continuously
-  // playing video is a well-established signal that stops many OSes
-  // and browsers treating the device as idle — it's how sites like
-  // Netflix/YouTube keep a laptop from sleeping mid-playback. Rather
-  // than shipping a video file (which is one more thing a hospital
-  // firewall could in principle block, and adds weight to the page),
-  // the "video" is generated entirely on the fly from a tiny 2x2
-  // canvas that repaints once a second — no network request at all,
-  // same-origin, nothing to whitelist. It's a backup, not a
-  // replacement: Wake Lock above is the more direct signal where it's
-  // supported, this just covers the gap where it isn't.
-  (function keepAliveVideo() {
-    try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 2;
-      canvas.height = 2;
-      const ctx = canvas.getContext("2d");
-      let toggle = false;
-      function paint() {
-        toggle = !toggle;
-        ctx.fillStyle = toggle ? "#000000" : "#010101";
-        ctx.fillRect(0, 0, 2, 2);
-      }
-      paint();
-      if (!canvas.captureStream) return; // unsupported browser — skip silently
-      const stream = canvas.captureStream(1);
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      video.muted = true;
-      video.playsInline = true;
-      video.setAttribute("aria-hidden", "true");
-      video.style.cssText = "position:fixed;bottom:0;right:0;width:1px;height:1px;opacity:0.01;pointer-events:none;";
-      document.body.appendChild(video);
-      video.play().catch(() => {});
-      setInterval(paint, 1000);
-    } catch (err) {
-      // Any failure here just means this backup layer isn't active —
-      // the page still works identically otherwise.
-    }
-  })();
-</script>
-</body>
-</html>
+      const nurWl = [1, 2, 3].map(n => nursingRota[`${day}
