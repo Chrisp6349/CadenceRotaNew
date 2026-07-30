@@ -3,7 +3,7 @@
   "name": "Cadence — Theatre Rota",
   "short_name": "Cadence",
   "description": "Theatre rota, on-call calendar, and staff scheduling for cardiac theatres.",
-  "start_url": "./dashboard.html",
+  "start_url": "./corridor-board.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
