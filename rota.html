@@ -21,12 +21,18 @@
   .rota-toolbar .spacer{flex:1;}
   .view-badge{font-family:var(--font-mono);font-size:11px;padding:5px 10px;border-radius:var(--r-pill);background:var(--ink-100);color:var(--ink-500);}
   .view-badge.editing{background:var(--teal-100);color:var(--teal-700);}
-  .table-scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);padding:4px;}
+  .table-scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);
+    padding:4px;box-shadow:var(--shadow-sm);}
   table.rota-table{border-collapse:collapse;width:100%;font-size:12.5px;}
   table.rota-table th{font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;
-    color:var(--ink-500);text-align:left;padding:10px 8px;border-bottom:1px solid var(--ink-150);white-space:nowrap;}
+    color:var(--ink-500);text-align:left;padding:10px 8px;border-bottom:1px solid var(--ink-150);white-space:nowrap;
+    background:var(--teal-50);}
+  table.rota-table th:first-child{border-top-left-radius:var(--r-md);}
+  table.rota-table th:last-child{border-top-right-radius:var(--r-md);}
   table.rota-table td{padding:6px 8px;border-bottom:1px solid var(--ink-100);vertical-align:top;}
+  table.rota-table tbody tr:hover td{background:var(--ink-100);}
   table.rota-table tr.today td{background:var(--teal-50);}
+  table.rota-table tr.today:hover td{background:var(--teal-100);}
   table.rota-table td.daycell{font-weight:600;white-space:nowrap;}
   table.rota-table .bh{color:var(--status-oncall);font-weight:700;font-size:10px;}
    table.rota-table select{width:100%;min-width:118px;font-family:var(--font-body);font-size:12px;padding:4px;margin-bottom:2px;

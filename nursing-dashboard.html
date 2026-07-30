@@ -20,7 +20,8 @@
   .bh-banner{display:flex;align-items:center;gap:8px;background:var(--status-oncall-bg);color:var(--status-oncall);
     font-weight:600;font-size:12.5px;padding:8px 14px;border-radius:var(--r-sm);margin-bottom:16px;}
   .theatre-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:24px;}
-  .theatre-card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-md);padding:14px;}
+  .theatre-card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-md);padding:14px;
+    border-left:3px solid var(--card-accent, var(--ink-150));box-shadow:var(--shadow-sm);}
   .tc-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
   .tc-head .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
   .tc-head .dot.available{background:var(--status-available);}
@@ -459,7 +460,8 @@
           ...info.hcas.map(n => `<div class="tc-row">${n}</div>`),
           info.surgeon ? `<div class="tc-row tc-surgeon">${info.surgeon}</div>` : ""
         ].filter(Boolean).join("");
-        return `<div class="theatre-card">
+        const accent = { available: "var(--status-available)", inlist: "var(--status-inlist)", closed: "var(--status-closed)" }[info.status];
+        return `<div class="theatre-card" style="--card-accent:${accent}">
           <div class="tc-head">
             <span class="dot ${info.status}"></span>
             <span class="tc-name">${t.name}</span>
@@ -494,18 +496,27 @@
     const wlHca = isWeekend ? (rota[`${day}_wl_hca`] || "—") : null;
     const wlSurgeon = isWeekend ? (rota[`${day}_wl_surgeon`] || "—") : null;
 
+    const STAT_ICONS = {
+      sessions: `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>`,
+      support: `<circle cx="9" cy="8" r="3"/><path d="M3 19c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.3"/><path d="M15.5 13.2c2.3.3 4 2.2 4 4.8"/>`,
+      coordinator: `<path d="M12 2l8 3v6c0 5-3.4 8.4-8 11-4.6-2.6-8-6-8-11V5l8-3z"/>`,
+      oncall: `<path d="M4 4h4l2 5-2.5 1.5a11 11 0 005 5L14 13l5 2v4a2 2 0 01-2 2C9.5 21 3 14.5 3 6a2 2 0 011-2z"/>`,
+      surgeon: `<path d="M6 4v6a4 4 0 008 0V4M10 14v3a4 4 0 004 4 4 4 0 004-4v-2"/><circle cx="19" cy="9" r="1.6"/>`
+    };
+    const statIcon = key => `<div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${STAT_ICONS[key]}</svg></div>`;
+
     const statCards = [];
     if (!isWeekend) {
-      statCards.push(`<div class="card"><div class="card-label">Sessions</div><div class="card-value">${sessionsCount} / ${theatres.length}</div></div>`);
-      statCards.push(`<div class="card"><div class="card-label">Support</div><div class="card-value" style="font-size:16px;">Nurses: ${supportNurses}<br>HCAs: ${supportHcas}</div></div>`);
-      statCards.push(`<div class="card"><div class="card-label">Coordinator</div><div class="card-value" style="font-size:20px;">${coordinator}</div></div>`);
+      statCards.push(`<div class="card">${statIcon("sessions")}<div class="card-label">Sessions</div><div class="card-value">${sessionsCount} / ${theatres.length}</div></div>`);
+      statCards.push(`<div class="card">${statIcon("support")}<div class="card-label">Support</div><div class="card-value" style="font-size:16px;">Nurses: ${supportNurses}<br>HCAs: ${supportHcas}</div></div>`);
+      statCards.push(`<div class="card">${statIcon("coordinator")}<div class="card-label">Coordinator</div><div class="card-value" style="font-size:20px;">${coordinator}</div></div>`);
     }
-       statCards.push(`<div class="card"><div class="card-label">On call</div><div class="card-value" style="font-size:16px;">Nurses: ${onCallNurses}<br>HCA: ${onCallHca}</div></div>`);
-    statCards.push(`<div class="card"><div class="card-label">On call surgeon (Cardiac)</div><div class="card-value" style="font-size:20px;">${onCallSurgeonCardiac}</div></div>`);
-    statCards.push(`<div class="card"><div class="card-label">On call surgeon (Thoracic)</div><div class="card-value" style="font-size:20px;">${onCallSurgeonThoracic}</div></div>`);
+       statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">On call</div><div class="card-value" style="font-size:16px;">Nurses: ${onCallNurses}<br>HCA: ${onCallHca}</div></div>`);
+    statCards.push(`<div class="card">${statIcon("surgeon")}<div class="card-label">On call surgeon (Cardiac)</div><div class="card-value" style="font-size:20px;">${onCallSurgeonCardiac}</div></div>`);
+    statCards.push(`<div class="card">${statIcon("surgeon")}<div class="card-label">On call surgeon (Thoracic)</div><div class="card-value" style="font-size:20px;">${onCallSurgeonThoracic}</div></div>`);
     if (isWeekend) {
-      statCards.push(`<div class="card"><div class="card-label">Weekend waiting list</div><div class="card-value" style="font-size:16px;">Nurses: ${wlNurses}<br>HCA: ${wlHca}</div></div>`);
-      statCards.push(`<div class="card"><div class="card-label">Weekend waiting list surgeon</div><div class="card-value" style="font-size:20px;">${wlSurgeon}</div></div>`);
+      statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">Weekend waiting list</div><div class="card-value" style="font-size:16px;">Nurses: ${wlNurses}<br>HCA: ${wlHca}</div></div>`);
+      statCards.push(`<div class="card">${statIcon("surgeon")}<div class="card-label">Weekend waiting list surgeon</div><div class="card-value" style="font-size:20px;">${wlSurgeon}</div></div>`);
     }
 
 

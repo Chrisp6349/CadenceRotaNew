@@ -20,7 +20,7 @@
   --shadow-md:0 4px 12px rgba(16,20,31,.08);
   --shadow-lg:0 12px 32px rgba(16,20,31,.12);
 
-  --r-sm:8px; --r-md:12px; --r-lg:18px; --r-pill:999px;
+  --r-sm:8px; --r-md:12px; --r-lg:20px; --r-pill:999px;
 
   --ease-standard:cubic-bezier(.4,0,.2,1);
   --ease-out:cubic-bezier(.16,1,.3,1);
@@ -54,6 +54,18 @@ html[data-theme="dark"] ::selection{background:var(--teal-700);color:#fff;}
 
 *{box-sizing:border-box;}
 body{margin:0;background:var(--canvas);color:var(--ink-900);font-family:var(--font-body);-webkit-font-smoothing:antialiased;}
+
+/* A very subtle wash behind every shell page's main scroll area
+   (.app-main, applied automatically below) and, separately, the corridor
+   board's own body via this class directly (it has no shell) — flat
+   --canvas alone reads a little sterile on a screen with this much white
+   card surface; this adds depth without competing with the content. */
+.canvas-wash, .app-main{
+  background:
+    radial-gradient(1100px 520px at 100% -8%, var(--teal-50) 0%, transparent 60%),
+    radial-gradient(900px 460px at -6% 0%, var(--teal-50) 0%, transparent 55%),
+    var(--canvas);
+}
 h1,h2,h3,h4{font-family:var(--font-display);margin:0;letter-spacing:-0.02em;}
 a{color:inherit;}
 ::selection{background:var(--teal-100);color:var(--teal-700);}
@@ -84,11 +96,34 @@ a{color:inherit;}
 /* ---------- Cards ---------- */
 .card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);padding:20px;
   box-shadow:var(--shadow-sm);
+  border-left:3px solid var(--card-accent, var(--ink-150));
   transition:box-shadow var(--dur-standard) var(--ease-out), transform var(--dur-standard) var(--ease-out);}
 .card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px);}
 .card .card-label{font-family:var(--font-mono);font-size:11px;color:var(--ink-300);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
 .card .card-value{font-family:var(--font-display);font-size:32px;font-weight:800;}
 .card .card-sub{font-size:12.5px;color:var(--ink-500);margin-top:6px;}
+
+/* Small round icon chip, paired with a .card-label to give a stat card
+   something to anchor on besides plain text — the icon itself (an inline
+   svg) is supplied by the page. */
+.stat-icon{width:32px;height:32px;border-radius:10px;background:var(--teal-100);color:var(--teal-700);
+  display:flex;align-items:center;justify-content:center;margin-bottom:10px;flex-shrink:0;}
+.stat-icon svg{width:16px;height:16px;stroke:currentColor;}
+
+/* Filled, high-contrast variant for the one card per page that should
+   read as the headline (the corridor board's Coordinator card) rather
+   than sit at the same visual weight as everything around it. */
+.hero-card{background:linear-gradient(135deg, var(--teal-600), var(--teal-700));border:none;color:#fff;
+  box-shadow:0 8px 24px rgba(11,110,100,.28);}
+.hero-card .card-label{color:rgba(255,255,255,.7);}
+.hero-card .card-value{color:#fff;}
+
+/* Pill badge for a live/streaming indicator — used on the corridor
+   board's header next to the hospital name. */
+.live-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10.5px;
+  font-weight:600;letter-spacing:.06em;color:var(--status-available);background:var(--status-available-bg);
+  padding:4px 10px 4px 8px;border-radius:var(--r-pill);vertical-align:middle;}
+.live-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--status-available);animation:pulse-dot 1.8s infinite;}
 
 /* ---------- Skeleton loading ----------
    Placeholders shaped like the real content they'll become (a theatre
@@ -157,7 +192,7 @@ a{color:inherit;}
 .sb-foot .role{font-size:10.5px;color:rgba(255,255,255,.45);white-space:nowrap;text-transform:capitalize;}
 .sb-collapse-btn{margin-left:auto;background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;padding:4px;}
 
-.app-main{flex:1;display:flex;flex-direction:column;min-width:0;background:var(--canvas);}
+.app-main{flex:1;display:flex;flex-direction:column;min-width:0;}
 .app-topbar{height:60px;flex-shrink:0;background:var(--surface);box-shadow:0 1px 3px rgba(16,20,31,.05);position:relative;z-index:1;
   display:flex;align-items:center;padding:0 20px;gap:16px;}
 .app-topbar h3{font-size:16px;font-weight:700;}
