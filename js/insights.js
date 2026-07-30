@@ -99,7 +99,7 @@ export async function loadEligibleEntries(deptId, theatres, currentWeekStart, to
   return { entries: collectEntries(eligibleWeeks, currentWeekStart, todayIso), weeksUsed: eligibleWeeks.length };
 }
 
-function buildStats(entries, theatres) {
+function buildStats(entries, theatres, currentWeekStart) {
   const onCallCounts = {};
   const supportCounts = {};
   entries.forEach(({ suffix, value }) => {
@@ -124,13 +124,46 @@ function buildStats(entries, theatres) {
     }
   });
 
-  return { totalSessions: sessionGroups.length, theatreCounts, dayCounts, onCallCounts, supportCounts, pairingCounts };
+  const weekCounts = weekSessionCounts(entries, theatres, currentWeekStart);
+  const weekStarts = Object.keys(weekCounts).sort().reverse();
+  const weekTrend = weekStarts.length >= 2
+    ? { latestCount: weekCounts[weekStarts[0]], prevCount: weekCounts[weekStarts[1]] }
+    : null;
+
+  return {
+    totalSessions: sessionGroups.length, theatreCounts, dayCounts, onCallCounts, supportCounts, pairingCounts,
+    weekTrend, distinctOnCall: Object.keys(onCallCounts).length
+  };
 }
 
 function topPick(map, minCount = 2) {
   const arr = Object.entries(map).sort((a, b) => b[1] - a[1]);
   if (!arr.length || arr[0][1] < minCount) return null;
   return { name: arr[0][0], count: arr[0][1] };
+}
+
+// The quiet counterpart to topPick — no minCount floor, since "fewest" is
+// meaningful even at a low count. Callers compare the result against the
+// matching topPick to suppress the fact when there's only one thing to
+// count (then "busiest" and "quietest" would trivially be the same).
+function bottomPick(map) {
+  const arr = Object.entries(map).sort((a, b) => a[1] - b[1]);
+  return arr.length ? { name: arr[0][0], count: arr[0][1] } : null;
+}
+
+// Buckets entries by the week they belong to and counts sessions in each,
+// excluding the current (still in-progress) week — comparing a partial
+// week against a complete one would make "up/down on last week" wrong
+// more often than not.
+function weekSessionCounts(entries, theatres, currentWeekStart) {
+  const byWeek = {};
+  entries.forEach((e) => {
+    if (e.weekStart >= currentWeekStart) return;
+    (byWeek[e.weekStart] ||= []).push(e);
+  });
+  const counts = {};
+  Object.keys(byWeek).forEach((ws) => { counts[ws] = buildSessionGroups(byWeek[ws], theatres).length; });
+  return counts;
 }
 
 function buildFactPool(stats, weeksUsed) {
@@ -142,8 +175,33 @@ function buildFactPool(stats, weeksUsed) {
   const busiestTheatre = topPick(stats.theatreCounts);
   if (busiestTheatre) facts.push(`${busiestTheatre.name} has been the busiest theatre, with ${busiestTheatre.count} sessions.`);
 
+  const quietestTheatre = bottomPick(stats.theatreCounts);
+  if (quietestTheatre && busiestTheatre && quietestTheatre.name !== busiestTheatre.name) {
+    facts.push(`${quietestTheatre.name} has had the fewest sessions of any theatre, with just ${quietestTheatre.count}.`);
+  }
+
   const busiestDay = topPick(stats.dayCounts);
   if (busiestDay) facts.push(`${busiestDay.name}s have been the busiest day of the week.`);
+
+  const quietestDay = bottomPick(stats.dayCounts);
+  if (quietestDay && busiestDay && quietestDay.name !== busiestDay.name) {
+    facts.push(`${quietestDay.name}s have consistently been the quietest day of the week.`);
+  }
+
+  // Utilisation needs a couple of weeks of history to mean anything —
+  // one week's worth is too noisy to call a rate.
+  if (weeksUsed >= 2 && busiestTheatre) {
+    const pct = Math.round((busiestTheatre.count / (weeksUsed * 5)) * 100);
+    facts.push(`${busiestTheatre.name} has been running on ${pct}% of the weekdays covered by published rotas.`);
+  }
+
+  if (stats.weekTrend) {
+    const { latestCount, prevCount } = stats.weekTrend;
+    if (latestCount !== prevCount) {
+      const diff = Math.abs(latestCount - prevCount);
+      facts.push(`Last week saw ${latestCount} session${latestCount === 1 ? "" : "s"} — ${diff} ${latestCount > prevCount ? "more" : "fewer"} than the week before.`);
+    }
+  }
 
   const topOnCall = topPick(stats.onCallCounts);
   if (topOnCall) facts.push(`${topOnCall.name} has covered on-call more than anyone else — ${topOnCall.count} times.`);
@@ -155,6 +213,10 @@ function buildFactPool(stats, weeksUsed) {
   if (topPairing) {
     const [odp, anaes] = topPairing.name.split("|||");
     facts.push(`${odp} and ${anaes} have worked together ${topPairing.count} times.`);
+  }
+
+  if (stats.distinctOnCall >= 3) {
+    facts.push(`${stats.distinctOnCall} different ODPs have covered on-call across the published rota history.`);
   }
 
   return facts;
@@ -174,7 +236,7 @@ function shuffle(arr) {
 // button — no need to hit Firestore again just to see different facts.
 export async function loadTheatreIntelligence(deptId, theatres, currentWeekStart, todayIso) {
   const { entries, weeksUsed } = await loadEligibleEntries(deptId, theatres, currentWeekStart, todayIso);
-  const stats = buildStats(entries, theatres);
+  const stats = buildStats(entries, theatres, currentWeekStart);
   const pool = buildFactPool(stats, weeksUsed);
 
   return {
