@@ -13,6 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Cadence">
 
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
   /* This page is a standalone full-bleed wall board, not a normal app
@@ -138,7 +139,9 @@
   import { loadNursingWeek } from "./js/nursing-rota.js";
   import { postMessage, deleteMessage, watchTodayMessages, loadArchive, buildArchiveGroups } from "./js/messages.js";
   import { applyTheme } from "./js/theme.js";
+  import { registerServiceWorker } from "./js/pwa.js";
   applyTheme();
+  registerServiceWorker();
 
   // Any signed-in account can open the board (a "viewer" login left
   // permanently open on the corridor screen is the intended setup) —
