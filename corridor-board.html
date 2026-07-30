@@ -138,7 +138,9 @@
   import { loadNursingWeek } from "./js/nursing-rota.js";
   import { postMessage, deleteMessage, watchTodayMessages, loadArchive, buildArchiveGroups } from "./js/messages.js";
   import { applyTheme } from "./js/theme.js";
+  import { registerServiceWorker } from "./js/pwa.js";
   applyTheme();
+  registerServiceWorker();
 
   // Any signed-in account can open the board (a "viewer" login left
   // permanently open on the corridor screen is the intended setup) —
