@@ -23,7 +23,7 @@
      distance, not held in the hand. */
   html,body{height:100%;margin:0;background:var(--canvas);}
   body{padding:28px 36px;box-sizing:border-box;}
-  .cb-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:24px;
+  .cb-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;margin-bottom:24px;
     padding-bottom:20px;border-bottom:1px solid var(--ink-150);}
   .cb-org{font-family:var(--font-display);font-weight:800;font-size:26px;color:var(--ink-900);}
   .cb-dept{font-size:14px;color:var(--ink-500);margin-top:2px;}
@@ -38,11 +38,11 @@
 
   .cb-updated{font-size:11px;color:var(--ink-300);margin-top:2px;}
 
-  .cb-coord-wrap{display:flex;justify-content:center;margin-bottom:22px;}
-  .cb-coord-card{padding:16px 36px;text-align:center;min-width:280px;}
+  .cb-head-coord{display:flex;justify-content:center;}
+  .cb-coord-card{padding:10px 28px;text-align:center;min-width:220px;}
   .cb-coord-label{font-family:var(--font-mono);font-size:10.5px;color:rgba(255,255,255,.7);text-transform:uppercase;
-    letter-spacing:.05em;margin-bottom:6px;}
-  .cb-coord-name{font-family:var(--font-display);font-weight:800;font-size:24px;color:#fff;}
+    letter-spacing:.05em;margin-bottom:4px;}
+  .cb-coord-name{font-family:var(--font-display);font-weight:800;font-size:20px;color:#fff;}
 
   .cb-theatre-sub{font-size:13.5px;color:var(--ink-700);line-height:1.6;margin-bottom:10px;}
   .cb-theatre-sub b{color:var(--ink-900);}
@@ -343,6 +343,7 @@
         <div class="cb-dept">${dept.name || "Theatres"}</div>
         <div id="cbBhBanner"></div>
       </div>
+      <div class="cb-head-coord" id="cbHeadCoord"></div>
       <div class="cb-clock">
         <div class="cb-time" id="cbTime"></div>
         <div class="cb-date" id="cbDate"></div>
@@ -370,6 +371,10 @@
       ? `<div class="cb-bh">Bank holiday</div>` : "";
 
     const body = document.getElementById("boardBody");
+    const headCoord = document.getElementById("cbHeadCoord");
+    // Only the day view has a coordinator to show; night/weekend clear
+    // this slot out rather than leaving a stale name up.
+    headCoord.innerHTML = "";
 
     if (state.mode === "night") {
       // On-call only — no theatre grid, no coordinator, no support,
@@ -460,13 +465,14 @@
     const oncallSurgeonCardiac = nursingRota[`${day}_oncall_surgeon`] || "—";
     const oncallSurgeonThoracic = nursingRota[`${day}_oncall_surgeon_thoracic`] || "—";
 
-    body.innerHTML = `
-      <div class="cb-coord-wrap">
-        <div class="cb-coord-card card hero-card">
-          <div class="cb-coord-label">Coordinator</div>
-          <div class="cb-coord-name">${coordinator}</div>
-        </div>
+    headCoord.innerHTML = `
+      <div class="cb-coord-card card hero-card">
+        <div class="cb-coord-label">Coordinator</div>
+        <div class="cb-coord-name">${coordinator}</div>
       </div>
+    `;
+
+    body.innerHTML = `
       <div class="cb-theatres">${theatreCardsHtml}</div>
       <div class="cb-strip">
         <div class="card"><div class="card-label">ODP support</div><div class="card-value">${supportOdps}</div></div>
