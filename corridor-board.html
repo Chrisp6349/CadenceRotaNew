@@ -80,6 +80,17 @@
 
   .cb-noboard{color:var(--ink-500);font-size:16px;padding:40px 0;text-align:center;}
 
+  /* This board is built for a wide wall-mounted display, but it's also
+     everyone's PWA landing page — so on a phone-width screen the header's
+     three columns (hospital name / coordinator / clock) no longer have
+     room side by side and the clock gets pushed off the edge. Stack them
+     instead of squeezing. */
+  @media (max-width:700px){
+    .cb-head{display:flex;flex-direction:column;align-items:flex-start;gap:14px;}
+    .cb-head-coord{align-self:center;}
+    .cb-clock{text-align:left;}
+  }
+
   /* Night mode (weeknight/Friday on-call only) and the restructured
      weekend layout (waiting list stacked above on call) share the
      board's normal card/strip styling but need a couple of their own
