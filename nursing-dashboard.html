@@ -637,7 +637,10 @@
 
   async function changeWeek(delta, jumpToThisWeek) {
     weekOffset = jumpToThisWeek ? 0 : weekOffset + delta;
-    if (jumpToThisWeek) selectedDayIdx = ALL_DAYS.indexOf(todayName);
+    // "This week" jumps straight to today; moving to any other week has
+    // no "today" of its own, so land on Monday rather than carrying over
+    // whatever day happened to be selected before.
+    selectedDayIdx = jumpToThisWeek ? ALL_DAYS.indexOf(todayName) : 0;
     await loadRota();
     render();
   }
