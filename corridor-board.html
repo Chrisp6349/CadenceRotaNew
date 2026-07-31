@@ -385,25 +385,30 @@
     if (state.mode === "weekend") {
       const odpOc = [odpRota[`${day}_oncall_odp1`], odpRota[`${day}_oncall_odp2`]].filter(Boolean).join(", ") || "—";
       const odpOcAnaes = odpRota[`${day}_oncall_anaes`] || "—";
-      const odpWlOdp = odpRota[`${day}_wl_odp`] || "—";
-      const odpWlAnaes = odpRota[`${day}_wl_anaes`] || "—";
+      const odpWlOdpRaw = odpRota[`${day}_wl_odp`] || "";
+      const odpWlAnaesRaw = odpRota[`${day}_wl_anaes`] || "";
 
       const nurOc = [1, 2, 3].map(n => nursingRota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
       const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
       const nurOcSurgeonCardiac = nursingRota[`${day}_oncall_surgeon`] || "—";
       const nurOcSurgeonThoracic = nursingRota[`${day}_oncall_surgeon_thoracic`] || "—";
-      const nurWl = [1, 2, 3].map(n => nursingRota[`${day}_wl_nurse${n}`]).filter(Boolean).join(", ") || "—";
-      const nurWlHca = nursingRota[`${day}_wl_hca`] || "—";
-      const nurWlSurgeon = nursingRota[`${day}_wl_surgeon`] || "—";
+      const nurWlRaw = [1, 2, 3].map(n => nursingRota[`${day}_wl_nurse${n}`]).filter(Boolean);
+      const nurWlHcaRaw = nursingRota[`${day}_wl_hca`] || "";
+      const nurWlSurgeonRaw = nursingRota[`${day}_wl_surgeon`] || "";
+
+      const hasWeekendList = !!(odpWlOdpRaw || odpWlAnaesRaw || nurWlRaw.length || nurWlHcaRaw || nurWlSurgeonRaw);
+      const weekendListHtml = hasWeekendList
+        ? `<div class="cb-strip">
+            <div class="card"><div class="card-label">Waiting list</div><div class="card-value" style="font-size:16px;">ODP: ${odpWlOdpRaw || "—"}<br>Nurses: ${nurWlRaw.join(", ") || "—"}<br>HCA: ${nurWlHcaRaw || "—"}</div></div>
+            <div class="card"><div class="card-label">Waiting list anaesthetist</div><div class="card-value">${odpWlAnaesRaw || "—"}</div></div>
+            <div class="card"><div class="card-label">Waiting list surgeon</div><div class="card-value">${nurWlSurgeonRaw || "—"}</div></div>
+          </div>`
+        : `<div class="card"><div class="card-value" style="font-size:16px;color:var(--ink-300);font-style:italic;">No list this weekend</div></div>`;
 
       body.innerHTML = `
         <div class="wk-section">
           <div class="wk-label">Weekend waiting list</div>
-          <div class="cb-strip">
-            <div class="card"><div class="card-label">Waiting list</div><div class="card-value" style="font-size:16px;">ODP: ${odpWlOdp}<br>Nurses: ${nurWl}<br>HCA: ${nurWlHca}</div></div>
-            <div class="card"><div class="card-label">Waiting list anaesthetist</div><div class="card-value">${odpWlAnaes}</div></div>
-            <div class="card"><div class="card-label">Waiting list surgeon</div><div class="card-value">${nurWlSurgeon}</div></div>
-          </div>
+          ${weekendListHtml}
         </div>
         <div class="wk-section">
           <div class="wk-label">On call</div>

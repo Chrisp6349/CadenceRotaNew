@@ -540,9 +540,13 @@
     const supportNurses = [1, 2].map(n => rota[`${day}_support_nurse${n}`]).filter(Boolean).join(", ") || "—";
     const supportHcas = [1, 2].map(n => rota[`${day}_support_hca${n}`]).filter(Boolean).join(", ") || "—";
 
-    const wlNurses = isWeekend ? [1, 2, 3].map(n => rota[`${day}_wl_nurse${n}`]).filter(Boolean).join(", ") || "—" : null;
-    const wlHca = isWeekend ? (rota[`${day}_wl_hca`] || "—") : null;
-    const wlSurgeon = isWeekend ? (rota[`${day}_wl_surgeon`] || "—") : null;
+    const wlNursesRaw = [1, 2, 3].map(n => rota[`${day}_wl_nurse${n}`]).filter(Boolean);
+    const wlHcaRaw = rota[`${day}_wl_hca`] || "";
+    const wlSurgeonRaw = rota[`${day}_wl_surgeon`] || "";
+    const hasWeekendList = !!(wlNursesRaw.length || wlHcaRaw || wlSurgeonRaw);
+    const wlNurses = isWeekend ? (wlNursesRaw.join(", ") || "—") : null;
+    const wlHca = isWeekend ? (wlHcaRaw || "—") : null;
+    const wlSurgeon = isWeekend ? (wlSurgeonRaw || "—") : null;
 
     const STAT_ICONS = {
       sessions: `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>`,
@@ -562,7 +566,9 @@
        statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">On call</div><div class="card-value" style="font-size:16px;">Nurses: ${onCallNurses}<br>HCA: ${onCallHca}</div></div>`);
     statCards.push(`<div class="card">${statIcon("surgeon")}<div class="card-label">On call surgeon (Cardiac)</div><div class="card-value" style="font-size:20px;">${onCallSurgeonCardiac}</div></div>`);
     statCards.push(`<div class="card">${statIcon("surgeon")}<div class="card-label">On call surgeon (Thoracic)</div><div class="card-value" style="font-size:20px;">${onCallSurgeonThoracic}</div></div>`);
-    if (isWeekend) {
+    if (isWeekend && !hasWeekendList) {
+      statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">Weekend waiting list</div><div class="card-value" style="font-size:16px;color:var(--ink-300);font-style:italic;">No list this weekend</div></div>`);
+    } else if (isWeekend) {
       statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">Weekend waiting list</div><div class="card-value" style="font-size:16px;">Nurses: ${wlNurses}<br>HCA: ${wlHca}</div></div>`);
       statCards.push(`<div class="card">${statIcon("surgeon")}<div class="card-label">Weekend waiting list surgeon</div><div class="card-value" style="font-size:20px;">${wlSurgeon}</div></div>`);
     }

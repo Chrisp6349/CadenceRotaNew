@@ -534,8 +534,11 @@
 
     // Weekend waiting list — separate ODP/anaesthetist fields, only
     // relevant (and only ever populated) on Saturday/Sunday.
-    const wlOdp = isWeekend ? (rota[`${day}_wl_odp`] || "—") : null;
-    const wlAnaes = isWeekend ? (rota[`${day}_wl_anaes`] || "—") : null;
+    const wlOdpRaw = rota[`${day}_wl_odp`] || "";
+    const wlAnaesRaw = rota[`${day}_wl_anaes`] || "";
+    const hasWeekendList = !!(wlOdpRaw || wlAnaesRaw);
+    const wlOdp = isWeekend ? (wlOdpRaw || "—") : null;
+    const wlAnaes = isWeekend ? (wlAnaesRaw || "—") : null;
 
     const STAT_ICONS = {
       sessions: `<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>`,
@@ -552,7 +555,9 @@
     }
     statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">On call ODP</div><div class="card-value" style="font-size:20px;">${onCallOdp}${onCallHome ? ` <span class="tc-list" style="font-size:9px;">FROM HOME</span>` : ""}</div></div>`);
     statCards.push(`<div class="card">${statIcon("anaes")}<div class="card-label">On call anaesthetist</div><div class="card-value" style="font-size:20px;">${onCallAnaes}</div></div>`);
-    if (isWeekend) {
+    if (isWeekend && !hasWeekendList) {
+      statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">Weekend waiting list</div><div class="card-value" style="font-size:16px;color:var(--ink-300);font-style:italic;">No list this weekend</div></div>`);
+    } else if (isWeekend) {
       statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">Waiting list ODP</div><div class="card-value" style="font-size:20px;">${wlOdp}</div></div>`);
       statCards.push(`<div class="card">${statIcon("anaes")}<div class="card-label">Waiting list anaesthetist</div><div class="card-value" style="font-size:20px;">${wlAnaes}</div></div>`);
     }
