@@ -242,11 +242,16 @@
     const nursingList = nursingRota[`${day}_${t.id}_list`] || "";
 
         const hasAny = !!(odp1 || odp2 || anaes || nurses.length || hcas.length || surgeon);
-    const closedFlag = [odpList, nursingList].some(l => l.includes("NO LIST") || l.includes("NO SURGEON") || l.includes("MAINTENANCE"));
-    // closedFlag wins regardless of hasAny — a theatre marked NO LIST is
-    // closed whether or not someone's still sitting in one of its boxes
-    // (that's exactly the "closed but nobody's cleared the leftover
-    // allocation" case this whole feature exists to simplify away).
+    // Some list-type labels (NO LIST/NO SURGEON/MAINTENANCE) mean
+    // "closed" outright, even if a leftover allocation is still sitting
+    // in one of its boxes — namedClosed wins regardless of hasAny for
+    // exactly that "closed but nobody's cleared the leftover allocation"
+    // case. Any OTHER list-type label (a custom one like ENT — someone
+    // else's specialty using the theatre that day) only gets the same
+    // closed treatment once there's genuinely nobody from this
+    // department's own rotas in it either.
+    const namedClosed = [odpList, nursingList].some(l => l.includes("NO LIST") || l.includes("NO SURGEON") || l.includes("MAINTENANCE"));
+    const closedFlag = namedClosed || (!hasAny && !!(odpList || nursingList));
     let status = "available";
     if (closedFlag) status = "closed";
     else if (hasAny) status = "inlist";
@@ -259,17 +264,28 @@
   // spot the small dot itself.
   const STATUS_ACCENT = { available: "var(--status-available)", inlist: "var(--status-inlist)", closed: "var(--status-closed)" };
 
+  // NO LIST/NO SURGEON/MAINTENANCE already read fine on their own; any
+  // other label (a custom list type like ENT) reads better with "List"
+  // appended so it's clear that's what's occupying the theatre, not a
+  // stray word.
+  function noStaffLabel(listType) {
+    const upper = listType.toUpperCase();
+    if (upper.includes("NO LIST") || upper.includes("NO SURGEON") || upper.includes("MAINTENANCE")) return listType;
+    return `${listType} List`;
+  }
+
   function theatreCardHtml(day, t) {
     const i = theatreInfo(day, t);
     const accent = `style="--card-accent:${STATUS_ACCENT[i.status]}"`;
 
-    // A theatre marked NO LIST/NO SURGEON/MAINTENANCE with genuinely
-    // nobody allocated isn't running that day at all — showing a full
-    // card of "Anaesthetist: —", "Surgeon: —", and two "No allocation"
-    // blocks is just noise at that point. Show the list-type label on
-    // its own instead, nothing else.
+    // A theatre marked closed (whether by a named "no work happening"
+    // label, or simply because a list type is set but nobody from this
+    // department is in it) isn't running that day at all — showing a
+    // full card of "Anaesthetist: —", "Surgeon: —", and two "No
+    // allocation" blocks is just noise at that point. Show the list-type
+    // label on its own instead, nothing else.
     if (i.status === "closed" && !i.hasAny) {
-      const label = i.odpList || i.nursingList;
+      const label = noStaffLabel(i.odpList || i.nursingList);
       return `<div class="cb-card" ${accent}>
         <div class="cb-card-head">
           <span class="dot closed"></span>

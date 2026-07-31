@@ -32,6 +32,8 @@
     padding:2px 6px;border-radius:4px;flex-shrink:0;}
   .tc-row{font-size:12.5px;color:var(--ink-700);padding:2px 0;}
   .tc-empty{font-size:12.5px;color:var(--ink-300);font-style:italic;}
+  .tc-closed-label{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.03em;
+    color:var(--status-closed);text-transform:uppercase;text-align:center;padding:8px 0 2px;}
   .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:8px;}
   .empty-note{color:var(--ink-500);font-size:13.5px;padding:20px 0;}
 
@@ -193,10 +195,24 @@
     const odp2 = rota[`${day}_${t.id}_odp2`] || "";
     const anaes = rota[`${day}_${t.id}_anaes`] || "";
     const listType = rota[`${day}_${t.id}_list`] || "";
-    const hasList = !!(odp1 || odp2 || anaes);
+    const hasStaff = !!(odp1 || odp2 || anaes);
     let status = "available";
-    if (hasList) status = (listType.includes("MAINTENANCE") || listType.includes("NO LIST")) ? "closed" : "inlist";
-    return { odp1, odp2, anaes, listType, status };
+    if (hasStaff) status = (listType.includes("MAINTENANCE") || listType.includes("NO LIST")) ? "closed" : "inlist";
+    // A list type set with nobody from the ODP rota in it (a custom
+    // label like ENT — someone else's specialty using the theatre that
+    // day) reads the same as closed, even though it isn't one of the
+    // named "no work happening" labels above.
+    else if (listType) status = "closed";
+    return { odp1, odp2, anaes, listType, hasStaff, status };
+  }
+
+  // NO LIST/MAINTENANCE already read fine on their own; any other label
+  // reads better with "List" appended so it's clear that's what's
+  // occupying the theatre, not a stray word.
+  function noStaffLabel(listType) {
+    const upper = listType.toUpperCase();
+    if (upper.includes("MAINTENANCE") || upper.includes("NO LIST")) return listType;
+    return `${listType} List`;
   }
 
   // ---- My Week -------------------------------------------------------------
@@ -486,9 +502,23 @@
 
       ? theatres.map(t => {
           const info = theatreInfo(day, t);
+          const accent = { available: "var(--status-available)", inlist: "var(--status-inlist)", closed: "var(--status-closed)" }[info.status];
+
+          // A list type set with nobody from the ODP rota in it isn't
+          // running that day as far as ODP is concerned — show the
+          // list-type label on its own instead of a card full of dashes.
+          if (info.status === "closed" && !info.hasStaff) {
+            return `<div class="theatre-card" style="--card-accent:${accent}">
+              <div class="tc-head">
+                <span class="dot closed"></span>
+                <span class="tc-name">${t.name}</span>
+              </div>
+              <div class="tc-closed-label">${noStaffLabel(info.listType)}</div>
+            </div>`;
+          }
+
           const rows = [info.odp1, info.odp2, info.anaes].filter(Boolean)
             .map(n => `<div class="tc-row">${n}</div>`).join("");
-          const accent = { available: "var(--status-available)", inlist: "var(--status-inlist)", closed: "var(--status-closed)" }[info.status];
           return `<div class="theatre-card" style="--card-accent:${accent}">
             <div class="tc-head">
               <span class="dot ${info.status}"></span>

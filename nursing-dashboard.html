@@ -33,6 +33,8 @@
   .tc-row{font-size:12.5px;color:var(--ink-700);padding:2px 0;}
   .tc-row.tc-surgeon{font-weight:600;color:var(--ink-900);}
   .tc-empty{font-size:12.5px;color:var(--ink-300);font-style:italic;}
+  .tc-closed-label{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.03em;
+    color:var(--status-closed);text-transform:uppercase;text-align:center;padding:8px 0 2px;}
   .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:8px;}
   .empty-note{color:var(--ink-500);font-size:13.5px;padding:20px 0;}
 
@@ -185,10 +187,24 @@
     const hcas = [1, 2].map(n => rota[`${day}_${t.id}_hca${n}`]).filter(Boolean);
     const surgeon = rota[`${day}_${t.id}_surgeon`] || "";
     const listType = rota[`${day}_${t.id}_list`] || "";
-    const hasList = !!(nurses.length || hcas.length || surgeon);
+    const hasStaff = !!(nurses.length || hcas.length || surgeon);
     let status = "available";
-    if (hasList) status = (listType.includes("NO LIST") || listType.includes("NO SURGEON")) ? "closed" : "inlist";
-    return { nurses, hcas, surgeon, listType, status };
+    if (hasStaff) status = (listType.includes("NO LIST") || listType.includes("NO SURGEON")) ? "closed" : "inlist";
+    // A list type set with nobody from the nursing rota in it (a custom
+    // label like ENT — someone else's specialty using the theatre that
+    // day) reads the same as closed, even though it isn't one of the
+    // named "no work happening" labels above.
+    else if (listType) status = "closed";
+    return { nurses, hcas, surgeon, listType, hasStaff, status };
+  }
+
+  // NO LIST/NO SURGEON already read fine on their own; any other label
+  // reads better with "List" appended so it's clear that's what's
+  // occupying the theatre, not a stray word.
+  function noStaffLabel(listType) {
+    const upper = listType.toUpperCase();
+    if (upper.includes("NO LIST") || upper.includes("NO SURGEON")) return listType;
+    return `${listType} List`;
   }
 
   // ---- My Week -------------------------------------------------------------
@@ -503,12 +519,26 @@
       theatreCardsHtml = theatres.map(t => {
         const info = theatreInfo(day, t);
         sessionsCount += info.status === "inlist" ? 1 : 0;
+        const accent = { available: "var(--status-available)", inlist: "var(--status-inlist)", closed: "var(--status-closed)" }[info.status];
+
+        // A list type set with nobody from the nursing rota in it isn't
+        // running that day as far as nursing is concerned — show the
+        // list-type label on its own instead of a card full of dashes.
+        if (info.status === "closed" && !info.hasStaff) {
+          return `<div class="theatre-card" style="--card-accent:${accent}">
+            <div class="tc-head">
+              <span class="dot closed"></span>
+              <span class="tc-name">${t.name}</span>
+            </div>
+            <div class="tc-closed-label">${noStaffLabel(info.listType)}</div>
+          </div>`;
+        }
+
         const rows = [
           ...info.nurses.map(n => `<div class="tc-row">${n}</div>`),
           ...info.hcas.map(n => `<div class="tc-row">${n}</div>`),
           info.surgeon ? `<div class="tc-row tc-surgeon">${info.surgeon}</div>` : ""
         ].filter(Boolean).join("");
-        const accent = { available: "var(--status-available)", inlist: "var(--status-inlist)", closed: "var(--status-closed)" }[info.status];
         return `<div class="theatre-card" style="--card-accent:${accent}">
           <div class="tc-head">
             <span class="dot ${info.status}"></span>
