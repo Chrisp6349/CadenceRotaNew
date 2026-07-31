@@ -51,7 +51,14 @@
   @media print{
     @page{ size: A4 landscape; margin: 8mm; }
     #shellRoot .app-sidebar,#shellRoot .app-topbar,.rota-toolbar{display:none !important;}
-    #shellRoot .app-main,#shellRoot .app-content{overflow:visible !important;height:auto !important;padding:0 !important;}
+    /* .app-shell's own height:100vh/overflow:hidden/flex layout (screen
+       only, needed there to keep the sidebar pinned) silently blocks a
+       forced page-break-before lower down in the tree, even once its
+       children are reset — Chromium's print pagination won't fragment
+       across an ancestor still carrying those. Has to be reset here too,
+       not just on .app-main/.app-content below. */
+    #shellRoot .app-shell{height:auto !important;overflow:visible !important;display:block !important;}
+    #shellRoot .app-main,#shellRoot .app-content{overflow:visible !important;height:auto !important;padding:0 !important;display:block !important;}
     body{background:#fff;}
     .print-header{display:flex !important;margin-bottom:8px;padding-bottom:5px;}
     .print-header .ph-org{font-size:14px;}
@@ -80,6 +87,10 @@
     table.rota-table .ro-field{padding:1px 0;font-size:9.5px;}
     h4.section-title{margin:8px 0 4px;font-size:9px;color:#000;}
     .weekend-table{page-break-inside:avoid;margin-top:0;}
+    /* Nursing has one more column than the ODP rota (Coordinator), so
+       fitting weekday AND weekend on one page leaves both cramped.
+       Weekday gets its own page; Weekend starts a fresh one. */
+    #printGridWrap h4.section-title{page-break-before:always;break-before:page;}
   }
   .print-header{display:none;align-items:baseline;justify-content:space-between;margin-bottom:14px;
     border-bottom:2px solid var(--ink-900);padding-bottom:8px;}
