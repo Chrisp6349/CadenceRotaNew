@@ -43,6 +43,7 @@ const NAV = [
   { key: "nursingRota", label: "Nursing Rota", href: "nursing-rota.html", icon: "nursing", roles: ["viewer","editor","admin"] },
   { key: "nursingDashboard", label: "Nursing Dashboard", href: "nursing-dashboard.html", icon: "nursing", roles: ["viewer","editor","admin"] },
   { key: "nursingCalendar", label: "Nursing On Call Calendar", href: "nursing-calendar.html", icon: "calendar", roles: ["viewer","editor","admin"] },
+  { section: "Staff" },
   { key: "staff", label: "Staff Profiles", href: "staff.html", icon: "staff", roles: ["viewer","editor","admin"] },
   { section: "System" },
   { key: "admin", label: "Administration", href: "admin.html", icon: "admin", roles: ["admin"] },
