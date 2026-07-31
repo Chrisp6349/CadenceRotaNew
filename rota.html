@@ -109,7 +109,10 @@
 
   content.innerHTML = `
     <div class="rota-toolbar">
+      <button class="btn btn-secondary btn-sm" id="prevWeekBtn">‹ Previous week</button>
       <input type="date" id="weekDate">
+      <button class="btn btn-secondary btn-sm" id="nextWeekBtn">Next week ›</button>
+      <button class="btn btn-secondary btn-sm" id="thisWeekBtn" style="display:none;">This week</button>
       <span class="view-badge ${editable ? "editing" : ""}">${editable ? "Editing" : "Read only"}</span>
       <div class="spacer"></div>
       <button class="btn btn-secondary btn-sm" id="fullWeekBtn">Full week view</button>
@@ -137,7 +140,30 @@
   const staff = splitStaff(staffList);
 
   const weekInput = document.getElementById("weekDate");
+  const thisWeekBtn = document.getElementById("thisWeekBtn");
   weekInput.value = mondayOfCurrentWeek();
+
+  // Weeks are always keyed by their Monday in Firestore — normalizing
+  // any manually-picked date to that date's own Monday means picking a
+  // Wednesday, say, still shows the right week instead of silently
+  // looking for a week that starts on a Wednesday (which never exists).
+  function mondayOf(dateStr) {
+    const d = new Date(dateStr + "T00:00:00");
+    const day = (d.getDay() + 6) % 7; // Monday=0 .. Sunday=6
+    d.setDate(d.getDate() - day);
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), dd = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dd}`;
+  }
+  function shiftWeek(deltaDays) {
+    const d = new Date(weekInput.value + "T00:00:00");
+    d.setDate(d.getDate() + deltaDays);
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), dd = String(d.getDate()).padStart(2, "0");
+    weekInput.value = `${y}-${m}-${dd}`;
+  }
+  // "This week" is only useful once you've navigated away from it.
+  function updateThisWeekBtn() {
+    thisWeekBtn.style.display = weekInput.value === mondayOfCurrentWeek() ? "none" : "";
+  }
 
   let rota = {};
   let previewMode = false; // Full week view: read-only, print-styled, on screen
@@ -195,7 +221,26 @@
     renderOnly();
   }
 
-  weekInput.addEventListener("change", loadAndRender);
+  weekInput.addEventListener("change", () => {
+    weekInput.value = mondayOf(weekInput.value);
+    updateThisWeekBtn();
+    loadAndRender();
+  });
+  document.getElementById("prevWeekBtn").addEventListener("click", () => {
+    shiftWeek(-7);
+    updateThisWeekBtn();
+    loadAndRender();
+  });
+  document.getElementById("nextWeekBtn").addEventListener("click", () => {
+    shiftWeek(7);
+    updateThisWeekBtn();
+    loadAndRender();
+  });
+  thisWeekBtn.addEventListener("click", () => {
+    weekInput.value = mondayOfCurrentWeek();
+    updateThisWeekBtn();
+    loadAndRender();
+  });
 
   if (editable) {
     document.getElementById("saveDraftBtn").addEventListener("click", async () => {
