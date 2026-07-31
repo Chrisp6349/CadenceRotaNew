@@ -339,7 +339,7 @@
   root.innerHTML = `
     <div class="cb-head">
       <div>
-        <div class="cb-org">${dept.hospitalName || ""} <span class="live-badge"><span class="dot"></span>LIVE</span></div>
+        <div class="cb-org">${dept.hospitalName || ""} <span class="live-badge"><span class="ecg-wrap"><svg class="ecg-trace" viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0,20 H40 L46,4 L52,36 L58,20 H100"/><path d="M0,20 H40 L46,4 L52,36 L58,20 H100" transform="translate(100,0)"/></svg></span>LIVE</span></div>
         <div class="cb-dept">${dept.name || "Theatres"}</div>
         <div id="cbBhBanner"></div>
       </div>

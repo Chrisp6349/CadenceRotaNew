@@ -119,11 +119,18 @@ a{color:inherit;}
 .hero-card .card-value{color:#fff;}
 
 /* Pill badge for a live/streaming indicator — used on the corridor
-   board's header next to the hospital name. */
+   board's header next to the hospital name. The dot is replaced by a
+   tiny looping ECG trace (on-theme for a cardiac theatres board) that
+   scrolls continuously; it's a duplicated path scrolled exactly one
+   repeat-width so the loop has no visible seam. */
 .live-badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:10.5px;
   font-weight:600;letter-spacing:.06em;color:var(--status-available);background:var(--status-available-bg);
   padding:4px 10px 4px 8px;border-radius:var(--r-pill);vertical-align:middle;}
-.live-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--status-available);animation:pulse-dot 1.8s infinite;}
+.live-badge .ecg-wrap{width:28px;height:14px;overflow:hidden;display:inline-block;flex-shrink:0;}
+.live-badge .ecg-trace{display:block;width:56px;height:14px;animation:ecg-scroll 1.6s linear infinite;}
+.live-badge .ecg-trace path{fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;}
+@keyframes ecg-scroll{to{transform:translateX(-28px);}}
+@media (prefers-reduced-motion: reduce){.live-badge .ecg-trace{animation:none;}}
 
 /* ---------- Skeleton loading ----------
    Placeholders shaped like the real content they'll become (a theatre
