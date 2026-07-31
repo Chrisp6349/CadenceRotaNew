@@ -43,6 +43,10 @@
   table.rota-table .ro-field{display:block;padding:3px 0;font-size:12.5px;}
   .weekend-table{margin-top:20px;}
   h4.section-title{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-500);margin:22px 0 8px;}
+  /* Print always renders from this separate, always-current copy of the
+     grid (see renderOnly() below) rather than one built on the fly when
+     Print preview is clicked — kept hidden on screen. */
+  #printGridWrap{display:none;}
 
   @media print{
     @page{ size: A4 landscape; margin: 8mm; }
@@ -52,6 +56,8 @@
     .print-header{display:flex !important;margin-bottom:8px;padding-bottom:5px;}
     .print-header .ph-org{font-size:14px;}
     .table-scroll{border:none;overflow:visible;padding:0;box-shadow:none;}
+    #screenGridWrap{display:none !important;}
+    #printGridWrap{display:block !important;}
 
     /* A real grid, not a list of rows — every cell gets a border, and
        fixed layout plus 100% width means the table can never run wider
@@ -144,9 +150,16 @@
       </div>
       <div class="ph-week" id="phWeek"></div>
     </div>
-    <div class="table-scroll"><div id="weekdayGrid">${rotaSkeleton(5)}</div></div>
-    <h4 class="section-title">Weekend</h4>
-    <div class="table-scroll"><div id="weekendGrid">${rotaSkeleton(2)}</div></div>
+    <div id="screenGridWrap">
+      <div class="table-scroll"><div id="weekdayGrid">${rotaSkeleton(5)}</div></div>
+      <h4 class="section-title">Weekend</h4>
+      <div class="table-scroll"><div id="weekendGrid">${rotaSkeleton(2)}</div></div>
+    </div>
+    <div id="printGridWrap">
+      <div class="table-scroll"><div id="printWeekdayGrid"></div></div>
+      <h4 class="section-title">Weekend</h4>
+      <div class="table-scroll"><div id="printWeekendGrid"></div></div>
+    </div>
   `;
 
    const theatres = await theatresPromise;
@@ -203,7 +216,7 @@
 
     document.getElementById("printHeader").classList.toggle("force-show", previewMode);
     document.getElementById("editButtons").style.display = previewMode ? "none" : "";
-    if (previewMode) updatePrintHeader();
+    updatePrintHeader();
 
     if (!theatres.length) {
       document.getElementById("weekdayGrid").innerHTML = `<div class="empty-state">
@@ -212,6 +225,8 @@
         <div class="es-sub">${profile.role === "admin" ? "Add them in Administration." : "Ask your admin to add them."}</div>
       </div>`;
       document.getElementById("weekendGrid").innerHTML = "";
+      document.getElementById("printWeekdayGrid").innerHTML = "";
+      document.getElementById("printWeekendGrid").innerHTML = "";
       return;
     }
 
@@ -225,6 +240,16 @@
       attachNursingChangeHandlers(document.getElementById("weekdayGrid"), rota, renderOnly);
       attachNursingChangeHandlers(document.getElementById("weekendGrid"), rota, renderOnly);
     }
+
+    // The print copy always uses the read-only rendering, independent of
+    // Full week view / edit mode, and is kept continuously up to date
+    // here rather than built on demand when Print preview is clicked —
+    // so that click never needs to touch the DOM at all, and
+    // window.print() can fire immediately and synchronously (see the
+    // printBtn handler below for why that matters).
+    const printCopy = renderNursingGrid({ weekStart: weekInput.value, dept, theatres, staff, rota, editable: false });
+    document.getElementById("printWeekdayGrid").innerHTML = printCopy.weekdayHtml;
+    document.getElementById("printWeekendGrid").innerHTML = printCopy.weekendHtml;
   }
 
   async function loadAndRender() {
@@ -277,23 +302,18 @@
     renderOnly();
   });
 
+  // Print preview: #printGridWrap already holds a current, read-only
+  // rendering (renderOnly() above keeps it that way on every change) and
+  // CSS swaps it in for #screenGridWrap only under @media print — so
+  // there is nothing left to do here but print. That matters: Safari
+  // only treats window.print() as a genuine response to the click if
+  // it's called synchronously, in the same tick, with no DOM work first
+  // — deferring it, or mutating the DOM right before it, both risk
+  // losing that and having it take the better part of a minute to open
+  // the dialog instead of doing so immediately.
   document.getElementById("printBtn").addEventListener("click", () => {
-    const { weekdayHtml, weekendHtml } = renderNursingGrid({
-      weekStart: weekInput.value, dept, theatres, staff, rota, editable: false
-    });
-    document.getElementById("weekdayGrid").innerHTML = weekdayHtml;
-    document.getElementById("weekendGrid").innerHTML = weekendHtml;
-    updatePrintHeader();
-    document.getElementById("printHeader").classList.add("force-show");
-    // window.print() must stay synchronous, in the same tick as the click
-    // that triggered it — deferring it (even via requestAnimationFrame)
-    // loses Safari's "this came directly from a user click" flag, which
-    // made it delay opening the dialog by the better part of a minute
-    // instead of firing immediately. A visible flash while it catches up
-    // to the layout change is the lesser problem.
     window.print();
   });
-  window.addEventListener("afterprint", renderOnly);
 
   await loadAndRender();
 </script>
