@@ -49,17 +49,36 @@
     padding:2px 6px;border-radius:4px;margin-top:2px;}
 
   @media print{
-    @page{ size: A4 landscape; margin: 12mm; }
+    @page{ size: A4 landscape; margin: 8mm; }
     #shellRoot .app-sidebar,#shellRoot .app-topbar,.rota-toolbar{display:none !important;}
     #shellRoot .app-main,#shellRoot .app-content{overflow:visible !important;height:auto !important;padding:0 !important;}
     body{background:#fff;}
-    .print-header{display:flex !important;}
-    .table-scroll{border:none;overflow:visible;padding:0;}
-    table.rota-table{font-size:10.5px;}
-    table.rota-table th{color:#000;}
+    .print-header{display:flex !important;margin-bottom:8px;padding-bottom:5px;}
+    .print-header .ph-org{font-size:14px;}
+    .table-scroll{border:none;overflow:visible;padding:0;box-shadow:none;}
+
+    /* A real grid, not a list of rows — every cell gets a border, and
+       fixed layout plus 100% width means the table can never run wider
+       than the printable page (the failure mode that used to clip the
+       Coordinator column off the edge of the nursing rota). The header
+       shading uses print-color-adjust so it survives even though most
+       browsers strip background colours from prints by default —
+       everything else stays pure black-on-white on purpose, since a
+       colour that DOES print usually prints as a barely-there grey. */
+    table.rota-table{font-size:9.5px;table-layout:fixed;width:100%;text-transform:uppercase;}
+    table.rota-table th,table.rota-table td{border:1px solid #000 !important;padding:3px 4px;}
+    table.rota-table th{color:#000;background:#e0e0e0 !important;white-space:normal;
+      -webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    /* .daycell is nowrap on screen (where there's room); in this much
+       narrower print column "Monday 27th" needs to wrap onto two lines
+       instead of overflowing into Theatre 1's cell. */
+    table.rota-table th:first-child,table.rota-table td.daycell{width:64px;white-space:normal;}
     table.rota-table tr.today td{background:none !important;}
-    h4.section-title{margin-top:14px;}
-    .weekend-table{page-break-inside:avoid;}
+    table.rota-table .ro-field{padding:1px 0;font-size:9.5px;}
+    table.rota-table .bh{font-size:8.5px;}
+    .home-badge{border:1px solid #000;background:none !important;color:#000;}
+    h4.section-title{margin:8px 0 4px;font-size:9px;color:#000;}
+    .weekend-table{page-break-inside:avoid;margin-top:0;}
   }
   .print-header{display:none;align-items:baseline;justify-content:space-between;margin-bottom:14px;
     border-bottom:2px solid var(--ink-900);padding-bottom:8px;}

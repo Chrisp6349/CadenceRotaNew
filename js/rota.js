@@ -206,9 +206,9 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
         <br>${field(d, "support_list", dept.listOptions || [], "list", false, "List type")}
       </td><td>
         ${field(d, "oncall_odp", staff.odps, "odp", false, "ODP")}
+        ${homeCheckbox(d)}
         ${field(d, "oncall_extra", dept.extraOnCall || ["", "EXTRA O/C"], "list", false, "Extra on-call")}
         ${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}
-        ${homeCheckbox(d)}
       </td></tr>`;
   });
   h += "</table>";
