@@ -295,13 +295,13 @@
     document.getElementById("weekendGrid").innerHTML = weekendHtml;
     updatePrintHeader();
     document.getElementById("printHeader").classList.add("force-show");
-    // Calling window.print() in the same tick as the DOM swap above asks
-    // the OS print dialog to open before the browser has actually painted
-    // the read-only, print-styled layout — on macOS Safari in particular
-    // that shows up as a visible stutter/flash right as the dialog opens,
-    // since it's catching up mid-transition. Two rAFs guarantee a full
-    // paint has happened first, so what the dialog captures is settled.
-    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
+    // window.print() must stay synchronous, in the same tick as the click
+    // that triggered it — deferring it (even via requestAnimationFrame)
+    // loses Safari's "this came directly from a user click" flag, which
+    // made it delay opening the dialog by the better part of a minute
+    // instead of firing immediately. A visible flash while it catches up
+    // to the layout change is the lesser problem.
+    window.print();
   });
   window.addEventListener("afterprint", renderOnly);
 
