@@ -70,6 +70,34 @@ service cloud.firestore {
         allow read: if inMyDept(deptId);
         allow write: if isEditorOrAdmin(deptId);
       }
+
+      // ---- CADEX (Cadence-Atrium Data Exchange) ------------------------
+      // cadexConfig/settings holds the Atrium base URL and both API keys
+      // (inbound + outbound) — admin-only in both directions, same as
+      // user account management. Cloud Functions read/write all three
+      // CADEX collections via the Admin SDK, which bypasses these rules
+      // entirely, so "write: if false" below only blocks direct client
+      // writes — it doesn't block the sync itself.
+      match /cadexConfig/{docId} {
+        allow read, write: if isAdmin(deptId);
+      }
+
+      // Connection/last-sync status — everyone in the department can see
+      // it (same visibility as the rota itself), nobody can write it
+      // from the client; it only ever changes via the cadexSync /
+      // cadexManualSync Cloud Functions.
+      match /cadexStatus/{docId} {
+        allow read: if inMyDept(deptId);
+        allow write: if false;
+      }
+
+      // Imported consultant data, one doc per week — read-only projection
+      // the rota page displays alongside the grid; never written by a
+      // client, only by the Consumer sync Cloud Function.
+      match /cadexImports/{weekId} {
+        allow read: if inMyDept(deptId);
+        allow write: if false;
+      }
     }
   }
 }

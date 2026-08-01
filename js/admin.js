@@ -13,6 +13,7 @@ import {
 import { listUsers, createUserAccount, updateUserRole, revokeUserAccess } from "./users.js";
 import { loadWeek, saveWeek } from "./rota.js";
 import { loadNursingWeek, saveNursingWeek } from "./nursing-rota.js";
+import { getCadexConfig, saveCadexConfig, getCadexStatus, cadexManualSync, cadexTestConnection, generateApiKey } from "./cadex.js";
 
 const DEFAULT_LIST_OPTIONS = ["ROUTINE", "EMERGENCY", "URGENT"];
 
@@ -138,6 +139,35 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
           <input type="text" id="deptName" placeholder="Department name" value="${dept.name || ""}">
           <button class="btn btn-primary btn-sm" type="submit">Save details</button>
         </form>
+      </section>
+
+      <section>
+        <h4 class="admin-h">CADEX — Atrium integration</h4>
+        <p class="empty-note" style="margin:-6px 0 10px;">Cadence-Atrium Data Exchange. Automatically shares ODP and surgeon
+          on-call information with The Atrium, and imports consultant anaesthetist allocations back — see the CADEX proposal
+          for the full spec. Nothing here is enabled until you fill it in and save.</p>
+        <form id="cadexForm" class="inline-form" style="flex-direction:column;align-items:stretch;gap:10px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;">
+            <input type="checkbox" id="cadexEnabled"> Enabled
+          </label>
+          <input type="url" id="cadexAtriumUrl" placeholder="The Atrium's base URL, e.g. https://atrium.example.com">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="cadexAtriumKey" placeholder="API key Cadence sends to The Atrium" style="flex:1;">
+            <button class="btn btn-ghost btn-sm" type="button" id="cadexGenAtriumKey">Generate</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="cadexProviderKey" placeholder="API key The Atrium must send to Cadence" style="flex:1;">
+            <button class="btn btn-ghost btn-sm" type="button" id="cadexGenProviderKey">Generate</button>
+          </div>
+          <p class="empty-note" style="margin:0;">Cadence's own endpoints for The Atrium to call: <code id="cadexEndpoints"></code></p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary btn-sm" type="submit">Save connection</button>
+            <button class="btn btn-secondary btn-sm" type="button" id="cadexTestBtn">Test connection</button>
+            <button class="btn btn-secondary btn-sm" type="button" id="cadexSyncBtn">Sync now</button>
+          </div>
+        </form>
+        <div id="cadexMsg" class="empty-note" style="display:none;margin-top:8px;"></div>
+        <div id="cadexStatus" class="empty-note" style="margin-top:10px;"></div>
       </section>
 
       <section>
@@ -640,6 +670,96 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       auditLogEl.appendChild(row);
     });
   }
+
+  // ---- CADEX — Atrium integration ----------------------------------------
+  const cadexMsgEl = container.querySelector("#cadexMsg");
+  const cadexStatusEl = container.querySelector("#cadexStatus");
+  container.querySelector("#cadexEndpoints").textContent = `${window.location.origin}/api/v1/{odp,surgeons,status}`;
+
+  function cadexMsg(text, isError) {
+    cadexMsgEl.textContent = text;
+    cadexMsgEl.style.color = isError ? "var(--status-oncall)" : "";
+    cadexMsgEl.style.display = "block";
+  }
+
+  function formatCadexTimestamp(ts) {
+    if (!ts?.toDate) return "never";
+    return ts.toDate().toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  }
+
+  async function loadCadexForm() {
+    const cfg = await getCadexConfig(deptId);
+    container.querySelector("#cadexEnabled").checked = !!cfg.enabled;
+    container.querySelector("#cadexAtriumUrl").value = cfg.atriumBaseUrl || "";
+    container.querySelector("#cadexAtriumKey").value = cfg.atriumApiKey || "";
+    container.querySelector("#cadexProviderKey").value = cfg.providerApiKey || "";
+  }
+
+  async function refreshCadexStatus() {
+    const status = await getCadexStatus(deptId);
+    const imp = status.import, exp = status.export;
+    const importLine = imp
+      ? `Import from Atrium: ${imp.lastImportOk ? "OK" : "FAILED"} — last successful ${formatCadexTimestamp(imp.lastImportAt)}${!imp.lastImportOk ? `, last failure ${formatCadexTimestamp(imp.lastFailureAt)} (${imp.lastError || "unknown error"})` : ""}`
+      : "Import from Atrium: no sync has run yet.";
+    const exportLine = exp
+      ? `Export to Atrium: last request ${formatCadexTimestamp(exp.lastRequestAt)} — ${exp.lastRequestOk ? "OK" : `failed (${exp.lastError || "unknown error"})`}`
+      : "Export to Atrium: not yet called.";
+    cadexStatusEl.innerHTML = `<div>${importLine}</div><div>${exportLine}</div><div>Poll interval: ~60 seconds</div>`;
+  }
+
+  container.querySelector("#cadexGenAtriumKey").addEventListener("click", () => {
+    container.querySelector("#cadexAtriumKey").value = generateApiKey();
+  });
+  container.querySelector("#cadexGenProviderKey").addEventListener("click", () => {
+    container.querySelector("#cadexProviderKey").value = generateApiKey();
+  });
+
+  container.querySelector("#cadexForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    cadexMsgEl.style.display = "none";
+    const fields = {
+      enabled: container.querySelector("#cadexEnabled").checked,
+      atriumBaseUrl: container.querySelector("#cadexAtriumUrl").value.trim(),
+      atriumApiKey: container.querySelector("#cadexAtriumKey").value.trim(),
+      providerApiKey: container.querySelector("#cadexProviderKey").value.trim()
+    };
+    try {
+      await saveCadexConfig(deptId, fields);
+      cadexMsg("Connection details saved.");
+    } catch (err) {
+      cadexMsg("Couldn't save — please try again.", true);
+    }
+  });
+
+  container.querySelector("#cadexTestBtn").addEventListener("click", async (e) => {
+    cadexMsgEl.style.display = "none";
+    e.target.disabled = true;
+    try {
+      const result = await cadexTestConnection(deptId);
+      cadexMsg(result.ok ? `Connected — ${result.latencyMs}ms.` : `Couldn't connect: ${result.error}`, !result.ok);
+    } catch (err) {
+      cadexMsg(err.message || "Couldn't reach The Atrium — please try again.", true);
+    } finally {
+      e.target.disabled = false;
+    }
+  });
+
+  container.querySelector("#cadexSyncBtn").addEventListener("click", async (e) => {
+    cadexMsgEl.style.display = "none";
+    e.target.disabled = true;
+    try {
+      const result = await cadexManualSync(deptId);
+      cadexMsg(result.ok ? `Synced week commencing ${result.weekId}.` : `Sync failed: ${result.error}`, !result.ok);
+      refreshCadexStatus();
+    } catch (err) {
+      cadexMsg(err.message || "Couldn't sync — please try again.", true);
+    } finally {
+      e.target.disabled = false;
+    }
+  });
+
+  loadCadexForm();
+  refreshCadexStatus();
 
   refreshTheatres();
   refreshAllStaff();
