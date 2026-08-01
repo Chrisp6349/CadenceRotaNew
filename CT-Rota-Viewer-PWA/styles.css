@@ -7,27 +7,39 @@
    the splash screen. clinical.css layers a more compact
    "Dashboard V2" pass on top of this file; features.css
    and insights.css style the newer overlays.
+
+   Palette and card language match week.css/calendar.css/
+   staff.css so every page in the app reads as one system:
+   muted ink text, thin borders, soft shadows, and colour
+   used functionally (theatre/status accents) rather than
+   decoratively.
    ===================================================== */
 
 :root{
     --nhs-blue:#005EB8;
     --nhs-dark:#003087;
-    --background:#f5f7fa;
-    --card:#ffffff;
-    --text:#222;
-    --border:#d9dde3;
-    --shadow:0 8px 20px rgba(0,0,0,.08);
 
-    --theatre1:#1976d2;
-    --theatre2:#2e7d32;
-    --theatre4:#ef6c00;
-    --theatre5:#7b1fa2;
-    --cathlab:#c62828;
+    --ink:#212B32;
+    --ink-soft:#4C6272;
+    --line:#E1E6EA;
+    --surface:#ffffff;
+    --page-bg:#F4F6F8;
 
-    --support:#2e7d32;
-    --oncall:#d32f2f;
+    --shadow-sm:0 1px 3px rgba(33,43,50,.08);
+    --shadow-md:0 4px 14px rgba(33,43,50,.10);
+    --shadow-lift:0 6px 20px rgba(33,43,50,.14);
 
-    --radius:14px;
+    --radius:12px;
+
+    /* Theatre accents - same hues as the Week view columns */
+    --theatre1:#005EB8;   /* CT1  - NHS blue */
+    --theatre2:#00A9CE;   /* CT2  - aqua */
+    --theatre4:#007F3B;   /* CT4  - green */
+    --theatre5:#7C2855;   /* CT5  - aubergine */
+    --cathlab:#ED8B00;    /* Cath - amber */
+
+    --support:#37464F;    /* neutral slate, not a theatre colour */
+    --oncall:#DA291C;     /* NHS red */
 }
 
 *{
@@ -38,8 +50,8 @@
 
 body{
     font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-    background:var(--background);
-    color:var(--text);
+    background:var(--page-bg);
+    color:var(--ink);
     padding-bottom:90px;
 }
 
@@ -54,44 +66,46 @@ body{
 }
 
 .hero-banner{
-    background:linear-gradient(135deg, #005EB8, #003087);
+    background:var(--nhs-dark);
     color:#fff;
-    border-radius:22px;
-    padding:20px 26px;
+    border-radius:var(--radius);
+    padding:18px 24px;
     display:flex;
     justify-content:space-between;
     align-items:center;
-    box-shadow:0 10px 30px rgba(0,0,0,.12);
+    box-shadow:var(--shadow-md);
 }
 
 .hero-left h1{
     margin:0;
-    font-size:24px;
-    line-height:1.1;
+    font-size:22px;
+    line-height:1.2;
     font-weight:700;
+    letter-spacing:-.01em;
 }
 
 .hero-subtitle{
-    margin-top:12px;
-    font-size:17px;
+    margin-top:8px;
+    font-size:14px;
     font-weight:600;
-    opacity:.95;
+    color:#B8D4F0;
 }
 
 .hero-right{
     display:flex;
     align-items:center;
     justify-content:center;
-    margin-right:16px;
+    margin-right:8px;
     flex-shrink:0;
 }
 
 .hero-logo{
-    height:130px;
-    width:130px;
+    height:92px;
+    width:92px;
     object-fit:contain;
-    border-radius:18px;
+    border-radius:10px;
     flex-shrink:0;
+    background:#fff;
 }
 
 /* ===========================
@@ -102,10 +116,10 @@ body{
     max-width:520px;
     margin:10px auto 20px;
     display:grid;
-    grid-template-columns:56px 280px 56px;
+    grid-template-columns:52px 280px 52px;
     justify-content:center;
     align-items:center;
-    gap:12px;
+    gap:10px;
 }
 
 .week-picker{
@@ -113,40 +127,40 @@ body{
 }
 
 .toolbar button{
-    width:56px;
-    height:56px;
+    width:52px;
+    height:52px;
     border:none;
-    border-radius:16px;
-    background:#005EB8;
+    border-radius:10px;
+    background:var(--nhs-blue);
     color:#fff;
-    font-size:22px;
+    font-size:19px;
     font-weight:700;
     display:flex;
     align-items:center;
     justify-content:center;
     cursor:pointer;
-    box-shadow:0 8px 20px rgba(0,94,184,.25);
-    transition:transform .2s ease, box-shadow .2s ease;
+    box-shadow:var(--shadow-sm);
+    transition:background .15s ease, box-shadow .15s ease;
 }
 
 .toolbar button:hover{
-    transform:translateY(-2px);
-    box-shadow:0 10px 24px rgba(0,94,184,.32);
+    background:var(--nhs-dark);
+    box-shadow:var(--shadow-md);
 }
 
 .toolbar select{
     width:100%;
-    height:56px;
-    border:none;
-    border-radius:20px;
+    height:52px;
+    border:1px solid var(--line);
+    border-radius:10px;
     padding:0 16px;
     background:#fff;
-    color:#003087;
-    font-size:16px;
+    color:var(--ink);
+    font-size:15px;
     font-weight:600;
     text-align:center;
     appearance:none;
-    box-shadow:0 10px 24px rgba(0,0,0,.08);
+    box-shadow:var(--shadow-sm);
 }
 
 #prevWeek{ justify-self:end; }
@@ -166,19 +180,21 @@ body{
 }
 
 .day-tab{
-    border:none;
-    background:#e7edf6;
-    color:#555;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink-soft);
     border-radius:999px;
-    padding:10px 0;
+    padding:9px 0;
     width:100%;
     cursor:pointer;
-    font-weight:600;
-    transition:.25s;
+    font-weight:700;
+    font-size:13.5px;
+    transition:.15s;
 }
 
 .day-tab.active{
     background:var(--nhs-blue);
+    border-color:var(--nhs-blue);
     color:white;
 }
 
@@ -201,7 +217,7 @@ body{
 }
 
 #error{
-    color:#c62828;
+    color:var(--oncall);
     font-weight:600;
 }
 
@@ -221,21 +237,22 @@ main{
 
 .day-heading{
     margin:0;
-    font-size:34px;
+    font-size:26px;
     font-weight:700;
-    letter-spacing:-2px;
-    line-height:1;
+    letter-spacing:-.01em;
+    line-height:1.2;
     text-align:center;
-    color:var(--nhs-blue);
+    /* No explicit colour - inherits from body, which dark mode
+       overrides. Keeps this legible without a separate dark rule. */
 }
 
 .day-date{
     text-align:center;
-    color:#005EB8;
-    font-size:18px;
-    margin-top:6px;
+    color:var(--ink-soft);
+    font-size:15px;
+    margin-top:4px;
     margin-bottom:16px;
-    font-weight:500;
+    font-weight:600;
 }
 
 /* The Full Week View button sits directly under the day header with a
@@ -267,29 +284,30 @@ main{
 }
 
 .card{
-    background:#ffffff;
-    border-radius:22px;
+    background:var(--surface);
+    border-radius:var(--radius);
     overflow:hidden;
-    box-shadow:0 10px 30px rgba(0,0,0,.10);
-    border:1px solid rgba(0,94,184,.08);
-    transition:transform .25s ease, box-shadow .25s ease;
+    box-shadow:var(--shadow-sm);
+    border:1px solid var(--line);
+    transition:transform .15s ease, box-shadow .15s ease;
 }
 
 .card:hover{
-    transform:translateY(-6px);
-    box-shadow:0 18px 36px rgba(0,0,0,.16);
+    transform:translateY(-2px);
+    box-shadow:var(--shadow-lift);
 }
 
 .card-header{
     color:#fff;
-    padding:8px 12px;
+    padding:8px 10px;
     font-weight:700;
-    font-size:20px;
+    font-size:14px;
+    letter-spacing:.04em;
     display:flex;
     align-items:center;
     justify-content:center;
     text-align:center;
-    min-height:64px;
+    min-height:40px;
 }
 
 .theatre1{ background:var(--theatre1); }
@@ -298,7 +316,7 @@ main{
 .theatre5{ background:var(--theatre5); }
 .cathlab{
     background:var(--cathlab);
-    font-size:18px;
+    font-size:13px;
 }
 .support{ background:var(--support); }
 .oncall{ background:var(--oncall); }
@@ -308,27 +326,31 @@ main{
 }
 
 .person{
-    font-size:16px;
+    font-size:15px;
     font-weight:600;
-    margin-bottom:10px;
+    margin-bottom:8px;
+    /* No explicit colour - inherits from .card-body, which dark
+       mode overrides. Keeps this legible without a separate dark rule. */
 }
 
 .info{
     margin-top:6px;
     line-height:1.6;
-    color:#444;
+    color:var(--ink-soft);
     text-align:center;
+    font-size:13.5px;
 }
 
 .from-home{
     display:inline-block;
     margin:10px 0;
-    padding:6px 12px;
-    background:#FFF4CC;
+    padding:4px 11px;
+    background:#FBF0E4;
     border-radius:999px;
-    font-size:14px;
+    font-size:12px;
     font-weight:700;
-    color:#8A6500;
+    letter-spacing:.03em;
+    color:#B45F00;
 }
 
 .oncall-body{
@@ -337,33 +359,36 @@ main{
 }
 
 .oncall-person{
-    font-size:20px;
+    font-size:17px;
     font-weight:700;
-    margin-bottom:16px;
+    margin-bottom:12px;
+    /* No explicit colour - inherits from .card-body, which dark
+       mode overrides. Keeps this legible without a separate dark rule. */
 }
 
 .oncall-anaesthetist{
-    font-size:16px;
+    font-size:14.5px;
     font-weight:600;
-    margin-top:16px;
+    margin-top:12px;
+    color:var(--ink-soft);
 }
 
 .oncall-header{
-    background:#b71c1c;
+    background:var(--oncall);
     color:#fff;
     text-align:center;
-    font-size:18px;
+    font-size:14px;
     font-weight:700;
-    letter-spacing:1px;
+    letter-spacing:.05em;
 }
 
 .support-header{
-    background:#2e7d32;
+    background:var(--support);
     color:#fff;
     text-align:center;
-    font-size:18px;
+    font-size:14px;
     font-weight:700;
-    letter-spacing:1px;
+    letter-spacing:.05em;
 }
 
 .theatre-card{
@@ -377,7 +402,7 @@ main{
 }
 
 .theatre-card .info{
-    font-size:13px;
+    font-size:12.5px;
 }
 
 .compact-card{
@@ -410,7 +435,7 @@ main{
 
 .dashboard-row .card-header{
     padding:8px;
-    font-size:16px;
+    font-size:13.5px;
 }
 
 .dashboard-row .card-body{
@@ -418,7 +443,7 @@ main{
 }
 
 .dashboard-row .oncall-person{
-    font-size:18px;
+    font-size:16px;
     margin-bottom:6px;
 }
 
@@ -431,9 +456,10 @@ main{
 
 .weekend-title{
     text-align:center;
-    font-size:20px;
+    font-size:16px;
     font-weight:700;
-    color:var(--nhs-blue);
+    letter-spacing:.03em;
+    color:var(--ink-soft);
     margin:18px 0 4px;
 }
 
@@ -443,9 +469,9 @@ main{
 .full-week-view{
     width:100% !important;
     margin-top:12px;
-    background:white;
-    border:2px solid var(--nhs-blue);
-    padding:6px !important;
+    background:#fff;
+    border:1px solid var(--line);
+    padding:12px !important;
     display:block !important;
     position:relative !important;
     z-index:9999 !important;
@@ -453,16 +479,24 @@ main{
     cursor:pointer !important;
     text-decoration:none;
     color:inherit;
+    transition:border-color .15s ease, box-shadow .15s ease;
+}
+
+.full-week-view:hover{
+    border-color:var(--nhs-blue);
+    box-shadow:var(--shadow-sm);
 }
 
 .full-week-view h3{
     color:var(--nhs-blue);
-    margin-bottom:6px;
+    font-size:14.5px;
+    font-weight:700;
+    margin-bottom:2px;
 }
 
 .full-week-view p{
-    color:#666;
-    font-size:11px !important;
+    color:var(--ink-soft);
+    font-size:12px !important;
 }
 
 /* ===========================
@@ -471,33 +505,51 @@ main{
 
 footer{
     margin-top:40px;
-    padding:20px 30px;
+    padding:16px 30px;
     background:#fff;
-    border-top:1px solid var(--border);
+    border-top:1px solid var(--line);
     display:flex;
     justify-content:space-between;
+    align-items:center;
     flex-wrap:wrap;
     gap:12px;
-    font-size:14px;
+    font-size:13px;
+    color:var(--ink-soft);
+}
+
+.live-indicator{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    font-weight:700;
+    color:#1B7A3D;
+}
+
+.live-indicator::before{
+    content:"";
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#1B7A3D;
 }
 
 #refreshAppBtn{
-    width:40px;
-    height:40px;
-    border:none;
+    width:36px;
+    height:36px;
+    border:1px solid var(--line);
     border-radius:50%;
-    background:#005EB8;
-    color:#fff;
-    font-size:20px;
+    background:#fff;
+    color:var(--nhs-blue);
+    font-size:16px;
     cursor:pointer;
     display:flex;
     align-items:center;
     justify-content:center;
-    transition:transform .3s ease, background .2s ease;
+    transition:transform .3s ease, border-color .2s ease;
 }
 
 #refreshAppBtn:hover{
-    background:#004a93;
+    border-color:var(--nhs-blue);
 }
 
 #refreshAppBtn:active{
@@ -511,7 +563,7 @@ footer{
 #splash-screen{
     position:fixed;
     inset:0;
-    background:#005EB8;
+    background:var(--nhs-dark);
     display:flex;
     align-items:center;
     justify-content:center;
@@ -531,31 +583,34 @@ footer{
 }
 
 .splash-logo{
-    width:140px;
-    height:140px;
-    border-radius:28px;
-    margin-bottom:25px;
+    width:100px;
+    height:100px;
+    border-radius:16px;
+    margin-bottom:22px;
+    background:#fff;
 }
 
 .splash-content h1{
     margin:0;
-    font-size:2rem;
+    font-size:1.5rem;
+    font-weight:700;
 }
 
 .splash-content p{
-    opacity:.9;
+    opacity:.85;
     margin:8px 0;
+    font-size:14px;
 }
 
 .loader{
-    margin:30px auto 15px;
+    margin:26px auto 15px;
 }
 
 .loader span{
     display:inline-block;
-    width:12px;
-    height:12px;
-    margin:0 5px;
+    width:9px;
+    height:9px;
+    margin:0 4px;
     border-radius:50%;
     background:white;
     animation:pulse 1.2s infinite ease-in-out;
@@ -615,37 +670,37 @@ footer{
 
 .update-card{
     background:white;
-    border-radius:18px;
+    border-radius:var(--radius);
     overflow:hidden;
-    box-shadow:0 12px 35px rgba(0,0,0,.25);
-    border:2px solid #005EB8;
+    box-shadow:var(--shadow-lift);
+    border:1px solid var(--line);
 }
 
 .update-title{
-    background:#005EB8;
+    background:var(--nhs-dark);
     color:white;
-    font-size:18px;
+    font-size:15px;
     font-weight:700;
-    padding:14px 18px;
+    padding:12px 16px;
 }
 
 .update-text{
-    padding:18px;
-    font-size:16px;
-    color:#333;
+    padding:16px;
+    font-size:14px;
+    color:var(--ink-soft);
     line-height:1.5;
 }
 
 #refreshApp{
     display:block;
-    width:calc(100% - 36px);
-    margin:0 18px 18px;
-    height:48px;
+    width:calc(100% - 32px);
+    margin:0 16px 16px;
+    height:44px;
     border:none;
-    border-radius:12px;
-    background:#005EB8;
+    border-radius:10px;
+    background:var(--nhs-blue);
     color:white;
-    font-size:17px;
+    font-size:15px;
     font-weight:700;
     cursor:pointer;
 }
@@ -666,9 +721,9 @@ footer{
 
     .toolbar button{
         flex:none;
-        width:56px;
-        min-width:56px;
-        max-width:56px;
+        width:52px;
+        min-width:52px;
+        max-width:52px;
     }
 
     .day-tabs{
@@ -724,7 +779,7 @@ footer{
 
     .from-home{
         display:inline-block;
-        background:#2e7d32;
+        background:#37464F;
         color:#fff;
         padding:8px 16px;
         border-radius:999px;
