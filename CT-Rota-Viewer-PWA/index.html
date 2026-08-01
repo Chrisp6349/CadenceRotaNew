@@ -1,0 +1,361 @@
+<!-- =====================================================
+     Cardiothoracic Theatre Viewer
+     (version number lives in version.js - the footer and
+      the service worker cache both read it from there)
+     ===================================================== -->
+
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Cardiac Theatre Dashboard</title>
+<meta name="theme-color" content="#005EB8">
+
+<link rel="stylesheet" href="styles.css">
+     <link rel="stylesheet" href="clinical.css">
+<link rel="stylesheet" href="features.css">
+     <link rel="stylesheet" href="insights.css">
+<link rel="manifest" href="manifest.json">
+
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+<meta name="apple-mobile-web-app-title" content="CT Dashboard">
+<script>
+/* Apply saved dark-mode preference before first paint */
+if (localStorage.getItem("theme") === "dark") {
+    document.documentElement.dataset.theme = "dark";
+}
+</script>
+</head>
+
+
+<body class="loading">
+     <div id="splash-screen">
+
+    <div class="splash-content">
+
+       <img src="icons/icon-512.png"
+     alt="Cardiac Theatre Dashboard"
+     class="splash-logo">
+
+        <h1>Cardiac Theatre Dashboard</h1>
+
+        <p>Derriford Hospital, Plymouth</p>
+
+        <svg class="splash-ecg" viewBox="0 0 240 44" aria-hidden="true">
+            <path d="M0 22 H60 L70 22 76 8 84 36 92 14 98 22 H140 L150 22 156 10 164 34 172 16 178 22 H240"/>
+        </svg>
+
+        <div class="loader">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+
+        <p class="loading-text">
+            Loading latest published rota...
+        </p>
+
+    </div>
+
+</div>
+<header class="hero-header">
+
+    <div class="hero-banner">
+
+       <div class="hero-left">
+
+    <h1>
+        🫀 Cardiac Theatre<br>
+        Dashboard
+    </h1>
+
+    <p class="hero-subtitle">
+        University Hospitals Plymouth NHS Trust
+    </p>
+
+</div>
+<div class="hero-right">
+
+    <img
+                src="icons/icon-512.png"
+
+        alt="Cardiac Theatres Logo"
+        class="hero-logo">
+
+</div>
+
+    </div><!-- /.hero-banner -->
+
+</header>
+<nav class="toolbar">
+
+    <button id="prevWeek" class="nav-arrow">◀</button>
+
+    <div class="week-picker">
+
+        <select id="weekSelect">
+            <option>Loading...</option>
+        </select>
+
+    </div>
+
+    <button id="nextWeek" class="nav-arrow">▶</button>
+
+</nav>
+<div class="day-tabs">
+
+    <button class="day-tab active" data-day="Monday">Mon</button>
+    <button class="day-tab" data-day="Tuesday">Tue</button>
+    <button class="day-tab" data-day="Wednesday">Wed</button>
+    <button class="day-tab" data-day="Thursday">Thu</button>
+    <button class="day-tab" data-day="Friday">Fri</button>
+   <button class="day-tab" data-day="Saturday">Sat/Sun</button>
+
+</div>
+<div id="onCallNowMount"></div>
+
+<div class="feature-row">
+    <button id="myWeekBtn" class="feature-btn" onclick="MyWeek.open()">⭐ My Week</button>
+
+    <button id="insightsBtn" class="feature-btn">
+        🧠 Insights
+    </button>
+
+    <a class="feature-btn" href="tv.html">📺 Wall Board</a>
+
+        <button class="feature-btn" onclick="goToCalendar()">
+        📅 On Call Calendar
+    </button>
+
+    <a class="feature-btn" href="staff.html">📊 Staff Stats</a>
+
+    <button id="themeBtn" class="feature-btn" onclick="toggleTheme()">
+
+        🌓 Dark Mode
+    </button>
+</div>
+
+
+
+<!-- ===============================
+     Insights Panel
+     (sits outside statusBar - it's an overlay, not status text)
+================================ -->
+
+<div id="insightsOverlay" class="hidden"></div>
+
+<section id="insightsPanel" class="hidden">
+
+
+    <div class="drag-handle"></div>
+
+    <div class="insights-header">
+
+        <h2>🧠 Theatre Intelligence</h2>
+
+        <p id="insightsGreeting">
+            Good afternoon — here's what stood out this week.
+        </p>
+
+    </div>
+
+    <div class="insight-card">
+
+        <div class="insight-icon">🧠</div>
+
+        <h3 id="insightTitle">Loading...</h3>
+
+        <div id="snapshotGrid" class="snapshot-grid hidden">
+
+            <div class="snapshot-item">
+                <span class="snapshot-number" id="statSessions">0</span>
+                <span class="snapshot-label">🏥 Sessions</span>
+            </div>
+
+            <div class="snapshot-item">
+                <span class="snapshot-number" id="statODPs">0</span>
+                <span class="snapshot-label">👥 ODPs</span>
+            </div>
+
+            <div class="snapshot-item">
+                <span class="snapshot-number" id="statOnCalls">0</span>
+                <span class="snapshot-label">🚨 On Calls</span>
+            </div>
+
+            <div class="snapshot-item">
+                <span class="snapshot-number" id="statBusy">-</span>
+                <span class="snapshot-label">⭐ Busiest</span>
+            </div>
+
+        </div>
+
+        <p id="insightText"></p>
+
+    </div>
+
+   <div class="insights-footer">
+
+    <button id="prevInsightBtn" class="insight-nav">
+        ◀
+    </button>
+
+    <div id="insightDots" class="insight-dots">
+        <span class="dot active"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+    </div>
+
+    <button id="nextInsightBtn" class="insight-nav">
+        ▶
+    </button>
+
+</div>
+</section>
+
+</section>
+
+<section id="statusBar">
+
+    <div id="loading" class="hidden">
+        🫀 Loading Published Rota...
+    </div>
+
+    <div id="error" class="hidden">
+        Unable to load rota.
+    </div>
+
+</section>
+
+
+
+<main id="rotaContainer">
+
+</main>
+
+
+<footer>
+
+    <span class="live-indicator">🟢 LIVE</span>
+
+    <span id="appVersion">
+        Cardiac Theatre Dashboard
+    </span>
+
+    <button id="refreshAppBtn" title="Refresh Dashboard">
+        🔄
+    </button>
+
+</footer>
+<script src="version.js"></script>
+<script src="config.js"></script>
+<script src="api.js"></script>
+<script src="viewer-utils.js"></script>
+<script src="viewer.js"></script>
+<script src="print.js"></script>
+<script src="oncall-now.js"></script>
+<script src="myweek.js"></script>
+<script src="insights.js"></script>
+     <script>
+/* Dark mode toggle - preference stored per device */
+function goToCalendar() {
+    // Remember the week and day on screen so returning restores them
+    // (same mechanism as the Full Week View button)
+    if (window.__currentWeek) sessionStorage.setItem("viewerWeek", window.__currentWeek);
+    sessionStorage.setItem("viewerDay", window.selectedDay || "Monday");
+    location.href = "calendar.html";
+}
+     function toggleTheme() {
+    const dark = document.documentElement.dataset.theme === "dark";
+    if (dark) {
+        delete document.documentElement.dataset.theme;
+        localStorage.removeItem("theme");
+    } else {
+        document.documentElement.dataset.theme = "dark";
+        localStorage.setItem("theme", "dark");
+    }
+}
+</script>
+<script src="app.js"></script>
+<script>
+document.getElementById("appVersion").textContent =
+   `Cardiac Theatre Dashboard v${window.APP_VERSION}`;
+</script>
+    <script>
+if ("serviceWorker" in navigator) {
+    // When a new service worker takes control, reload once automatically
+    // so the page is never shown in a half-updated state (which briefly
+    // left the week box saying "Loading" after a version change).
+    let __reloadedForUpdate = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (__reloadedForUpdate) return;
+        __reloadedForUpdate = true;
+        window.location.reload();
+    });
+
+
+    window.addEventListener("load", async () => {
+
+        try {
+
+           const registration =
+    await navigator.serviceWorker.register("./service-worker.js");
+
+// Force the browser to check for a newer service worker
+await registration.update();
+            function checkForWaitingWorker() {
+
+                if (registration.waiting) {
+
+                    if (window.UpdateUI) {
+                        UpdateUI.show();
+                    }
+
+                }
+
+            }
+
+            checkForWaitingWorker();
+
+            registration.addEventListener("updatefound", () => {
+
+                const newWorker = registration.installing;
+
+                if (!newWorker) return;
+
+                newWorker.addEventListener("statechange", () => {
+
+                    if (
+                        newWorker.state === "installed" &&
+                        navigator.serviceWorker.controller
+                    ) {
+
+                        checkForWaitingWorker();
+
+                    }
+
+                });
+
+            });
+
+        } catch (err) {
+
+            console.error("Service Worker registration failed:", err);
+
+        }
+
+    });
+
+}
+</script>
+
+</body>
+</html>
