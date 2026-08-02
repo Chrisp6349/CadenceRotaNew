@@ -75,6 +75,21 @@ export function splitStaff(staffList) {
   };
 }
 
+// Maps each anaesthetist's CADEX initials (set in Staff Admin, e.g. "PJ")
+// to their full Cadence name — used to resolve CADEX-imported consultant
+// data (The Atrium identifies anaesthetists by initials; Cadence's rota
+// dropdown uses full names) to the right person automatically instead of
+// just showing raw initials. Matching is case-insensitive; if two
+// anaesthetists share the same initials, whichever was read last wins —
+// admin.js warns on save if that would happen.
+export function buildAnaesthetistInitialsMap(staffList) {
+  const map = {};
+  staffList
+    .filter(s => s.type === "anaesthetist" && s.initials)
+    .forEach(s => { map[s.initials.trim().toUpperCase()] = s.name; });
+  return map;
+}
+
 // ---- Audit log ------------------------------------------------------------
 export async function listRecentAuditLog(deptId, count = 20) {
   const q = query(collection(db, "departments", deptId, "auditLog"), orderBy("timestamp", "desc"), limit(count));

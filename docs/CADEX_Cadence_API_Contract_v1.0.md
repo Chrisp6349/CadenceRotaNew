@@ -212,10 +212,27 @@ falling back to `cl` if `ct3` is blank that day).
 
 ---
 
-## 7. Open items for Craig
+## 7. Consultant initials — now matched automatically on Cadence's side
+
+Cadence resolves whatever string arrives in `ct1`–`ct5`/`cl`/`onCall`/`cicu`
+against each anaesthetist's own "CADEX initials" set in Cadence's Staff
+Admin (case-insensitive). A match applies the anaesthetist's full Cadence
+name to the rota automatically; no match falls back to showing the raw
+string with a "no match" warning rather than guessing.
+
+This means **the exact initials convention matters**: whatever short code
+The Atrium sends for a consultant needs to be entered as that same
+person's "CADEX initials" in Cadence, or the match won't happen. Two-
+letter capitals (e.g. "PJ") is what Cadence's placeholder text assumes,
+matching the format already shown in the proposal's example payload —
+but Cadence treats it as an opaque string either way, so any consistent
+short code works as long as both sides agree on it per consultant.
+
+## 8. Open items for Craig
 
 1. Confirm the exact strings The Atrium will send for `ct1`–`ct5`/`cl`
-   (initials? full names?) — Cadence stores whatever arrives verbatim.
+   (initials? full names?) so Cadence's admins can enter matching CADEX
+   initials for each anaesthetist — see section 7.
 2. Confirm whether The Atrium can serve historical/future weeks via
    `?week=`, or only the current week.
 3. Agree the two API keys and each side's base URL once both are ready

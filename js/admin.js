@@ -42,9 +42,13 @@ const DEFAULT_LIST_OPTIONS = ["ROUTINE", "EMERGENCY", "URGENT"];
 // banding existed) is also still merged in, so nobody already added
 // disappears — they just won't have a band until re-added/edited under
 // one of the three boxes below.
+// `hasInitials`: anaesthetists only — the initials The Atrium identifies
+// them by (e.g. "PJ"), used to auto-resolve CADEX-imported consultant
+// data to the right person. See buildAnaesthetistInitialsMap() in
+// department.js.
 const STAFF_TYPES = [
   { type: "odp",          label: "ODPs",             singular: "ODP",          hasRotaName: true },
-  { type: "anaesthetist", label: "Anaesthetists",    singular: "Anaesthetist", hasRotaName: false },
+  { type: "anaesthetist", label: "Anaesthetists",    singular: "Anaesthetist", hasRotaName: false, hasInitials: true },
   { type: "nurse_band5",  label: "Band 5 Nurses",     singular: "Band 5 Nurse", hasRotaName: true },
   { type: "nurse_band6",  label: "Band 6 Nurses",     singular: "Band 6 Nurse", hasRotaName: true },
   { type: "nurse_aptap",  label: "Band 4 AP/TAP",     singular: "AP/TAP",       hasRotaName: true },
@@ -190,6 +194,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
         <form id="staffForm_${st.type}" class="inline-form">
           <input type="text" id="staffName_${st.type}" placeholder="Full name" required>
           ${st.hasRotaName ? `<input type="text" id="staffRotaName_${st.type}" placeholder="How it shows on the rota, e.g. Chris (optional)">` : ""}
+          ${st.hasInitials ? `<input type="text" id="staffInitials_${st.type}" placeholder="CADEX initials, e.g. PJ (optional)" maxlength="6" style="text-transform:uppercase;width:100px;">` : ""}
           <button class="btn btn-primary btn-sm" type="submit">Add ${st.singular}</button>
         </form>
         <div class="section-list-head">
@@ -335,6 +340,19 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
     if (!staffCache) staffCache = await listStaff(deptId);
     return staffCache;
   }
+
+  // Two anaesthetists sharing the same CADEX initials would mean a CADEX
+  // import can't tell them apart (buildAnaesthetistInitialsMap() in
+  // department.js just lets the last one win) — a soft warning here,
+  // not a hard block, since it's still fine to save if that's genuinely
+  // what they want to happen for now.
+  async function warnIfDuplicateInitials(initials, excludeId) {
+    if (!initials) return true;
+    const clash = (await getAllStaff()).find(s =>
+      s.type === "anaesthetist" && s.id !== excludeId && (s.initials || "").trim().toUpperCase() === initials);
+    if (!clash) return true;
+    return confirm(`${clash.name} already uses the CADEX initials "${initials}" — a CADEX import won't be able to tell them apart. Save anyway?`);
+  }
   STAFF_TYPES.forEach(st => {
     const listEl = container.querySelector(`#staffList_${st.type}`);
     const countEl = container.querySelector(`#staffCount_${st.type}`);
@@ -352,7 +370,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
         row.className = "admin-row";
 
         function renderView() {
-          row.innerHTML = `<span>${s.name}${s.rotaName ? ` <span class="tag-mini">shows as: ${s.rotaName}</span>` : ""}</span>
+          row.innerHTML = `<span>${s.name}${s.rotaName ? ` <span class="tag-mini">shows as: ${s.rotaName}</span>` : ""}${s.initials ? ` <span class="tag-mini">CADEX: ${s.initials}</span>` : ""}</span>
             <span style="display:flex;gap:6px;flex-shrink:0;">
               <button class="btn btn-ghost btn-sm" data-edit="${s.id}">Edit</button>
               <button class="btn btn-ghost btn-sm" data-remove="${s.id}">Remove</button>
@@ -378,6 +396,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
           row.innerHTML = `
             <input type="text" class="edit-name" value="${s.name}" placeholder="Full name" style="flex:1;min-width:120px;">
             ${st.hasRotaName ? `<input type="text" class="edit-rotaname" value="${s.rotaName || ""}" placeholder="How it shows on the rota" style="flex:1;min-width:120px;">` : ""}
+            ${st.hasInitials ? `<input type="text" class="edit-initials" value="${s.initials || ""}" placeholder="CADEX initials" style="width:90px;text-transform:uppercase;">` : ""}
             <span style="display:flex;gap:6px;flex-shrink:0;">
               <button class="btn btn-primary btn-sm" data-save="${s.id}">Save</button>
               <button class="btn btn-ghost btn-sm" data-cancel="${s.id}">Cancel</button>
@@ -387,9 +406,13 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
             if (!newName) return;
             const rotaNameInput = row.querySelector(".edit-rotaname");
             const newRotaName = rotaNameInput ? rotaNameInput.value.trim() : "";
-            await saveStaff(deptId, s.id, { name: newName, type: st.type, rotaName: newRotaName });
+            const initialsInput = row.querySelector(".edit-initials");
+            const newInitials = initialsInput ? initialsInput.value.trim().toUpperCase() : "";
+            if (!(await warnIfDuplicateInitials(newInitials, s.id))) return;
+            await saveStaff(deptId, s.id, { name: newName, type: st.type, rotaName: newRotaName, initials: newInitials });
             s.name = newName;
             s.rotaName = newRotaName;
+            s.initials = newInitials;
             renderView();
             applyFilter(filterEl, listEl);
           });
@@ -411,9 +434,13 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       if (!name) return;
       const rotaNameInput = st.hasRotaName ? container.querySelector(`#staffRotaName_${st.type}`) : null;
       const rotaName = rotaNameInput ? rotaNameInput.value.trim() : "";
-           await saveStaff(deptId, slugId(name), { name, type: st.type, rotaName });
+      const initialsInput = st.hasInitials ? container.querySelector(`#staffInitials_${st.type}`) : null;
+      const initials = initialsInput ? initialsInput.value.trim().toUpperCase() : "";
+      if (!(await warnIfDuplicateInitials(initials, null))) return;
+      await saveStaff(deptId, slugId(name), { name, type: st.type, rotaName, initials });
       nameInput.value = "";
       if (rotaNameInput) rotaNameInput.value = "";
+      if (initialsInput) initialsInput.value = "";
       staffCache = null;
       refresh();
 

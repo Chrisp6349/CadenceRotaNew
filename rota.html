@@ -56,6 +56,7 @@
     background:var(--ink-100);padding:2px 6px;border-radius:4px;margin-top:2px;flex-wrap:wrap;}
   .cadex-badge.cadex-match{color:var(--teal-700);background:var(--teal-100);}
   .cadex-badge.cadex-readonly{color:var(--ink-500);}
+  .cadex-badge.cadex-unmatched{color:var(--status-turnover);background:var(--status-turnover-bg);}
   .cadex-apply{font-family:var(--font-body);font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid var(--teal-700);
     background:var(--surface);color:var(--teal-700);cursor:pointer;}
   .cadex-apply:hover{background:var(--teal-100);}
@@ -111,7 +112,7 @@
   import { requireSession, blockBoardOnly } from "./js/auth.js";
 
   import { renderShell } from "./js/shell.js";
-  import { getDepartment, listTheatres, listStaff, splitStaff } from "./js/department.js";
+  import { getDepartment, listTheatres, listStaff, splitStaff, buildAnaesthetistInitialsMap } from "./js/department.js";
   import { loadWeek, saveWeek, mondayOfCurrentWeek, renderGrid, attachChangeHandlers } from "./js/rota.js";
   import { getCadexImports } from "./js/cadex.js";
   import { applyTheme } from "./js/theme.js";
@@ -180,6 +181,7 @@
    const theatres = await theatresPromise;
   const staffList = await staffListPromise;
   const staff = splitStaff(staffList);
+  const anaesInitials = buildAnaesthetistInitialsMap(staffList);
 
   const weekInput = document.getElementById("weekDate");
   const thisWeekBtn = document.getElementById("thisWeekBtn");
@@ -249,7 +251,7 @@
     }
 
     const { weekdayHtml, weekendHtml } = renderGrid({
-      weekStart: weekInput.value, dept, theatres, staff, rota, editable: showEditable, cadex: cadexDays
+      weekStart: weekInput.value, dept, theatres, staff, rota, editable: showEditable, cadex: cadexDays, anaesInitials
     });
     document.getElementById("weekdayGrid").innerHTML = weekdayHtml;
     document.getElementById("weekendGrid").innerHTML = weekendHtml;

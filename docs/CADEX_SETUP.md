@@ -59,3 +59,15 @@ consultant names show up as a small "CADEX: …" badge next to the
 relevant field, with an **Apply** button, so a person always has to
 confirm before it overwrites anything (see guiding principle 9 in the
 proposal).
+
+## Matching The Atrium's initials to a Cadence anaesthetist
+
+The Atrium identifies consultants by initials (e.g. "PJ"); Cadence's own
+anaesthetist dropdowns use full names. For a CADEX badge to resolve to
+the right person automatically (rather than just showing raw initials),
+each anaesthetist needs their initials set in **Administration → Staff →
+Anaesthetists** (a "CADEX initials" field alongside their name). Until
+that's filled in, the badge shows "CADEX: PJ (no match)" in amber and
+Apply will store the raw initials as free text instead of the matched
+name. `department.js`'s `buildAnaesthetistInitialsMap()` does the
+lookup; `js/rota.js`'s `resolveCadexAnaesthetist()` uses it.

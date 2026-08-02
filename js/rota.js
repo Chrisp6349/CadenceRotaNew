@@ -126,28 +126,46 @@ export async function saveWeek(deptId, weekStart, data, publish, uid, theatres =
   });
 }
 
+// The Atrium identifies consultants by initials (e.g. "PJ"); Cadence's
+// own anaesthetist dropdowns use full names. Resolves one against the
+// anaesInitials map built from Staff Admin (department.js's
+// buildAnaesthetistInitialsMap()) so a CADEX import can select the right
+// person automatically instead of just showing raw initials. No match
+// found — the initials aren't set up in Staff yet, or it's a locum with
+// no Cadence record at all — falls back to the raw initials as-is.
+function resolveCadexAnaesthetist(raw, anaesInitials) {
+  const resolved = anaesInitials[raw.trim().toUpperCase()];
+  return { value: resolved || raw, matched: !!resolved };
+}
+
 // A CADEX-imported value that hasn't been applied to the local field yet
 // shows as a small badge with an Apply button (editors/admins only) —
 // never written into `rota` automatically, so an import can never
 // silently overwrite something a person already typed in (see the CADEX
 // proposal, guiding principle 9). Once applied, or once the local value
 // already matches what The Atrium sent, the badge just confirms a match.
-function cadexBadge(fkey, importedVal, currentVal, editable) {
-  if (!importedVal) return "";
-  if (importedVal === currentVal) {
+function cadexBadge(fkey, importedRaw, currentVal, editable, anaesInitials) {
+  if (!importedRaw) return "";
+  const { value: applyValue, matched } = resolveCadexAnaesthetist(importedRaw, anaesInitials);
+  if (applyValue === currentVal) {
     return `<span class="cadex-badge cadex-match" title="Matches The Atrium">CADEX ✓</span>`;
   }
   const applyBtn = editable
-    ? `<button type="button" class="cadex-apply" data-apply-key="${fkey}" data-apply-value="${importedVal}">Apply</button>`
+    ? `<button type="button" class="cadex-apply" data-apply-key="${fkey}" data-apply-value="${applyValue}">Apply</button>`
     : "";
-  return `<span class="cadex-badge" title="Imported from The Atrium, not yet applied here">CADEX: ${importedVal}${applyBtn}</span>`;
+  if (!matched) {
+    return `<span class="cadex-badge cadex-unmatched" title="No anaesthetist in Staff has the CADEX initials &quot;${importedRaw}&quot; — add them in Administration, or Apply to store the initials as-is">CADEX: ${importedRaw} (no match)${applyBtn}</span>`;
+  }
+  return `<span class="cadex-badge" title="Imported from The Atrium, not yet applied here">CADEX: ${applyValue}${applyBtn}</span>`;
 }
 
 // CICU has no equivalent field in Cadence's own rota — it's purely a
 // read-only import from The Atrium, shown alongside on-call info rather
 // than tied to any editable box.
-function cicuReadout(cicuVal) {
-  return cicuVal ? `<span class="cadex-badge cadex-readonly" title="CICU consultant, from The Atrium">CICU (CADEX): ${cicuVal}</span>` : "";
+function cicuReadout(cicuVal, anaesInitials) {
+  if (!cicuVal) return "";
+  const { value } = resolveCadexAnaesthetist(cicuVal, anaesInitials);
+  return `<span class="cadex-badge cadex-readonly" title="CICU consultant, from The Atrium">CICU (CADEX): ${value}</span>`;
 }
 
 // ---- Grid rendering --------------------------------------------------------
@@ -160,7 +178,10 @@ function cicuReadout(cicuVal) {
 //            { monday: { "Theatre 1": "PJ", "On Call": "NM", "CICU": "VR" }, ... }
 //            (see functions/cadex-mapping.js mapAtriumConsultants()) — omit
 //            or pass null/undefined when there's no import yet.
-export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, onChange, cadex }) {
+// `anaesInitials` = optional { "PJ": "Mr P Jones", ... } map (see
+//            department.js's buildAnaesthetistInitialsMap()), used to
+//            resolve `cadex`'s raw initials to a full Cadence name.
+export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, onChange, cadex, anaesInitials = {} }) {
   function used(day) {
     let o = [], a = [];
     Object.entries(rota).forEach(([k, v]) => {
@@ -234,7 +255,7 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     return field(day, `${theatreId}_odp1`, staff.odps, "odp", true, "ODP")
       + field(day, `${theatreId}_odp2`, staff.odps, "odp", true, "ODP")
       + field(day, anaesKey, staff.anaesthetists, "anaes", true, "Anaesthetist")
-      + cadexBadge(fkey, imported, rota[fkey], editable)
+      + cadexBadge(fkey, imported, rota[fkey], editable, anaesInitials)
       + field(day, `${theatreId}_list`, dept.listOptions || [], "list", false, "List type");
   }
 
@@ -254,8 +275,8 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
         ${homeCheckbox(d)}
         ${field(d, "oncall_extra", dept.extraOnCall || ["", "EXTRA O/C"], "list", false, "Extra on-call")}
         ${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}
-        ${cadexBadge(onCallAnaesKey, dayCadex(d)["On Call"], rota[onCallAnaesKey], editable)}
-        ${cicuReadout(dayCadex(d)["CICU"])}
+        ${cadexBadge(onCallAnaesKey, dayCadex(d)["On Call"], rota[onCallAnaesKey], editable, anaesInitials)}
+        ${cicuReadout(dayCadex(d)["CICU"], anaesInitials)}
       </td></tr>`;
   });
   h += "</table>";
@@ -268,11 +289,11 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
       <td>${field(d, "oncall_odp1", staff.odps, "odp", false, "ODP")}${field(d, "oncall_session1", ["ALL DAY","AM","PM"], "list", false, "Session")}<br>
           ${field(d, "oncall_odp2", staff.odps, "odp", false, "ODP")}${field(d, "oncall_session2", ["ALL DAY","AM","PM"], "list", false, "Session")}</td>
       <td>${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}
-        ${cadexBadge(onCallAnaesKey, dayCadex(d)["On Call"], rota[onCallAnaesKey], editable)}
-        ${cicuReadout(dayCadex(d)["CICU"])}
+        ${cadexBadge(onCallAnaesKey, dayCadex(d)["On Call"], rota[onCallAnaesKey], editable, anaesInitials)}
+        ${cicuReadout(dayCadex(d)["CICU"], anaesInitials)}
       </td>
       <td>${field(d, "wl_odp", staff.odps, "odp", false, "ODP")}${field(d, "wl_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}
-        ${cadexBadge(wlAnaesKey, dayCadex(d)["Waiting List"], rota[wlAnaesKey], editable)}
+        ${cadexBadge(wlAnaesKey, dayCadex(d)["Waiting List"], rota[wlAnaesKey], editable, anaesInitials)}
       </td>
     </tr>`;
   });
