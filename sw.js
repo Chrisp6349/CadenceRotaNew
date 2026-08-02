@@ -46,6 +46,7 @@ const SHELL_FILES = [
   "./js/pwa.js",
   "./js/rota.js",
   "./js/shell.js",
+  "./js/theatre-history.js",
   "./js/theme.js",
   "./js/users.js",
   "./manifest.webmanifest",
