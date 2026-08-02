@@ -17,7 +17,7 @@
 // this shouldn't need a manual "clear site data" to take effect.
 // -----------------------------------------------------------------------
 
-const CACHE_VERSION = "v39";
+const CACHE_VERSION = "v40";
 const CACHE_NAME = `cadence-shell-${CACHE_VERSION}`;
 
 const SHELL_FILES = [
@@ -49,6 +49,7 @@ const SHELL_FILES = [
   "./js/theatre-history.js",
   "./js/theme.js",
   "./js/users.js",
+  "./js/vendor/qrcode.min.js",
   "./manifest.webmanifest",
   "./Cadence-User-Guide.pdf",
   "./icons/icon-192.png",

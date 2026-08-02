@@ -135,7 +135,20 @@
 
   /* Team Board — sized up a little from the dashboard version since
      this is read (and typed on) from a shared screen, not a phone. */
-  .cb-tb-card{margin-top:24px;}
+  .cb-tb-row{display:flex;gap:20px;align-items:flex-start;margin-top:24px;}
+  .cb-tb-card{margin-top:0;flex:1;min-width:0;}
+  /* The QR box always renders black-on-white regardless of the app's
+     own theme — a QR code needs strong contrast to scan reliably, not
+     whatever the current light/dark palette happens to be. */
+  .cb-qr-card{flex:0 0 200px;text-align:center;padding:18px 16px;}
+  .cb-qr-label{font-family:var(--font-mono);font-size:11px;color:var(--ink-500);text-transform:uppercase;
+    letter-spacing:.05em;margin-bottom:12px;}
+  .cb-qr-code{display:inline-block;background:#fff;padding:10px;border-radius:var(--r-sm);line-height:0;}
+  .cb-qr-sub{font-size:12px;color:var(--ink-500);margin-top:12px;line-height:1.4;}
+  @media (max-width:900px){
+    .cb-tb-row{flex-direction:column;}
+    .cb-qr-card{flex:1;}
+  }
   .tb-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
   .tb-title{font-family:var(--font-mono);font-size:11px;color:var(--ink-500);text-transform:uppercase;letter-spacing:.05em;}
   .tb-toggle{background:none;border:none;color:var(--teal-600);font-size:13px;font-weight:600;
@@ -162,6 +175,7 @@
 <body class="canvas-wash">
 <div id="boardRoot"></div>
 
+<script src="js/vendor/qrcode.min.js"></script>
 <script type="module">
   import { requireSession } from "./js/auth.js";
   import { getDepartment, listTheatres } from "./js/department.js";
@@ -385,8 +399,28 @@
       </div>
     </div>
     <div id="boardBody"></div>
-    <div class="cb-card cb-tb-card" id="teamBoardCard"></div>
+    <div class="cb-tb-row">
+      <div class="cb-card cb-tb-card" id="teamBoardCard"></div>
+      <div class="cb-card cb-qr-card">
+        <div class="cb-qr-label">Scan to view</div>
+        <div class="cb-qr-code" id="cbQrCode"></div>
+        <div class="cb-qr-sub">Sign in on your own phone to view the live rota</div>
+      </div>
+    </div>
   `;
+
+  // A shared, read-only login — anyone who scans this signs straight
+  // in on their own phone with no typing. Only worth doing for an
+  // account everyone's already meant to share; if that account's
+  // password ever changes, update it here too.
+  const QR_LOGIN_EMAIL = "cardiactheatre@nhs.net";
+  const QR_LOGIN_PASSWORD = "cardiac1234";
+  const qrLoginUrl = new URL("index.html", window.location.href);
+  qrLoginUrl.search = new URLSearchParams({ email: QR_LOGIN_EMAIL, password: QR_LOGIN_PASSWORD }).toString();
+  new QRCode(document.getElementById("cbQrCode"), {
+    text: qrLoginUrl.toString(), width: 140, height: 140,
+    colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M
+  });
 
   function tickClock() {
     const now = new Date();
