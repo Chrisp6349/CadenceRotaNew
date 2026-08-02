@@ -403,9 +403,16 @@
     headCoord.innerHTML = "";
 
     const historyEntry = todaysHistoryEntry(now);
+    // Genuine dated anniversaries say so, with the year; evergreen
+    // spotlights (no specific day) are labelled by their own type
+    // instead, so nothing is ever implied to have happened today that
+    // didn't.
+    const historyKicker = historyEntry
+      ? (historyEntry.type === "On This Day" ? `Today in cardiothoracic history · ${historyEntry.year}` : historyEntry.type)
+      : "";
     const historyHtml = historyEntry ? `
       <div class="th-card">
-        <div class="th-kicker">Today in cardiothoracic history · ${historyEntry.year}</div>
+        <div class="th-kicker">${historyKicker}</div>
         <div class="th-title">${historyEntry.title}</div>
         <div class="th-summary">${historyEntry.summary}</div>
       </div>` : "";

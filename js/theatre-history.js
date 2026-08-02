@@ -4,9 +4,23 @@
 // Theatre Board. Pilot batch: a first set of genuine, individually
 // researched and sourced anniversaries (not the full 365-day year yet).
 // Deliberately NOT auto-generated or invented — every entry below has a
-// verifiable date and at least one real source. Days without an entry
-// here just don't show the card (see loadTodayHistory()), rather than
-// showing a placeholder — that's better than guessing at history.
+// verifiable date and at least one real source.
+//
+// Two pools:
+//   ENTRIES    — genuine, dated "on this day" anniversaries (type: "On
+//                This Day"). Most days aren't covered yet.
+//   SPOTLIGHTS — undated, evergreen facts (a pioneer, an instrument, a
+//                procedure, a landmark paper) that are true regardless
+//                of the date, used to fill in the days ENTRIES doesn't
+//                cover yet, rather than showing nothing. Each is
+//                labelled by its own type (e.g. "Pioneer Spotlight") so
+//                it's never presented as having happened that day.
+//
+// todaysHistoryEntry() picks a dated entry when one exists for today;
+// otherwise it rotates through SPOTLIGHTS by day-of-year, so the same
+// spotlight shows all day (not on every reload) and the rotation moves
+// on tomorrow. With only a handful of spotlights so far, the same ones
+// will repeat well within a year — grow this pool as more get written.
 //
 // To add a future month's batch: append more objects to ENTRIES, each
 // keyed by "month" (1-12) and "day". Nothing else in this file, or in
@@ -68,6 +82,17 @@ export const ENTRIES = [
     didYouKnow: "Graham himself later became a heavy smoker and died of lung cancer in 1957, having spent his final years helping publicise the smoking-cancer link.",
     tags: ["Thoracic surgery", "Evarts Graham", "Pneumonectomy", "Lung cancer"],
     sources: ["JAMA", "The Journal of Thoracic and Cardiovascular Surgery"]
+  },
+  {
+    month: 5, day: 20, year: 1923,
+    type: "On This Day",
+    category: "Valve Surgery",
+    title: "The First Successful Valve Operation",
+    summary: "At Peter Bent Brigham Hospital in Boston, Elliott Cutler and Samuel Levine treated a 12-year-old girl with severe mitral stenosis by passing a tenotomy knife into the heart to widen the narrowed valve — the first surgical treatment of valvular heart disease to succeed. The patient lived for several more years. Cutler's technique cut in a fixed direction and proved hard to reproduce safely; it fell out of use within a few years as more surgeons attempting it lost patients.",
+    whyItMatters: "It was 25 years before Bailey and Harken's safer commissurotomy technique (see 10 June) made mitral valve surgery reliable — but Cutler and Levine were the first to prove a diseased valve could be operated on and survived at all.",
+    didYouKnow: "The patient, whose name went unrecorded at the time per the customs of the era, is now known to have been a girl named Bessie Bolden.",
+    tags: ["Valve surgery", "Elliott Cutler", "Samuel Levine", "Mitral stenosis"],
+    sources: ["The Annals of Thoracic Surgery — \"Our Surgical Heritage\"", "Brigham and Women's Hospital"]
   },
   {
     month: 5, day: 6, year: 1953,
@@ -225,13 +250,86 @@ export const ENTRIES = [
   }
 ];
 
+// Undated, evergreen facts — true on any day, so never claim "on this
+// day". Used to fill in the days ENTRIES doesn't cover yet.
+export const SPOTLIGHTS = [
+  {
+    type: "Innovation Spotlight",
+    category: "Perfusion",
+    title: "Stopping the Heart on Purpose",
+    summary: "In 1955, British surgeon Denis Melrose introduced one of the first practical ways to deliberately and reversibly stop the heart during surgery: a potassium citrate solution injected into the aortic root, arresting the heart within seconds. It gave surgeons a still, bloodless field to work in rather than operating on a beating heart. Reports of muscle damage from the concentration used saw Melrose's original solution abandoned by the early 1960s, but the underlying idea — cardioplegia — was too useful to leave behind.",
+    whyItMatters: "Modern cardioplegia solutions, refined many times over since Melrose's first attempt, are still infused at the start of nearly every open-heart operation performed today.",
+    didYouKnow: "The problem turned out to be concentration, not concept — later research showed a more dilute potassium solution achieves the same arrest without the muscle damage Melrose's version caused.",
+    tags: ["Perfusion", "Cardioplegia", "Denis Melrose"],
+    sources: ["The Journal of Thoracic and Cardiovascular Surgery", "PubMed"]
+  },
+  {
+    type: "Innovation Spotlight",
+    category: "Anaesthesia",
+    title: "Isolating a Lung to Operate on It",
+    summary: "Before 1949, keeping one lung still during thoracic surgery — to stop blood or secretions spilling into the other side — was difficult and unreliable. Swedish physician Eric Carlens introduced a double-lumen tube that year, originally to measure each lung's function separately, with a small hook to help position it using nothing more than a laryngoscope. Surgeons quickly realised the same tube let them ventilate one lung while the other stayed collapsed and controlled.",
+    whyItMatters: "One-lung ventilation with a double-lumen tube is still the standard anaesthetic technique for most thoracic surgery today, letting the operative lung stay deflated while the other keeps the patient oxygenated.",
+    didYouKnow: "Carlens never intended his tube for anaesthesia at all — it was designed purely as a diagnostic tool for measuring lung function.",
+    tags: ["Anaesthesia", "Eric Carlens", "One-lung ventilation", "Thoracic surgery"],
+    sources: ["British Journal of Anaesthesia", "Wood Library-Museum of Anesthesiology"]
+  },
+  {
+    type: "Procedure Spotlight",
+    category: "Innovation",
+    title: "Why Cardiac Surgery Goes Through the Sternum",
+    summary: "Median sternotomy — splitting the breastbone down the middle — was first described in 1897, but for decades cardiac surgeons mostly avoided it in favour of incisions between the ribs. In 1957, Oscar Julian and colleagues published a detailed case series showing it gave better access to the heart with fewer complications than the rib-spreading approaches then in use, particularly for operations using the new heart-lung machines. Surgeons switched over quickly once the results were published.",
+    whyItMatters: "Median sternotomy remains the standard approach for the great majority of open cardiac operations performed today, largely unchanged from Julian's description.",
+    didYouKnow: "The technique itself was 60 years old by the time it caught on — a reminder that a good idea sometimes just needs the right moment.",
+    tags: ["Innovation", "Median sternotomy", "Oscar Julian"],
+    sources: ["The Annals of Thoracic Surgery — \"Classics in Thoracic Surgery\"", "Wikipedia — Median sternotomy"]
+  },
+  {
+    type: "Surgical Instruments Spotlight",
+    category: "Surgical Instruments",
+    title: "The Forceps in (Almost) Every Cardiac Tray",
+    summary: "Michael DeBakey designed his now-famous atraumatic forceps after growing frustrated with the serrated instruments of his early career, which tended to crush or tear delicate blood vessels. His design uses fine, interlocking ridges that distribute grip pressure evenly across the tip rather than concentrating it at a few sharp points, letting a surgeon hold a vessel securely without damaging it.",
+    whyItMatters: "DeBakey forceps are still a fixture of vascular and cardiac trays worldwide, essentially unchanged since DeBakey's own design decades ago.",
+    didYouKnow: "DeBakey designed a whole family of vascular instruments and grafts beyond the forceps that bear his name, alongside a surgical career spanning over 60 years.",
+    tags: ["Surgical instruments", "Michael DeBakey", "Vascular surgery"],
+    sources: ["Wikipedia — DeBakey forceps", "The Annals of Thoracic Surgery — \"Legends Behind Cardiothoracic Surgical Instruments\""]
+  },
+  {
+    type: "Robotics Spotlight",
+    category: "Robotics",
+    title: "The First Robotic Heart Surgery",
+    summary: "In 1998, French surgeon Alain Carpentier and his team in Paris performed the first robotically assisted mitral valve repair, using an early prototype of what became the da Vinci Surgical System. The same team performed the first totally endoscopic robotic coronary bypass shortly after. Both were proof-of-concept cases rather than routine practice — the technology, and the surgical community's confidence in it, both needed years more to catch up.",
+    whyItMatters: "Robotic and minimally invasive techniques descended from that early work are now established options for mitral valve repair and other cardiac procedures at specialist centres.",
+    didYouKnow: "Carpentier is also the surgeon behind the modern approach to mitral valve repair itself (rather than replacement) — a technique that now bears his name.",
+    tags: ["Robotics", "Alain Carpentier", "da Vinci", "Mitral valve"],
+    sources: ["PMC — \"Robotics in cardiac surgery\"", "Wikipedia — Alain Carpentier"]
+  },
+  {
+    type: "Pioneer Spotlight",
+    category: "Pioneers",
+    title: "The Surgeon Without a Medical Degree",
+    summary: "Vivien Thomas joined Alfred Blalock's lab in 1930 as a technician, without any formal medical training, and over the following years taught himself surgical technique to a standard colleagues described as better than most surgeons'. He developed much of the animal-model groundwork and the instruments behind the Blalock-Taussig shunt (see 29 November), and stood behind Blalock guiding him through the first human operation. He went on to train generations of Johns Hopkins surgeons in technique.",
+    whyItMatters: "Thomas's work is a direct ancestor of every modern shunt procedure for cyanotic congenital heart disease, and his career remains a landmark case for recognising skill built outside formal credentials.",
+    didYouKnow: "Johns Hopkins didn't formally recognise Thomas's contribution until 1976, when it awarded him an honorary doctorate and a faculty appointment — 32 years after the operation itself.",
+    tags: ["Pioneers", "Vivien Thomas", "Congenital", "Johns Hopkins"],
+    sources: ["Johns Hopkins Medicine", "The Journal of Thoracic and Cardiovascular Surgery"]
+  }
+];
+
 function dayKey(month, day) { return `${month}-${day}`; }
 
 const BY_DAY = new Map(ENTRIES.map(e => [dayKey(e.month, e.day), e]));
 
-// Returns today's entry, or null on a day the pilot batch doesn't cover
-// yet — corridor-board.html simply doesn't render the card on those days,
-// rather than showing a placeholder.
+function dayOfYear(now) {
+  const start = new Date(now.getFullYear(), 0, 0);
+  return Math.floor((now - start) / 86400000);
+}
+
+// A genuine dated entry for today if one exists; otherwise an evergreen
+// spotlight, rotated by day-of-year so it's stable across the whole day
+// and moves on tomorrow rather than reshuffling on every reload.
 export function todaysHistoryEntry(now = new Date()) {
-  return BY_DAY.get(dayKey(now.getMonth() + 1, now.getDate())) || null;
+  const dated = BY_DAY.get(dayKey(now.getMonth() + 1, now.getDate()));
+  if (dated) return dated;
+  if (!SPOTLIGHTS.length) return null;
+  return SPOTLIGHTS[dayOfYear(now) % SPOTLIGHTS.length];
 }
