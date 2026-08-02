@@ -216,7 +216,7 @@ function buildFactPool(stats, weeksUsed) {
   }
 
   if (stats.distinctOnCall >= 3) {
-    facts.push(`${stats.distinctOnCall} different ODPs have covered on-call across the published rota history.`);
+    facts.push(`${stats.distinctOnCall} different SODPs have covered on-call across the published rota history.`);
   }
 
   return facts;

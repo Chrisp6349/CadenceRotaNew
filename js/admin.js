@@ -42,7 +42,7 @@ const DEFAULT_LIST_OPTIONS = ["ROUTINE", "EMERGENCY", "URGENT"];
 // disappears — they just won't have a band until re-added/edited under
 // one of the three boxes below.
 const STAFF_TYPES = [
-  { type: "odp",          label: "ODPs",             singular: "ODP",          hasRotaName: true },
+  { type: "odp",          label: "SODPs",            singular: "SODP",         hasRotaName: true },
   { type: "anaesthetist", label: "Anaesthetists",    singular: "Anaesthetist", hasRotaName: false },
   { type: "nurse_band5",  label: "Band 5 Nurses",     singular: "Band 5 Nurse", hasRotaName: true },
   { type: "nurse_band6",  label: "Band 6 Nurses",     singular: "Band 6 Nurse", hasRotaName: true },
@@ -172,7 +172,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
 
       <section>
         <h4 class="admin-h">Theatre list types</h4>
-        <p class="empty-note" style="margin:-6px 0 10px;">Shown as options throughout both the ODP rota and the nursing rota — e.g. ROUTINE, EMERGENCY, CARDIAC, NO LIST, or your own.</p>
+        <p class="empty-note" style="margin:-6px 0 10px;">Shown as options throughout both the SODP rota and the nursing rota — e.g. ROUTINE, EMERGENCY, CARDIAC, NO LIST, or your own.</p>
         <form id="listForm" class="inline-form">
           <input type="text" id="listValue" placeholder="e.g. NO LIST, THORACIC" required>
           <button class="btn btn-primary btn-sm" type="submit">Add value</button>
@@ -185,7 +185,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
         <p class="empty-note" style="margin:-6px 0 10px;">Filled in the wrong week by mistake? Move (or copy) one week's saved data onto another week — pick any date that falls within each week, it'll snap to that week's Monday.</p>
         <form id="copyWeekForm" class="inline-form">
           <select id="copyWeekRotaType">
-            <option value="odp">ODP rota</option>
+            <option value="odp">SODP rota</option>
             <option value="nursing">Nursing rota</option>
           </select>
           <input type="date" id="copyWeekFrom" required title="Any date in the week you want to copy FROM">
@@ -462,7 +462,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
     if (fromWeek === toWeek) { alert("Those two dates fall in the same week."); return; }
 
     const action = container.querySelector("#copyWeekAction").value;
-    const label = rotaType === "odp" ? "ODP" : "Nursing";
+    const label = rotaType === "odp" ? "SODP" : "Nursing";
     const load = rotaType === "odp" ? loadWeek : loadNursingWeek;
     const save = rotaType === "odp" ? saveWeek : saveNursingWeek;
 

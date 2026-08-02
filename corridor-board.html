@@ -322,7 +322,7 @@
       </div>
       <div class="cb-team">
         <div class="cb-team-block">
-          <div class="cb-team-label">ODP ${i.odpList ? `<span class="cb-list-tag">${i.odpList}</span>` : ""}</div>
+          <div class="cb-team-label">SODP ${i.odpList ? `<span class="cb-list-tag">${i.odpList}</span>` : ""}</div>
           ${odpRows || `<div class="cb-empty">No allocation</div>`}
         </div>
         <div class="cb-team-block">
@@ -406,7 +406,7 @@
           <div class="nm-card"><div class="nm-role">Anaesthetist</div><div class="nm-name">${anaes}</div></div>
           <div class="nm-card"><div class="nm-role">Surgeon (Cardiac)</div><div class="nm-name">${surgeonCardiac}</div></div>
           <div class="nm-card"><div class="nm-role">Surgeon (Thoracic)</div><div class="nm-name">${surgeonThoracic}</div></div>
-          <div class="nm-card"><div class="nm-role">ODP${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}</div><div class="nm-name">${odpOc}</div></div>
+          <div class="nm-card"><div class="nm-role">SODP${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}</div><div class="nm-name">${odpOc}</div></div>
           <div class="nm-card"><div class="nm-role">Nurses</div><div class="nm-name">${nurOc}</div></div>
           <div class="nm-card"><div class="nm-role">HCA</div><div class="nm-name">${nurOcHca}</div></div>
         </div>
@@ -431,7 +431,7 @@
       const hasWeekendList = !!(odpWlOdpRaw || odpWlAnaesRaw || nurWlRaw.length || nurWlHcaRaw || nurWlSurgeonRaw);
       const weekendListHtml = hasWeekendList
         ? `<div class="cb-strip">
-            <div class="card"><div class="card-label">Waiting list</div><div class="card-value" style="font-size:16px;">ODP: ${odpWlOdpRaw || "—"}<br>Nurses: ${nurWlRaw.join(", ") || "—"}<br>HCA: ${nurWlHcaRaw || "—"}</div></div>
+            <div class="card"><div class="card-label">Waiting list</div><div class="card-value" style="font-size:16px;">SODP: ${odpWlOdpRaw || "—"}<br>Nurses: ${nurWlRaw.join(", ") || "—"}<br>HCA: ${nurWlHcaRaw || "—"}</div></div>
             <div class="card"><div class="card-label">Waiting list anaesthetist</div><div class="card-value">${odpWlAnaesRaw || "—"}</div></div>
             <div class="card"><div class="card-label">Waiting list surgeon</div><div class="card-value">${nurWlSurgeonRaw || "—"}</div></div>
           </div>`
@@ -445,7 +445,7 @@
         <div class="wk-section">
           <div class="wk-label">On call</div>
           <div class="cb-strip">
-            <div class="card"><div class="card-label">On call</div><div class="card-value" style="font-size:16px;">ODP: ${odpOc}<br>Nurses: ${nurOc}<br>HCA: ${nurOcHca}</div></div>
+            <div class="card"><div class="card-label">On call</div><div class="card-value" style="font-size:16px;">SODP: ${odpOc}<br>Nurses: ${nurOc}<br>HCA: ${nurOcHca}</div></div>
             <div class="card"><div class="card-label">Anaesthetist on call</div><div class="card-value">${odpOcAnaes}</div></div>
             <div class="card"><div class="card-label">Cardiac surgeon on call</div><div class="card-value">${nurOcSurgeonCardiac}</div></div>
             <div class="card"><div class="card-label">Thoracic surgeon on call</div><div class="card-value">${nurOcSurgeonThoracic}</div></div>
@@ -486,7 +486,7 @@
     body.innerHTML = `
       <div class="cb-theatres">${theatreCardsHtml}</div>
       <div class="cb-strip">
-        <div class="card"><div class="card-label">ODP support</div><div class="card-value">${supportOdps}</div></div>
+        <div class="card"><div class="card-label">SODP support</div><div class="card-value">${supportOdps}</div></div>
         <div class="card"><div class="card-label">Nursing support</div><div class="card-value">Nurses: ${supportNurses}<br>HCAs: ${supportHcas}</div></div>
         <div class="card cb-oncall-card">
           <div class="card-label">On call</div>
@@ -494,7 +494,7 @@
             <div class="cb-oncall-item"><div class="oc-role">Anaesthetist</div><div class="oc-name">${odpOcAnaes}</div></div>
             <div class="cb-oncall-item"><div class="oc-role">Surgeon (Cardiac)</div><div class="oc-name">${oncallSurgeonCardiac}</div></div>
             <div class="cb-oncall-item"><div class="oc-role">Surgeon (Thoracic)</div><div class="oc-name">${oncallSurgeonThoracic}</div></div>
-            <div class="cb-oncall-item"><div class="oc-role">ODP${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}</div><div class="oc-name">${odpOc}</div></div>
+            <div class="cb-oncall-item"><div class="oc-role">SODP${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}</div><div class="oc-name">${odpOc}</div></div>
             <div class="cb-oncall-item"><div class="oc-role">Nurses</div><div class="oc-name">${nurOc}</div></div>
             <div class="cb-oncall-item"><div class="oc-role">HCA</div><div class="oc-name">${nurOcHca}</div></div>
           </div>

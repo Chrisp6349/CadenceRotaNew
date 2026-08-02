@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cadence — ODP On Call Calendar</title>
+<title>Cadence — SODP On Call Calendar</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -60,7 +60,7 @@
   const dept = await getDepartment(profile.departmentId);
   profile.departmentName = dept?.name || "Department";
 
-    const content = renderShell({ profile, activePage: "odpCalendar", title: "ODP On Call Calendar" });
+    const content = renderShell({ profile, activePage: "odpCalendar", title: "SODP On Call Calendar" });
 
 
   const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];

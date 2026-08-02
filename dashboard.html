@@ -228,7 +228,7 @@
     if (/_odp[12]$/.test(suffix)) {
       const theatreId = suffix.replace(/_odp[12]$/, "");
       const t = theatres.find(x => x.id === theatreId);
-      return t ? `${t.name} · ODP` : null;
+      return t ? `${t.name} · SODP` : null;
     }
     if (suffix.endsWith("_anaes")) {
       const theatreId = suffix.replace(/_anaes$/, "");
@@ -581,14 +581,14 @@
     const statCards = [];
     if (!isWeekend) {
       statCards.push(`<div class="card">${statIcon("sessions")}<div class="card-label">Sessions</div><div class="card-value">${sessionsCount} / ${theatres.length}</div></div>`);
-      statCards.push(`<div class="card">${statIcon("support")}<div class="card-label">Support ODP</div><div class="card-value" style="font-size:20px;">${supportOdps}${supportList ? ` <span class="tc-list" style="font-size:9px;">${supportList}</span>` : ""}</div></div>`);
+      statCards.push(`<div class="card">${statIcon("support")}<div class="card-label">Support SODP</div><div class="card-value" style="font-size:20px;">${supportOdps}${supportList ? ` <span class="tc-list" style="font-size:9px;">${supportList}</span>` : ""}</div></div>`);
     }
-    statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">On call ODP</div><div class="card-value" style="font-size:20px;">${onCallOdp}${onCallHome ? ` <span class="tc-list" style="font-size:9px;">FROM HOME</span>` : ""}</div></div>`);
+    statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">On call SODP</div><div class="card-value" style="font-size:20px;">${onCallOdp}${onCallHome ? ` <span class="tc-list" style="font-size:9px;">FROM HOME</span>` : ""}</div></div>`);
     statCards.push(`<div class="card">${statIcon("anaes")}<div class="card-label">On call anaesthetist</div><div class="card-value" style="font-size:20px;">${onCallAnaes}</div></div>`);
     if (isWeekend && !hasWeekendList) {
       statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">Weekend waiting list</div><div class="card-value" style="font-size:16px;color:var(--ink-300);font-style:italic;">No list this weekend</div></div>`);
     } else if (isWeekend) {
-      statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">Waiting list ODP</div><div class="card-value" style="font-size:20px;">${wlOdp}</div></div>`);
+      statCards.push(`<div class="card">${statIcon("oncall")}<div class="card-label">Waiting list SODP</div><div class="card-value" style="font-size:20px;">${wlOdp}</div></div>`);
       statCards.push(`<div class="card">${statIcon("anaes")}<div class="card-label">Waiting list anaesthetist</div><div class="card-value" style="font-size:20px;">${wlAnaes}</div></div>`);
     }
 
