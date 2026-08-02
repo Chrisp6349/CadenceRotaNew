@@ -84,17 +84,6 @@ export const ENTRIES = [
     sources: ["JAMA", "The Journal of Thoracic and Cardiovascular Surgery"]
   },
   {
-    month: 5, day: 20, year: 1923,
-    type: "On This Day",
-    category: "Valve Surgery",
-    title: "The First Successful Valve Operation",
-    summary: "At Peter Bent Brigham Hospital in Boston, Elliott Cutler and Samuel Levine treated a 12-year-old girl with severe mitral stenosis by passing a tenotomy knife into the heart to widen the narrowed valve — the first surgical treatment of valvular heart disease to succeed. The patient lived for several more years. Cutler's technique cut in a fixed direction and proved hard to reproduce safely; it fell out of use within a few years as more surgeons attempting it lost patients.",
-    whyItMatters: "It was 25 years before Bailey and Harken's safer commissurotomy technique (see 10 June) made mitral valve surgery reliable — but Cutler and Levine were the first to prove a diseased valve could be operated on and survived at all.",
-    didYouKnow: "The patient, whose name went unrecorded at the time per the customs of the era, is now known to have been a girl named Bessie Bolden.",
-    tags: ["Valve surgery", "Elliott Cutler", "Samuel Levine", "Mitral stenosis"],
-    sources: ["The Annals of Thoracic Surgery — \"Our Surgical Heritage\"", "Brigham and Women's Hospital"]
-  },
-  {
     month: 5, day: 6, year: 1953,
     type: "On This Day",
     category: "Perfusion",
@@ -104,6 +93,17 @@ export const ENTRIES = [
     didYouKnow: "Gibbon was so shaken by two earlier deaths on the machine that he stopped operating on it for nearly a year before Bavolek's case.",
     tags: ["Perfusion", "John Gibbon", "Heart-lung machine", "Bypass"],
     sources: ["WHYY", "National Inventors Hall of Fame"]
+  },
+  {
+    month: 5, day: 20, year: 1923,
+    type: "On This Day",
+    category: "Valve Surgery",
+    title: "The First Successful Valve Operation",
+    summary: "At Peter Bent Brigham Hospital in Boston, Elliott Cutler and Samuel Levine treated a 12-year-old girl with severe mitral stenosis by passing a tenotomy knife into the heart to widen the narrowed valve — the first surgical treatment of valvular heart disease to succeed. The patient lived for several more years. Cutler's technique cut in a fixed direction and proved hard to reproduce safely; it fell out of use within a few years as more surgeons attempting it lost patients.",
+    whyItMatters: "It was 25 years before Bailey and Harken's safer commissurotomy technique (see 10 June) made mitral valve surgery reliable — but Cutler and Levine were the first to prove a diseased valve could be operated on and survived at all.",
+    didYouKnow: "The patient, whose name went unrecorded at the time per the customs of the era, is now known to have been a girl named Bessie Bolden.",
+    tags: ["Valve surgery", "Elliott Cutler", "Samuel Levine", "Mitral stenosis"],
+    sources: ["The Annals of Thoracic Surgery — \"Our Surgical Heritage\"", "Brigham and Women's Hospital"]
   },
   {
     month: 5, day: 9, year: 1967,
@@ -161,6 +161,39 @@ export const ENTRIES = [
     sources: ["Britannica — Daniel Hale Williams", "Columbia Surgery"]
   },
   {
+    month: 8, day: 7, year: 1953,
+    type: "On This Day",
+    category: "Pioneers",
+    title: "The First Successful Carotid Endarterectomy",
+    summary: "Michael DeBakey removed a blockage from the carotid artery of a 53-year-old bus driver who had been having repeated minor strokes, restoring blood flow to the brain by stripping out the diseased inner lining of the vessel. The patient went on to live a further 19 years without another stroke. DeBakey didn't formally publish the case until 1975, over two decades later, by which point other surgeons had also developed the technique independently.",
+    whyItMatters: "Carotid endarterectomy became — and remains — one of the most effective operations in medicine for preventing stroke in patients with significant carotid narrowing.",
+    didYouKnow: "DeBakey kept meticulous records of the case for decades before publishing it, partly to gather enough long-term follow-up to prove the operation's durability.",
+    tags: ["Pioneers", "Michael DeBakey", "Carotid endarterectomy", "Stroke prevention"],
+    sources: ["Journal of Vascular Surgery", "Stroke — American Heart Association journal"]
+  },
+  {
+    month: 8, day: 26, year: 1938,
+    type: "On This Day",
+    category: "Congenital Cardiac Surgery",
+    title: "The First Successful Repair of a Congenital Heart Defect",
+    summary: "At Boston Children's Hospital, Robert Gross tied off a patent ductus arteriosus — a blood vessel that should close naturally after birth but hadn't — in a 7-year-old girl, without her surgical chief's knowledge or approval; he had been told to wait. It was the first time a congenital heart defect had been successfully corrected by surgery anywhere. The girl went on to live into her 80s.",
+    whyItMatters: "It was the first proof that congenital heart defects — until then considered simply inoperable — could be surgically corrected, opening the entire field of congenital cardiac surgery that followed.",
+    didYouKnow: "Gross was a surgical resident, not yet a fully qualified surgeon, when he performed the operation against his supervisor's explicit instructions to wait for him to return from holiday.",
+    tags: ["Congenital", "Robert Gross", "Patent ductus arteriosus", "World first"],
+    sources: ["American Journal of Cardiology", "Boston Children's Hospital"]
+  },
+  {
+    month: 9, day: 2, year: 1952,
+    type: "On This Day",
+    category: "Congenital Cardiac Surgery",
+    title: "The First Successful Open-Heart Operation",
+    summary: "At the University of Minnesota, F. John Lewis closed an atrial septal defect in a 5-year-old girl under direct vision — the heart opened and the defect stitched shut under the surgeon's eye, rather than repaired blindly by feel. He used total-body hypothermia, cooling the child to slow her metabolism enough that her circulation could be safely stopped for a few minutes, over a year before Gibbon's heart-lung machine achieved the same open access by an entirely different route.",
+    whyItMatters: "It was the first genuinely successful open-heart operation of any kind, proving a surgeon could safely open the heart itself and repair a defect under direct vision.",
+    didYouKnow: "Lewis's assisting team that day included a young Walton Lillehei, who would go on to develop cross-circulation (see 26 March) once hypothermia's short safe window proved too limiting for more complex repairs.",
+    tags: ["Congenital", "F. John Lewis", "Hypothermia", "Open heart surgery"],
+    sources: ["The Journal of Thoracic and Cardiovascular Surgery", "University of Minnesota"]
+  },
+  {
     month: 9, day: 9, year: 1896,
     type: "On This Day",
     category: "Pioneers",
@@ -172,6 +205,39 @@ export const ENTRIES = [
     sources: ["The Annals of Thoracic Surgery — \"Classics in Thoracic Surgery\"", "Wikipedia — Ludwig Rehn"]
   },
   {
+    month: 9, day: 11, year: 1952,
+    type: "On This Day",
+    category: "Valve Surgery",
+    title: "The First Prosthetic Heart Valve",
+    summary: "Charles Hufnagel implanted a plastic ball-and-cage valve into the descending aorta of a woman whose own aortic valve had been severely damaged by rheumatic fever and given little chance of survival. Rather than replacing the diseased valve itself — beyond what was then possible — the device sat downstream in the aorta, using the same ball-valve principle to stop blood flowing backward. She recovered and lived for almost a decade afterwards.",
+    whyItMatters: "It was the first artificial heart valve successfully used in a person, proving a mechanical device could take over a damaged valve's job — a principle every prosthetic valve since has built on.",
+    didYouKnow: "The valve made an audible clicking sound with every heartbeat, loud enough that patients and those around them could hear their own artificial valve working.",
+    tags: ["Valve surgery", "Charles Hufnagel", "Prosthetic valve"],
+    sources: ["National Museum of American History", "Georgetown University"]
+  },
+  {
+    month: 9, day: 16, year: 1977,
+    type: "On This Day",
+    category: "Innovation",
+    title: "The First Coronary Angioplasty",
+    summary: "In Zurich, Andreas Grüntzig threaded a balloon-tipped catheter into the blocked coronary artery of a 38-year-old man with severe angina and inflated it to compress the blockage against the vessel wall — treating a coronary blockage without opening the chest at all. The patient's symptoms resolved immediately; a follow-up decades later found the treated artery still open. Grüntzig had spent years perfecting the balloon catheter, reportedly testing early versions in his own kitchen.",
+    whyItMatters: "Angioplasty gave cardiology a genuine, much less invasive alternative to bypass surgery for many blockages, and the balloon-catheter techniques it introduced underpin every stent procedure performed today.",
+    didYouKnow: "The patient from that first procedure, later followed up at 23 years, remained free of further cardiac events for the rest of his life.",
+    tags: ["Innovation", "Andreas Gruntzig", "Angioplasty", "Interventional cardiology"],
+    sources: ["The New England Journal of Medicine", "Wikipedia — Andreas Gruentzig"]
+  },
+  {
+    month: 9, day: 21, year: 1960,
+    type: "On This Day",
+    category: "Valve Surgery",
+    title: "The First Successful Mitral Valve Replacement",
+    summary: "At the University of Oregon, Albert Starr replaced the mitral valve of Philip Amundson — a farmer whose own valve was destroyed by childhood rheumatic fever — with a mechanical ball-and-cage valve he had developed with engineer Lowell Edwards. Rather than repairing the native valve as earlier surgeons had attempted, the Starr-Edwards valve replaced it outright. Amundson lived for a further 11 years.",
+    whyItMatters: "It was the first genuinely successful valve replacement (rather than repair), and the Starr-Edwards design — refined over the following decades — remained in clinical use for over 50 years.",
+    didYouKnow: "Some early Starr-Edwards valve recipients lived for over five decades with their original mechanical valve still in place, never needing a repeat operation.",
+    tags: ["Valve surgery", "Albert Starr", "Lowell Edwards", "Mitral valve replacement"],
+    sources: ["Oregon Encyclopedia", "The Journal of Thoracic and Cardiovascular Surgery"]
+  },
+  {
     month: 10, day: 8, year: 1958,
     type: "On This Day",
     category: "Innovation",
@@ -181,6 +247,28 @@ export const ENTRIES = [
     didYouKnow: "Larsson later became a vocal advocate for pacemaker patients and campaigned for their availability across Europe until his death in 2001.",
     tags: ["Innovation", "Pacemaker", "Ake Senning", "Arne Larsson"],
     sources: ["Wikipedia — Arne Larsson (patient)", "Siemens Healthineers Medical Museum"]
+  },
+  {
+    month: 10, day: 19, year: 1944,
+    type: "On This Day",
+    category: "Congenital Cardiac Surgery",
+    title: "The First Successful Coarctation Repair",
+    summary: "In Stockholm, Clarence Crafoord removed a narrowed section of aorta — a coarctation, which forces the heart to pump against dangerously high pressure — and joined the two healthy ends back together. It was the first time the defect had been successfully corrected surgically. Robert Gross in Boston performed a similar operation the following year, and the two are sometimes mistakenly credited jointly; Gross himself acknowledged he'd read Crafoord's report before attempting his own case.",
+    whyItMatters: "It proved coarctation — until then a life-limiting defect with no real treatment — could be surgically corrected, and end-to-end repair of the aorta remains a standard technique today.",
+    didYouKnow: "Crafoord operated on a second coarctation patient just twelve days after his first, suggesting he was already confident the technique would work again.",
+    tags: ["Congenital", "Clarence Crafoord", "Coarctation of the aorta"],
+    sources: ["The Annals of Thoracic Surgery — \"Our Surgical Heritage\"", "Wikipedia — Clarence Crafoord"]
+  },
+  {
+    month: 10, day: 26, year: 1984,
+    type: "On This Day",
+    category: "Heart Transplant",
+    title: "\"Baby Fae\" and the Baboon Heart",
+    summary: "At Loma Linda University, Leonard Bailey transplanted a baboon's heart into a 12-day-old infant born with hypoplastic left heart syndrome, a condition then considered universally fatal in newborns. No human donor of the right size and blood type had been available. The baby, known publicly only as \"Baby Fae\", lived three weeks — longer than anyone had previously survived a cross-species heart transplant — before her body rejected the graft.",
+    whyItMatters: "The case was ethically controversial at the time and xenotransplantation itself never became routine, but it sharpened the case for infant human heart transplant programmes, which Bailey's own team helped pioneer soon after.",
+    didYouKnow: "Bailey performed the first successful human-to-human infant heart transplant less than a year later, in November 1985.",
+    tags: ["Heart transplant", "Leonard Bailey", "Congenital", "Xenotransplantation"],
+    sources: ["HISTORY.com", "Wikipedia — Baby Fae"]
   },
   {
     month: 10, day: 30, year: 1958,
@@ -312,6 +400,36 @@ export const SPOTLIGHTS = [
     didYouKnow: "Johns Hopkins didn't formally recognise Thomas's contribution until 1976, when it awarded him an honorary doctorate and a faculty appointment — 32 years after the operation itself.",
     tags: ["Pioneers", "Vivien Thomas", "Congenital", "Johns Hopkins"],
     sources: ["Johns Hopkins Medicine", "The Journal of Thoracic and Cardiovascular Surgery"]
+  },
+  {
+    type: "Procedure Spotlight",
+    category: "Congenital Cardiac Surgery",
+    title: "Building a Circulation With One Ventricle",
+    summary: "For babies born with only one working heart ventricle instead of two, William Norwood developed a staged sequence of operations, beginning in the late 1970s, that rebuilds the circulation around the single ventricle rather than attempting to create a second one. The first stage alone was, for years, one of the highest-risk operations in paediatric cardiac surgery — a condition previously considered universally fatal became, gradually, a survivable one across a series of operations spread over the first few years of life.",
+    whyItMatters: "The Norwood procedure and its later refinements remain the standard first step for hypoplastic left heart syndrome and similar single-ventricle defects, giving many infants a working circulation who would otherwise have had none.",
+    didYouKnow: "The condition Norwood's procedure treats was considered essentially untreatable for decades after it was first medically described in the 1950s.",
+    tags: ["Congenital", "William Norwood", "Hypoplastic left heart syndrome"],
+    sources: ["Journal of Cardiac Surgery", "Wikipedia — Norwood procedure"]
+  },
+  {
+    type: "Innovation Spotlight",
+    category: "Innovation",
+    title: "Shocking a Heart Back Into Rhythm",
+    summary: "In the early 1960s, Bernard Lown showed that a carefully timed direct-current shock — delivered outside a specific vulnerable moment in the heart's electrical cycle — could reliably convert a dangerous rhythm back to normal without damaging the heart or the patient's skeletal muscles, as earlier, cruder shock methods sometimes did. He called the refined technique \"cardioversion\".",
+    whyItMatters: "Timed DC cardioversion, along with the closely related technique of emergency defibrillation, is still the standard treatment for many dangerous heart rhythms today, in and out of the operating theatre.",
+    didYouKnow: "Lown later co-founded International Physicians for the Prevention of Nuclear War, which was awarded the Nobel Peace Prize in 1985 — a very different achievement to his cardiology work.",
+    tags: ["Innovation", "Bernard Lown", "Defibrillation", "Cardioversion"],
+    sources: ["Wikipedia — Bernard Lown", "The American Journal of Cardiology"]
+  },
+  {
+    type: "Innovation Spotlight",
+    category: "Heart Transplant",
+    title: "One Transplant Creating Another",
+    summary: "In 1987 at Harefield Hospital in London, Magdi Yacoub performed the UK's first \"domino\" transplant: a patient with failing lungs but a healthy heart received a combined heart-lung transplant, and their own perfectly healthy heart was then transplanted into a second patient who needed one. Rather than one donor organ helping one patient, a single operation created two donations at once.",
+    whyItMatters: "Domino transplantation made better use of scarce donor organs at a time when heart-lung transplant recipients often had hearts too healthy to discard, and the underlying idea is still used selectively today.",
+    didYouKnow: "Yacoub, one of the most prolific transplant surgeons in history, was knighted in 1991 for his contributions to cardiac surgery.",
+    tags: ["Heart transplant", "Magdi Yacoub", "Domino transplant", "Harefield Hospital"],
+    sources: ["Magdi Yacoub Institute", "PMC — domino heart transplant systematic review"]
   }
 ];
 
