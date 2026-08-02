@@ -103,6 +103,13 @@
     .cb-head{display:flex;flex-direction:column;align-items:flex-start;gap:14px;}
     .cb-head-coord{align-self:center;}
     .cb-clock{text-align:left;}
+    /* The 2-line clamp on the history card's summary (.th-summary) is
+       sized for the wide wall board, where two lines holds nearly the
+       whole thing. At phone width the same two lines fit only a
+       fraction of the text. The phone view already scrolls through the
+       rest of the board anyway, so just let it wrap in full instead of
+       cutting it off mid-sentence. */
+    .th-summary{display:block;-webkit-line-clamp:unset;overflow:visible;}
   }
 
   /* Night mode (weeknight/Friday on-call only) and the restructured
