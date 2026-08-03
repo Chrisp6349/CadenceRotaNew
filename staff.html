@@ -178,7 +178,7 @@
   // surgeon is their most-worked-with nurse; for a nurse/HCA, it's their
   // most-worked-with surgeon.
   function buildNursingProfile(name) {
-    const mySessions = nurSessionGroups.filter(g => g.nurses.includes(name) || g.hcas.includes(name) || g.surgeon === name);
+    const mySessions = nurSessionGroups.filter(g => g.nurses.includes(name) || g.hcas.includes(name) || g.surgeons.includes(name));
     const theatreCounts = {};
     const dayCounts = {};
     const partnerCounts = {};
@@ -186,10 +186,10 @@
     mySessions.forEach(g => {
       theatreCounts[g.theatreName] = (theatreCounts[g.theatreName] || 0) + 1;
       dayCounts[g.day] = (dayCounts[g.day] || 0) + 1;
-      if (g.surgeon === name) {
+      if (g.surgeons.includes(name)) {
         if (g.nurses[0]) partnerCounts[g.nurses[0]] = (partnerCounts[g.nurses[0]] || 0) + 1;
-      } else if (g.surgeon) {
-        partnerCounts[g.surgeon] = (partnerCounts[g.surgeon] || 0) + 1;
+      } else {
+        g.surgeons.forEach(s => { partnerCounts[s] = (partnerCounts[s] || 0) + 1; });
       }
     });
 

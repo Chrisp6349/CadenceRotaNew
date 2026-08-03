@@ -62,7 +62,7 @@ export function classify(suffix, theatres) {
     return t ? { kind: "theatre_hca", theatreId: t.id, theatreName: t.name } : null;
   }
   if (suffix === "oncall_surgeon_thoracic") return { kind: "oncall_surgeon_thoracic" };
-  m = suffix.match(/^(.+)_surgeon$/);
+  m = suffix.match(/^(.+)_surgeon[2]?$/);
   if (m) {
     const key = m[1];
     if (key === "oncall") return { kind: "oncall_surgeon_cardiac" };
@@ -98,10 +98,10 @@ export function buildSessionGroups(entries, theatres) {
     const c = classify(suffix, theatres);
     if (!c || (c.kind !== "theatre_nurse" && c.kind !== "theatre_hca" && c.kind !== "theatre_surgeon")) return;
     const gk = `${weekStart}|${day}|${c.theatreId}`;
-    if (!groups[gk]) groups[gk] = { weekStart, day, theatreName: c.theatreName, nurses: [], hcas: [], surgeon: null };
+    if (!groups[gk]) groups[gk] = { weekStart, day, theatreName: c.theatreName, nurses: [], hcas: [], surgeons: [] };
     if (c.kind === "theatre_nurse") groups[gk].nurses.push(value);
     else if (c.kind === "theatre_hca") groups[gk].hcas.push(value);
-    else groups[gk].surgeon = value;
+    else groups[gk].surgeons.push(value);
   });
   return Object.values(groups);
 }
@@ -150,9 +150,11 @@ function buildStats(entries, theatres, currentWeekStart) {
   sessionGroups.forEach(g => {
     theatreCounts[g.theatreName] = (theatreCounts[g.theatreName] || 0) + 1;
     dayCounts[g.day] = (dayCounts[g.day] || 0) + 1;
-    if (g.surgeon && g.nurses.length) {
-      const key = `${g.surgeon}|||${g.nurses[0]}`;
-      pairingCounts[key] = (pairingCounts[key] || 0) + 1;
+    if (g.surgeons.length && g.nurses.length) {
+      g.surgeons.forEach(s => {
+        const key = `${s}|||${g.nurses[0]}`;
+        pairingCounts[key] = (pairingCounts[key] || 0) + 1;
+      });
     }
   });
 

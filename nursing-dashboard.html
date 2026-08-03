@@ -185,9 +185,9 @@
   function theatreInfo(day, t) {
     const nurses = [1, 2, 3, 4].map(n => rota[`${day}_${t.id}_nurse${n}`]).filter(Boolean);
     const hcas = [1, 2].map(n => rota[`${day}_${t.id}_hca${n}`]).filter(Boolean);
-    const surgeon = rota[`${day}_${t.id}_surgeon`] || "";
+    const surgeons = [rota[`${day}_${t.id}_surgeon`], rota[`${day}_${t.id}_surgeon2`]].filter(Boolean);
     const listType = rota[`${day}_${t.id}_list`] || "";
-    const hasStaff = !!(nurses.length || hcas.length || surgeon);
+    const hasStaff = !!(nurses.length || hcas.length || surgeons.length);
     let status = "available";
     if (hasStaff) status = (listType.includes("NO LIST") || listType.includes("NO SURGEON")) ? "closed" : "inlist";
     // A list type set with nobody from the nursing rota in it (a custom
@@ -195,7 +195,7 @@
     // day) reads the same as closed, even though it isn't one of the
     // named "no work happening" labels above.
     else if (listType) status = "closed";
-    return { nurses, hcas, surgeon, listType, hasStaff, status };
+    return { nurses, hcas, surgeons, listType, hasStaff, status };
   }
 
   // NO LIST/NO SURGEON already read fine on their own; any other label
@@ -228,7 +228,7 @@
       return th ? `${th.name} · HCA` : null;
     }
     if (suffix === "oncall_surgeon_thoracic") return "On call · Surgeon (Thoracic)";
-    m = suffix.match(/^(.+)_surgeon$/);
+    m = suffix.match(/^(.+)_surgeon[2]?$/);
     if (m) {
       if (m[1] === "oncall") return "On call · Surgeon (Cardiac)";
       if (m[1] === "wl") return "Weekend waiting list · Surgeon";
@@ -537,7 +537,7 @@
         const rows = [
           ...info.nurses.map(n => `<div class="tc-row">${n}</div>`),
           ...info.hcas.map(n => `<div class="tc-row">${n}</div>`),
-          info.surgeon ? `<div class="tc-row tc-surgeon">${info.surgeon}</div>` : ""
+          ...info.surgeons.map(n => `<div class="tc-row tc-surgeon">${n}</div>`)
         ].filter(Boolean).join("");
         return `<div class="theatre-card" style="--card-accent:${accent}">
           <div class="tc-head">

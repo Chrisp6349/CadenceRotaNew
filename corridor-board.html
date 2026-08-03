@@ -297,10 +297,10 @@
 
     const nurses = [1, 2, 3, 4].map(n => nursingRota[`${day}_${t.id}_nurse${n}`]).filter(Boolean);
     const hcas = [1, 2].map(n => nursingRota[`${day}_${t.id}_hca${n}`]).filter(Boolean);
-    const surgeon = nursingRota[`${day}_${t.id}_surgeon`] || "";
+    const surgeons = [nursingRota[`${day}_${t.id}_surgeon`], nursingRota[`${day}_${t.id}_surgeon2`]].filter(Boolean);
     const nursingList = nursingRota[`${day}_${t.id}_list`] || "";
 
-        const hasAny = !!(odp1 || odp2 || anaes || nurses.length || hcas.length || surgeon);
+        const hasAny = !!(odp1 || odp2 || anaes || nurses.length || hcas.length || surgeons.length);
     // Some list-type labels (NO LIST/NO SURGEON/MAINTENANCE) mean
     // "closed" outright, even if a leftover allocation is still sitting
     // in one of its boxes — namedClosed wins regardless of hasAny for
@@ -315,7 +315,7 @@
     if (closedFlag) status = "closed";
     else if (hasAny) status = "inlist";
 
-        return { odp1, odp2, anaes, odpList, nurses, hcas, surgeon, nursingList, status, hasAny };
+        return { odp1, odp2, anaes, odpList, nurses, hcas, surgeons, nursingList, status, hasAny };
   }
 
   // Same status colours as the dot, so the accent bar down the card's
@@ -366,7 +366,7 @@
       </div>
       <div class="cb-theatre-sub">
         Anaesthetist: <b>${i.anaes || "—"}</b><br>
-        Surgeon: <b>${i.surgeon || "—"}</b>
+        Surgeon: <b>${i.surgeons.join(", ") || "—"}</b>
       </div>
       <div class="cb-team">
         <div class="cb-team-block">

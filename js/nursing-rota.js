@@ -9,7 +9,9 @@
 // Allocation keys, per day:
 //   "<theatreId>_nurse1".."nurse4"   4 nurses per theatre (Mon-Fri only)
 //   "<theatreId>_hca1".."hca2"       2 HCAs per theatre (Mon-Fri only)
-//   "<theatreId>_surgeon"            1 surgeon per theatre (Mon-Fri only)
+//   "<theatreId>_surgeon"            up to 2 surgeons per theatre (Mon-Fri only) —
+//   "<theatreId>_surgeon2"           the first keeps its original unnumbered key
+//                                    so existing published data isn't orphaned
 //   "<theatreId>_list"               list type (dept.listOptions, shared with the ODP rota)
 //   "support_nurse1".."nurse2"       support column, Mon-Fri
 //   "support_hca1".."hca2"           support column, Mon-Fri
@@ -75,12 +77,12 @@ function describeField(day, suffix, theatres) {
     if (t) return `${day} ${t.name} ${label}`;
   }
   if (suffix === "oncall_surgeon_thoracic") return `${day} On call Thoracic Surgeon`;
-  m = suffix.match(/^(.+)_surgeon$/);
+  m = suffix.match(/^(.+)_surgeon([2])?$/);
   if (m) {
     if (m[1] === "oncall") return `${day} On call Cardiac Surgeon`;
     if (m[1] === "wl") return `${day} Weekend waiting list Surgeon`;
     const t = theatres.find(x => x.id === m[1]);
-    if (t) return `${day} ${t.name} Surgeon`;
+    if (t) return `${day} ${t.name} Surgeon${m[2] ? ` ${m[2]}` : ""}`;
   }
   m = suffix.match(/^(.+)_list$/);
   if (m) {
@@ -167,7 +169,7 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
     let s = [];
     Object.entries(rota).forEach(([k, v]) => {
       if (!k.startsWith(day + "_") || !v) return;
-      if (k.endsWith("_surgeon") && !k.includes("_wl_") && !k.includes("oncall")) s.push(v);
+      if ((k.endsWith("_surgeon") || k.endsWith("_surgeon2")) && !k.includes("_wl_") && !k.includes("oncall")) s.push(v);
     });
     return s;
   }
@@ -215,6 +217,7 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
       + field(day, `${theatreId}_hca1`, staff.hcas, "hca", "HCA")
       + field(day, `${theatreId}_hca2`, staff.hcas, "hca", "HCA")
       + field(day, `${theatreId}_surgeon`, staff.surgeons, "surgeon", "Surgeon")
+      + field(day, `${theatreId}_surgeon2`, staff.surgeons, "surgeon", "Surgeon")
       + field(day, `${theatreId}_list`, dept.listOptions || [], null, "List type");
   }
 
