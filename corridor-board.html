@@ -49,13 +49,14 @@
   .cb-theatre-sub b{color:var(--ink-900);}
 
   /* "Today in Cardiothoracic History" — a small ambient fact, not a
-     status item, so it's kept to a single compact card rather than its
-     own section: a kicker line, the title, and a two-line-max summary
-     (clamped, not scrollable) so it can never push the theatre grid
-     below the fold on the wall board. Only rendered on days the pilot
-     history batch actually covers — see js/theatre-history.js. */
+     status item, so it sits at the very bottom of the page (its own
+     #cbHistoryCard container, after the Team Board/QR row) rather than
+     competing with the theatre grid for attention: a kicker line, the
+     title, and a two-line-max summary (clamped, not scrollable). Only
+     rendered on days the pilot history batch actually covers — see
+     js/theatre-history.js. */
   .th-card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);
-    padding:10px 16px;margin-bottom:14px;border-left:3px solid var(--teal-500);box-shadow:var(--shadow-sm);}
+    padding:10px 16px;margin-top:20px;border-left:3px solid var(--teal-500);box-shadow:var(--shadow-sm);}
   .th-kicker{font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.06em;
     text-transform:uppercase;color:var(--teal-600);margin-bottom:3px;}
   .th-title{font-family:var(--font-display);font-weight:800;font-size:14.5px;color:var(--ink-900);margin-bottom:2px;}
@@ -419,6 +420,7 @@
         <div class="cb-qr-sub">Sign in on your own phone to view the live rota</div>
       </div>
     </div>
+    <div id="cbHistoryCard"></div>
   `;
 
   // A shared, read-only login — anyone who scans this signs straight
@@ -469,6 +471,11 @@
         <div class="th-title">${historyEntry.title}</div>
         <div class="th-summary">${historyEntry.summary}</div>
       </div>` : "";
+    // Sits at the very bottom of the page — its own container outside
+    // #boardBody, rather than inside each mode's template, so it stays
+    // in the same spot (after the Team Board/QR row) regardless of
+    // which of the three layouts is currently showing.
+    document.getElementById("cbHistoryCard").innerHTML = historyHtml;
 
     if (state.mode === "night") {
       // On-call only — no theatre grid, no coordinator, no support,
@@ -484,7 +491,6 @@
       const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
 
       body.innerHTML = `
-        ${historyHtml}
         <div class="nm-banner"><span class="nm-banner-dot"></span><span class="nm-banner-text">On call</span></div>
         <div class="nm-grid">
           <div class="nm-card"><div class="nm-role">Anaesthetist</div><div class="nm-name">${anaes}</div></div>
@@ -522,7 +528,6 @@
         : `<div class="card"><div class="card-value" style="font-size:16px;color:var(--ink-300);font-style:italic;">No list this weekend</div></div>`;
 
       body.innerHTML = `
-        ${historyHtml}
         <div class="wk-section">
           <div class="wk-label">Weekend waiting list</div>
           ${weekendListHtml}
@@ -569,7 +574,6 @@
     `;
 
     body.innerHTML = `
-      ${historyHtml}
       <div class="cb-theatres">${theatreCardsHtml}</div>
       <div class="cb-strip">
         <div class="card"><div class="card-label">SODP support</div><div class="card-value">${supportOdps}</div></div>
