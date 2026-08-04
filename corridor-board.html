@@ -37,6 +37,32 @@
   .cb-bh{display:inline-block;margin-top:22px;background:var(--status-oncall-bg);color:var(--status-oncall);
     font-weight:700;font-size:14px;padding:8px 18px;border-radius:var(--r-sm);}
 
+  /* Slideshow — an optional link (set in Administration) an educational
+     presentation lives at. Deliberately a plain secondary-styled pill
+     next to Open full app, not a matching solid one, since it's a
+     rarer, more occasional action than the always-relevant app link.
+     Only rendered at all when a department has set a link. */
+  .cb-slideshow-btn{display:block;width:fit-content;margin:8px auto 0;font-family:var(--font-mono);font-size:11px;
+    font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--teal-600);background:var(--surface);
+    border:1px solid var(--ink-150);cursor:pointer;padding:6px 17px;border-radius:var(--r-pill);}
+  .cb-slideshow-btn:hover{border-color:var(--teal-500);color:var(--teal-700);}
+  /* Full-viewport takeover — its own fixed layer above everything else
+     on the page, not part of #boardRoot's own render cycle, so it's
+     unaffected by the board's minute-by-minute refresh underneath it.
+     The bar stays solid/opaque regardless of what the iframed site
+     looks like, so Back is always readable and reachable. */
+  .cb-slideshow-overlay{position:fixed;inset:0;z-index:80;background:#111;display:flex;flex-direction:column;}
+  /* Equal-specificity tiebreak: without this, our own display:flex
+     above (same 0,1,0 specificity as the browser's built-in [hidden]
+     rule, but declared later) would always win and the overlay would
+     never actually hide. */
+  .cb-slideshow-overlay[hidden]{display:none;}
+  .cb-slideshow-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-shrink:0;
+    padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--ink-150);}
+  .cb-slideshow-newtab{font-family:var(--font-body);font-size:12.5px;color:var(--ink-500);text-decoration:none;}
+  .cb-slideshow-newtab:hover{text-decoration:underline;color:var(--ink-700);}
+  .cb-slideshow-frame{flex:1;width:100%;border:0;background:#fff;}
+
   .cb-updated{font-size:11px;color:var(--ink-300);margin-top:2px;}
 
   .cb-head-coord{display:flex;justify-content:center;}
@@ -187,6 +213,14 @@
 </head>
 <body class="canvas-wash">
 <div id="boardRoot"></div>
+
+<div id="slideshowOverlay" class="cb-slideshow-overlay" hidden>
+  <div class="cb-slideshow-bar">
+    <button type="button" id="slideshowBackBtn" class="btn btn-primary btn-sm">← Back to Theatre Board</button>
+    <a id="slideshowNewTabLink" href="#" target="_blank" rel="noopener" class="cb-slideshow-newtab">Not loading? Open in a new tab ↗</a>
+  </div>
+  <iframe id="slideshowFrame" class="cb-slideshow-frame" title="Educational slideshow" allow="autoplay; fullscreen" allowfullscreen></iframe>
+</div>
 
 <script src="js/vendor/qrcode.min.js"></script>
 <script type="module">
@@ -396,6 +430,11 @@
   // Board-only accounts don't get this: they're meant to stay here.
   const openAppLinkHtml = profile.role !== "board"
     ? `<a href="dashboard.html" class="cb-open-app">Open full app →</a>` : "";
+  // Only shown at all once a department has actually set a link under
+  // Administration → Department details — no dead/broken button for
+  // everyone else.
+  const slideshowBtnHtml = dept.slideshowUrl
+    ? `<button type="button" id="slideshowBtn" class="cb-slideshow-btn">Slideshow</button>` : "";
   root.innerHTML = `
     <div class="cb-head">
       <div>
@@ -409,6 +448,7 @@
         <div class="cb-date" id="cbDate"></div>
         <div class="cb-updated" id="cbUpdated"></div>
         ${openAppLinkHtml}
+        ${slideshowBtnHtml}
       </div>
     </div>
     <div id="boardBody"></div>
@@ -435,6 +475,30 @@
     text: qrLoginUrl.toString(), width: 140, height: 140,
     colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M
   });
+
+  // Slideshow takeover — the iframe's src is only ever set once someone
+  // actually opens it (never eagerly on page load), so a configured
+  // link that's never used costs nothing: no background request to a
+  // site we don't control, no surprise network/battery use on a kiosk
+  // that's otherwise idle. Clearing it back to blank on exit likewise
+  // stops any audio/video the slideshow started from carrying on
+  // invisibly behind the overlay.
+  const slideshowBtn = document.getElementById("slideshowBtn");
+  if (slideshowBtn) {
+    const overlay = document.getElementById("slideshowOverlay");
+    const frame = document.getElementById("slideshowFrame");
+    const newTabLink = document.getElementById("slideshowNewTabLink");
+    const backBtn = document.getElementById("slideshowBackBtn");
+    slideshowBtn.addEventListener("click", () => {
+      frame.src = dept.slideshowUrl;
+      newTabLink.href = dept.slideshowUrl;
+      overlay.hidden = false;
+    });
+    backBtn.addEventListener("click", () => {
+      overlay.hidden = true;
+      frame.src = "about:blank";
+    });
+  }
 
   function tickClock() {
     const now = new Date();

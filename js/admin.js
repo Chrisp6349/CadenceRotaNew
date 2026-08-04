@@ -138,6 +138,15 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
           <input type="text" id="deptName" placeholder="Department name" value="${dept.name || ""}">
           <button class="btn btn-primary btn-sm" type="submit">Save details</button>
         </form>
+        <p class="empty-note" style="margin:14px 0 10px;">Optional: a link to an educational slideshow staff
+          can play on the Theatre Board, taking over that screen temporarily with a button to return to the
+          live rota. Leave blank to not show the option at all. The site it points to must allow itself to
+          be embedded — most slide tools do (e.g. Google Slides' own "Publish to the web" link), but some
+          plain websites block it for security and won't display.</p>
+        <form id="slideshowForm" class="inline-form">
+          <input type="url" id="slideshowUrl" placeholder="https://…" value="${dept.slideshowUrl || ""}">
+          <button class="btn btn-primary btn-sm" type="submit">Save link</button>
+        </form>
       </section>
 
       <section>
@@ -536,6 +545,13 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
     await updateDepartment(deptId, { hospitalName, name: deptName });
     dept.hospitalName = hospitalName;
     dept.name = deptName;
+  });
+
+  container.querySelector("#slideshowForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const slideshowUrl = container.querySelector("#slideshowUrl").value.trim();
+    await updateDepartment(deptId, { slideshowUrl });
+    dept.slideshowUrl = slideshowUrl;
   });
 
   // ---- User accounts -----------------------------------------------------
