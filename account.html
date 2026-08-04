@@ -23,13 +23,15 @@
   .form-msg{font-size:13px;padding:10px 12px;border-radius:var(--r-sm);margin-bottom:14px;display:none;}
   .form-msg.error{display:block;background:var(--status-oncall-bg);color:var(--status-oncall);}
   .form-msg.success{display:block;background:var(--status-available-bg);color:var(--status-available);}
+  .account-card + .account-card{margin-top:20px;}
+  .account-card p.sub{color:var(--ink-500);font-size:13px;line-height:1.5;margin:0 0 16px;}
 </style>
 </head>
 <body>
 <div id="shellRoot"></div>
 
 <script type="module">
-  import { requireSession, changeOwnPassword } from "./js/auth.js";
+  import { requireSession, changeOwnPassword, hardResetAndReload } from "./js/auth.js";
   import { renderShell } from "./js/shell.js";
   import { getDepartment } from "./js/department.js";
   import { applyTheme } from "./js/theme.js";
@@ -63,6 +65,15 @@
         </div>
         <button class="btn btn-primary" type="submit" id="pwSubmitBtn">Update password</button>
       </form>
+    </div>
+
+    <div class="card account-card">
+      <h4>Troubleshooting</h4>
+      <p class="sub">If the app is running slowly, showing outdated information, or won't update on this
+        device — especially on an iPhone/iPad home-screen icon, which can get stuck on an old version even
+        after deleting and reinstalling it — this clears everything stored locally and starts fresh. Your
+        rota data all lives online, so nothing is lost; you'll just need to sign in again.</p>
+      <button class="btn btn-secondary" type="button" id="resetAppBtn">Reset app data</button>
     </div>
   `;
 
@@ -99,6 +110,11 @@
     } finally {
       btn.disabled = false;
     }
+  });
+
+  document.getElementById("resetAppBtn").addEventListener("click", () => {
+    if (!confirm("Reset app data on this device? You'll be signed out and need to sign in again — your rota data itself is stored online and won't be affected.")) return;
+    hardResetAndReload();
   });
 </script>
 </body>

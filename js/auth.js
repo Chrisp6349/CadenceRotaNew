@@ -62,8 +62,12 @@ export function requireSession() {
 // caches, IndexedDB (Firestore's offline cache lives here), and
 // localStorage (theme/text-size/My Week preferences) — then reloads.
 // This is the actual fix for "stuck on a hung local cache", one tap
-// instead of five taps through Settings.
-async function hardResetAndReload() {
+// instead of five taps through Settings. Exported so account.html can
+// offer it directly — on iOS in particular, deleting a home-screen PWA
+// icon does NOT clear any of this; it's all tied to the site's origin
+// in Safari's storage, not the icon, and quietly survives a delete +
+// reinstall. This is the actual uninstall.
+export async function hardResetAndReload() {
   try {
     if ("serviceWorker" in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
