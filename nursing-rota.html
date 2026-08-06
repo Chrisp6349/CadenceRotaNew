@@ -21,10 +21,15 @@
   .rota-toolbar .spacer{flex:1;}
   .view-badge{font-family:var(--font-mono);font-size:11px;padding:5px 10px;border-radius:var(--r-pill);background:var(--ink-100);color:var(--ink-500);}
   .view-badge.editing{background:var(--teal-100);color:var(--teal-700);}
-  .table-scroll{overflow-x:auto;background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);
-    padding:4px;box-shadow:var(--shadow-sm);}
+  /* Bounded height + its own scrollbar, rather than letting the table
+     grow tall and scroll with the rest of the page — that's what makes
+     the sticky header below actually work. (A sticky element only
+     sticks within its nearest scrolling ancestor; once this box scrolls
+     internally, that ancestor is right here, not the whole page.) */
+  .table-scroll{overflow-x:auto;overflow-y:auto;max-height:min(62vh,620px);background:var(--surface);
+    border:1px solid var(--ink-150);border-radius:var(--r-lg);padding:4px;box-shadow:var(--shadow-sm);}
   table.rota-table{border-collapse:collapse;width:100%;font-size:12.5px;}
-  table.rota-table th{font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;
+  table.rota-table th{position:sticky;top:0;z-index:2;font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;
     color:var(--ink-500);text-align:left;padding:10px 8px;border-bottom:1px solid var(--ink-150);white-space:nowrap;
     background:var(--teal-50);}
   table.rota-table th:first-child{border-top-left-radius:var(--r-md);}
@@ -62,7 +67,7 @@
     body{background:#fff;}
     .print-header{display:flex !important;margin-bottom:8px;padding-bottom:5px;}
     .print-header .ph-org{font-size:14px;}
-    .table-scroll{border:none;overflow:visible;padding:0;box-shadow:none;}
+    .table-scroll{border:none;overflow:visible;max-height:none;padding:0;box-shadow:none;}
     #screenGridWrap{display:none !important;}
     #printGridWrap{display:block !important;}
 
@@ -77,7 +82,7 @@
        colour that DOES print usually prints as a barely-there grey. */
     table.rota-table{font-size:9.5px;table-layout:fixed;width:100%;text-transform:uppercase;}
     table.rota-table th,table.rota-table td{border:1px solid #000 !important;padding:3px 4px;}
-    table.rota-table th{color:#000;background:#e0e0e0 !important;white-space:normal;
+    table.rota-table th{position:static;color:#000;background:#e0e0e0 !important;white-space:normal;
       -webkit-print-color-adjust:exact;print-color-adjust:exact;}
     /* .daycell is nowrap on screen (where there's room); in this much
        narrower print column "Monday 27th" needs to wrap onto two lines
