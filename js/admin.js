@@ -252,6 +252,10 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       <section>
         <h4 class="admin-h">Change log</h4>
         <p class="empty-note" style="margin:-6px 0 10px;">The most recent rota changes, for auditing — who changed what, and when.</p>
+        <div class="section-list-head">
+          <span class="count" id="auditLogCount"></span>
+          <button class="list-toggle-btn" id="auditLogToggleBtn" style="display:none;">Show</button>
+        </div>
         <div id="auditLogList" class="admin-list"></div>
       </section>
     </div>
@@ -632,6 +636,8 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
 
   // ---- Change log -----------------------------------------------------
   const auditLogEl = container.querySelector("#auditLogList");
+  const auditLogCountEl = container.querySelector("#auditLogCount");
+  const auditLogToggleBtn = container.querySelector("#auditLogToggleBtn");
 
   function formatTimestamp(ts) {
     if (!ts?.toDate) return "";
@@ -655,6 +661,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       `;
       auditLogEl.appendChild(row);
     });
+    applyListCollapse("auditLog", auditLogEl, auditLogToggleBtn, auditLogCountEl, entries.length, "change");
   }
 
   refreshTheatres();
