@@ -66,17 +66,37 @@ function buildOdpExport(weekId, weekDoc, theatres) {
   return out;
 }
 
-// ---- Provider side: surgeon on-call -> CADEX /api/v1/surgeons shape ---
-// `nursingWeekDoc` is departments/{deptId}/nursingWeeks/{weekId}.
-function buildSurgeonsExport(weekId, nursingWeekDoc) {
+// ---- Provider side: surgeon on-call + per-theatre -> CADEX /api/v1/surgeons shape ---
+// `nursingWeekDoc` is departments/{deptId}/nursingWeeks/{weekId}. Per-
+// theatre surgeon and the weekend waiting-list surgeon (CADEX v1.1,
+// added in response to Atrium's per-theatre-surgeon question) share the
+// same theatre-name resolution as the ODP export.
+function buildSurgeonsExport(weekId, nursingWeekDoc, theatres) {
+  const theatreIds = resolveCadexTheatreIds(theatres);
   const rota = (nursingWeekDoc && nursingWeekDoc.data) || {};
   const out = { weekCommencing: weekId, lastUpdated: nursingWeekDoc?.updatedAt || null, published: !!nursingWeekDoc?.published };
-  ALL_DAYS.forEach(day => {
+
+  WEEKDAYS.forEach(day => {
+    const theatresOut = {};
+    Object.entries(theatreIds).forEach(([name, id]) => {
+      const v = rota[`${day}_${id}_surgeon`];
+      if (v) theatresOut[name] = v;
+    });
     out[day.toLowerCase()] = {
       cardiacOnCall: rota[`${day}_oncall_surgeon`] || "",
-      thoracicOnCall: rota[`${day}_oncall_surgeon_thoracic`] || ""
+      thoracicOnCall: rota[`${day}_oncall_surgeon_thoracic`] || "",
+      theatres: theatresOut
     };
   });
+
+  WEEKENDS.forEach(day => {
+    out[day.toLowerCase()] = {
+      cardiacOnCall: rota[`${day}_oncall_surgeon`] || "",
+      thoracicOnCall: rota[`${day}_oncall_surgeon_thoracic`] || "",
+      waitingListSurgeon: rota[`${day}_wl_surgeon`] || ""
+    };
+  });
+
   return out;
 }
 

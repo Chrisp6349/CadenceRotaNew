@@ -128,8 +128,12 @@ const cadex = onRequest(async (req, res) => {
     }
 
     if (path === "surgeons") {
-      const nursingSnap = await db.doc(`departments/${deptId}/nursingWeeks/${weekId}`).get();
-      const payload = buildSurgeonsExport(weekId, nursingSnap.exists ? nursingSnap.data() : null);
+      const [nursingSnap, theatreSnap] = await Promise.all([
+        db.doc(`departments/${deptId}/nursingWeeks/${weekId}`).get(),
+        db.collection(`departments/${deptId}/theatres`).get()
+      ]);
+      const theatres = theatreSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const payload = buildSurgeonsExport(weekId, nursingSnap.exists ? nursingSnap.data() : null, theatres);
       res.json(payload);
       await recordExportStatus(deptId, true);
       return;
