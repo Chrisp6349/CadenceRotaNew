@@ -650,7 +650,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       const moreCount = (e.changeCount || 0) - Math.min(3, (e.changes || []).length);
       row.innerHTML = `
         <span class="audit-time">${formatTimestamp(e.timestamp)}</span>
-        <div class="audit-headline"><strong>${e.displayName || "Someone"}</strong> ${e.action || "updated"} week commencing ${e.weekStart} — ${e.changeCount || 0} change${e.changeCount === 1 ? "" : "s"}</div>
+        <div class="audit-headline"><strong>${e.displayName || "Someone"}</strong> ${e.action || "updated"} the ${e.rota || "SODP"} rota, week commencing ${e.weekStart} — ${e.changeCount || 0} change${e.changeCount === 1 ? "" : "s"}</div>
         <div class="audit-changes">${changesPreview}${moreCount > 0 ? `<div>+${moreCount} more</div>` : ""}</div>
       `;
       auditLogEl.appendChild(row);

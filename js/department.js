@@ -76,8 +76,19 @@ export function splitStaff(staffList) {
 }
 
 // ---- Audit log ------------------------------------------------------------
+// The SODP and nursing rotas log to separate collections (rota.js writes
+// to "auditLog", nursing-rota.js to "nursingAuditLog" — see the header
+// comment in nursing-rota.js), so both are fetched and merged here into
+// one timeline, tagged with which rota each entry came from.
 export async function listRecentAuditLog(deptId, count = 20) {
-  const q = query(collection(db, "departments", deptId, "auditLog"), orderBy("timestamp", "desc"), limit(count));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const [sodpSnap, nursingSnap] = await Promise.all([
+    getDocs(query(collection(db, "departments", deptId, "auditLog"), orderBy("timestamp", "desc"), limit(count))),
+    getDocs(query(collection(db, "departments", deptId, "nursingAuditLog"), orderBy("timestamp", "desc"), limit(count)))
+  ]);
+  const entries = [
+    ...sodpSnap.docs.map(d => ({ id: d.id, ...d.data(), rota: "SODP" })),
+    ...nursingSnap.docs.map(d => ({ id: d.id, ...d.data(), rota: "Nursing" }))
+  ];
+  entries.sort((a, b) => (b.timestamp?.toMillis?.() ?? 0) - (a.timestamp?.toMillis?.() ?? 0));
+  return entries.slice(0, count);
 }
