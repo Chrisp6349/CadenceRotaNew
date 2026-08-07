@@ -186,6 +186,10 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
           <input type="text" id="listValue" placeholder="e.g. NO LIST, THORACIC" required>
           <button class="btn btn-primary btn-sm" type="submit">Add value</button>
         </form>
+        <div class="section-list-head">
+          <span class="count" id="listOptionsCount"></span>
+          <button class="list-toggle-btn" id="listOptionsToggleBtn" style="display:none;">Show</button>
+        </div>
         <div id="listOptionsList" class="admin-list"></div>
       </section>
 
@@ -417,6 +421,8 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
 
   // ---- List types -----------------------------------------------------
   const listOptionsEl = container.querySelector("#listOptionsList");
+  const listOptionsCountEl = container.querySelector("#listOptionsCount");
+  const listOptionsToggleBtn = container.querySelector("#listOptionsToggleBtn");
   function refreshListOptions() {
     listOptionsEl.innerHTML = listOptions.length ? "" :
       emptyState("tag", "No list types yet", "Add ROUTINE, EMERGENCY, or your own values above.");
@@ -431,6 +437,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       });
       listOptionsEl.appendChild(row);
     });
+    applyListCollapse("listOptions", listOptionsEl, listOptionsToggleBtn, listOptionsCountEl, listOptions.length, "list type");
   }
 
   container.querySelector("#listForm").addEventListener("submit", async (e) => {
