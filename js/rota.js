@@ -168,7 +168,7 @@ function cadexBadge(fkey, importedRaw, currentVal, editable, anaesInitials) {
 function cicuReadout(cicuVal, anaesInitials) {
   if (!cicuVal) return "";
   const { value } = resolveCadexAnaesthetist(cicuVal, anaesInitials);
-  return `<span class="cadex-badge cadex-readonly" title="CICU consultant, from The Atrium">CICU (CADEX): ${value}</span>`;
+  return `<span class="cadex-badge cadex-readonly" title="From The Atrium">CICU: ${value}</span>`;
 }
 
 // ---- Grid rendering --------------------------------------------------------
@@ -385,4 +385,4 @@ export function applyCadexAuto(rota, cadex, theatres, anaesInitials) {
   });
 }
 
-export { WEEKDAYS, WEEKENDS };
+export { WEEKDAYS, WEEKENDS, resolveCadexAnaesthetist };

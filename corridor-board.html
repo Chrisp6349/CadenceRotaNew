@@ -216,9 +216,10 @@
 <script src="js/vendor/qrcode.min.js"></script>
 <script type="module">
   import { requireSession } from "./js/auth.js";
-  import { getDepartment, listTheatres } from "./js/department.js";
-  import { loadWeek, mondayOfCurrentWeek } from "./js/rota.js";
+  import { getDepartment, listTheatres, listStaff, buildAnaesthetistInitialsMap } from "./js/department.js";
+  import { loadWeek, mondayOfCurrentWeek, resolveCadexAnaesthetist } from "./js/rota.js";
   import { loadNursingWeek } from "./js/nursing-rota.js";
+  import { getCadexImports } from "./js/cadex.js";
   import { postMessage, deleteMessage, watchTodayMessages, loadArchive, buildArchiveGroups } from "./js/messages.js";
   import { applyTheme } from "./js/theme.js";
   import { registerServiceWorker } from "./js/pwa.js";
@@ -233,11 +234,13 @@
   // nothing. `user` is needed here (unlike before) because this page
   // now has its own postable Team Board.
    const { user, profile } = await requireSession();
-  // Fired together — dept and theatres don't depend on each other.
+  // Fired together — dept, theatres and staff don't depend on each other.
   const deptPromise = getDepartment(profile.departmentId);
   const theatresPromise = listTheatres(profile.departmentId);
+  const staffPromise = listStaff(profile.departmentId);
   const dept = await deptPromise;
   const theatres = await theatresPromise;
+  const anaesInitials = buildAnaesthetistInitialsMap(await staffPromise);
 
   function localIso(d) {
     const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
@@ -301,18 +304,28 @@
     return { mode: "day", dataDay: todayName };
   }
 
-  let odpRota = {}, nursingRota = {};
+  let odpRota = {}, nursingRota = {}, cadexDays = null;
 
   async function loadBoth() {
     const weekStart = mondayOfCurrentWeek();
-    const [odpWeek, nursingWeek] = await Promise.all([
+    const [odpWeek, nursingWeek, cadexImports] = await Promise.all([
       loadWeek(profile.departmentId, weekStart),
-      loadNursingWeek(profile.departmentId, weekStart)
+      loadNursingWeek(profile.departmentId, weekStart),
+      getCadexImports(profile.departmentId, weekStart)
     ]);
     odpRota = odpWeek.data || {};
     nursingRota = nursingWeek.data || {};
+    cadexDays = cadexImports?.days || null;
     const el = document.getElementById("cbUpdated");
     if (el) el.textContent = `Updated ${new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  }
+
+  // CICU has no local field anywhere in Cadence (see rota.js) — it's
+  // purely a CADEX import, resolved the same way the rota page does.
+  function cicuFor(day) {
+    const raw = cadexDays?.[day.toLowerCase()]?.CICU;
+    if (!raw) return "";
+    return resolveCadexAnaesthetist(raw, anaesInitials).value;
   }
 
   function theatreInfo(day, t) {
@@ -502,6 +515,7 @@
     const todayIsoNow = localIso(now);
     const state = getDisplayState(now);
     const day = state.dataDay;
+    const cicu = cicuFor(day) || "—";
 
     document.getElementById("cbBhBanner").innerHTML = (dept.bankHolidays && dept.bankHolidays[todayIsoNow])
       ? `<div class="cb-bh">Bank holiday</div>` : "";
@@ -549,6 +563,7 @@
         <div class="nm-banner"><span class="nm-banner-dot"></span><span class="nm-banner-text">On call</span></div>
         <div class="nm-grid">
           <div class="nm-card"><div class="nm-role">Anaesthetist</div><div class="nm-name">${anaes}</div></div>
+          <div class="nm-card"><div class="nm-role">CICU</div><div class="nm-name">${cicu}</div></div>
           <div class="nm-card"><div class="nm-role">Surgeon (Cardiac)</div><div class="nm-name">${surgeonCardiac}</div></div>
           <div class="nm-card"><div class="nm-role">Surgeon (Thoracic)</div><div class="nm-name">${surgeonThoracic}</div></div>
           <div class="nm-card"><div class="nm-role">SODP${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}</div><div class="nm-name">${odpOc}</div></div>
@@ -592,6 +607,7 @@
           <div class="cb-strip">
             <div class="card"><div class="card-label">On call</div><div class="card-value" style="font-size:16px;">SODP: ${odpOc}<br>Nurses: ${nurOc}<br>HCA: ${nurOcHca}</div></div>
             <div class="card"><div class="card-label">Anaesthetist on call</div><div class="card-value">${odpOcAnaes}</div></div>
+            <div class="card"><div class="card-label">CICU</div><div class="card-value">${cicu}</div></div>
             <div class="card"><div class="card-label">Cardiac surgeon on call</div><div class="card-value">${nurOcSurgeonCardiac}</div></div>
             <div class="card"><div class="card-label">Thoracic surgeon on call</div><div class="card-value">${nurOcSurgeonThoracic}</div></div>
           </div>
@@ -637,6 +653,7 @@
           <div class="card-label">On call</div>
           <div class="cb-oncall-grid">
             <div class="cb-oncall-item"><div class="oc-role">Anaesthetist</div><div class="oc-name">${odpOcAnaes}</div></div>
+            <div class="cb-oncall-item"><div class="oc-role">CICU</div><div class="oc-name">${cicu}</div></div>
             <div class="cb-oncall-item"><div class="oc-role">Surgeon (Cardiac)</div><div class="oc-name">${oncallSurgeonCardiac}</div></div>
             <div class="cb-oncall-item"><div class="oc-role">Surgeon (Thoracic)</div><div class="oc-name">${oncallSurgeonThoracic}</div></div>
             <div class="cb-oncall-item"><div class="oc-role">SODP${odpOcHome ? ` <span class="cb-list-tag">FROM HOME</span>` : ""}</div><div class="oc-name">${odpOc}</div></div>
