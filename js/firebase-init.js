@@ -15,12 +15,16 @@ import {
   collection, getDocs, addDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp,
   enableMultiTabIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-functions.js";
 
 import { firebaseConfig } from "./firebase-config.js";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+// europe-west2 matches the region the CADEX Cloud Functions deploy to
+// (functions/index.js) — must stay in sync or callable invocations 404.
+export const functions = getFunctions(app, "europe-west2");
 
 // Lets already-loaded documents stay readable with no signal, and queues
 // writes locally to sync automatically once back online — the actual
@@ -58,5 +62,6 @@ export {
   onAuthStateChanged, signInWithEmailAndPassword, signOut,
   updatePassword, reauthenticateWithCredential, EmailAuthProvider, sendPasswordResetEmail,
   doc, getDoc, setDoc, updateDoc, deleteDoc,
-  collection, getDocs, addDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp
+  collection, getDocs, addDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp,
+  httpsCallable
 };
