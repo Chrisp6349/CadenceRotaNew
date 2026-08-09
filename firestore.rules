@@ -86,6 +86,23 @@ service cloud.firestore {
         allow write: if isEditorOrAdmin(deptId);
       }
 
+      // Team Board — an informal message board anyone in the department
+      // can post to, including "board" kiosk logins on the corridor
+      // screen itself, so this is intentionally open to every role, not
+      // just editor/admin. Three independent boards, one per page (ODP
+      // dashboard, nursing dashboard, corridor board) — see messages.js.
+      match /messages/{docId} {
+        allow read, write: if inMyDept(deptId);
+      }
+
+      match /nursingMessages/{docId} {
+        allow read, write: if inMyDept(deptId);
+      }
+
+      match /theatreMessages/{docId} {
+        allow read, write: if inMyDept(deptId);
+      }
+
       // ---- CADEX (Cadence-Atrium Data Exchange) ------------------------
       // cadexConfig/settings holds the Atrium base URL and both API keys
       // (inbound + outbound) — admin-only in both directions, same as
