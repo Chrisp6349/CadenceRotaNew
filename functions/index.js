@@ -59,6 +59,15 @@ async function fetchWithTimeout(url, options) {
 // ---- Provider auth: resolve an inbound Bearer key to a department -----
 // Every department's config lives at departments/{deptId}/cadexConfig/settings.
 // providerApiKey is the key The Atrium must send when calling *us*.
+//
+// Deliberately does NOT check `enabled` — that flag controls whether
+// Cadence's own Consumer polls The Atrium (see enabledCadexConfigs()
+// below), a completely separate direction. Provider auth only needs a
+// matching key: the two sides can and do go live independently, exactly
+// as CADEX's two-independent-connections design intends. Requiring
+// `enabled` here would mean nobody can even test the key against
+// Cadence's Provider API until Cadence's own Consumer is switched on —
+// which is the wrong direction to gate on.
 async function departmentForProviderKey(apiKey) {
   if (!apiKey) return null;
   const snap = await db.collectionGroup("cadexConfig")
@@ -67,7 +76,7 @@ async function departmentForProviderKey(apiKey) {
     .get();
   if (snap.empty) return null;
   const configDoc = snap.docs[0];
-  if (configDoc.id !== "settings" || !configDoc.data().enabled) return null;
+  if (configDoc.id !== "settings") return null;
   return configDoc.ref.parent.parent.id;
 }
 
