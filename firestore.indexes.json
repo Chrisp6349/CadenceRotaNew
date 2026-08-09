@@ -1,19 +1,21 @@
 {
-  "indexes": [
+  "indexes": [],
+  "fieldOverrides": [
     {
       "collectionGroup": "cadexConfig",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "providerApiKey", "order": "ASCENDING" }
+      "fieldPath": "providerApiKey",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
       ]
     },
     {
       "collectionGroup": "cadexConfig",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "enabled", "order": "ASCENDING" }
+      "fieldPath": "enabled",
+      "indexes": [
+        { "order": "ASCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING", "queryScope": "COLLECTION_GROUP" }
       ]
     }
-  ],
-  "fieldOverrides": []
+  ]
 }
