@@ -138,17 +138,20 @@ function resolveCadexAnaesthetist(raw, anaesInitials) {
   return { value: resolved || raw, matched: !!resolved };
 }
 
-// A CADEX-imported value that hasn't been applied to the local field yet
-// shows as a small badge with an Apply button (editors/admins only) —
-// never written into `rota` automatically, so an import can never
-// silently overwrite something a person already typed in (see the CADEX
-// proposal, guiding principle 9). Once applied, or once the local value
-// already matches what The Atrium sent, the badge just confirms a match.
+// A CADEX-imported value not yet reflected in the local field shows as
+// a small badge with an Apply button (editors/admins only) — never
+// written into `rota` automatically here (applyCadexAuto() above
+// handles the automatic case separately), so a stale import can never
+// silently overwrite something a person already typed in (see the
+// CADEX proposal, guiding principle 9). Once the field already matches
+// what The Atrium sent — the common case now that most fields
+// auto-apply — there's nothing to look at, so nothing is shown at all;
+// a badge on every already-correct field would just be noise.
 function cadexBadge(fkey, importedRaw, currentVal, editable, anaesInitials) {
   if (!importedRaw) return "";
   const { value: applyValue, matched } = resolveCadexAnaesthetist(importedRaw, anaesInitials);
   if (applyValue === currentVal) {
-    return `<span class="cadex-badge cadex-match" title="Matches The Atrium">CADEX ✓</span>`;
+    return "";
   }
   const applyBtn = editable
     ? `<button type="button" class="cadex-apply" data-apply-key="${fkey}" data-apply-value="${applyValue}">Apply</button>`
