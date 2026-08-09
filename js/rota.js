@@ -191,7 +191,7 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     return { o, a };
   }
 
-  function field(day, key, list, type, restricted = true, placeholder) {
+  function field(day, key, list, type, restricted = true, placeholder, cadexTracked = false) {
     const fkey = `${day}_${key}`;
     const current = rota[fkey] || "";
     if (!editable) {
@@ -201,7 +201,9 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     // The blank option shows the role name (e.g. "ODP", "Anaesthetist")
     // instead of being empty, so whoever's filling in the rota can tell
     // what each box is for before they've picked anyone.
-       let h = `<select data-key="${fkey}" class="${current ? "" : "is-placeholder"}"><option value="">${placeholder || ""}</option>`;
+    // `data-cadex` marks fields applyCadexAuto()/attachChangeHandlers()
+    // manage — see applyCadexAuto() below for what that means.
+       let h = `<select data-key="${fkey}" class="${current ? "" : "is-placeholder"}"${cadexTracked ? ' data-cadex="1"' : ""}><option value="">${placeholder || ""}</option>`;
 
     [...list].sort().forEach(n => {
       let hide = false;
@@ -254,7 +256,7 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     const imported = dayCadex(day)[theatreName];
     return field(day, `${theatreId}_odp1`, staff.odps, "odp", true, "SODP")
       + field(day, `${theatreId}_odp2`, staff.odps, "odp", true, "SODP")
-      + field(day, anaesKey, staff.anaesthetists, "anaes", true, "Anaesthetist")
+      + field(day, anaesKey, staff.anaesthetists, "anaes", true, "Anaesthetist", true)
       + cadexBadge(fkey, imported, rota[fkey], editable, anaesInitials)
       + field(day, `${theatreId}_list`, dept.listOptions || [], "list", false, "List type");
   }
@@ -274,7 +276,7 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
         ${field(d, "oncall_odp", staff.odps, "odp", false, "SODP")}
         ${homeCheckbox(d)}
         ${field(d, "oncall_extra", dept.extraOnCall || ["", "EXTRA O/C"], "list", false, "Extra on-call")}
-        ${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}
+        ${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true)}
         ${cadexBadge(onCallAnaesKey, dayCadex(d)["On Call"], rota[onCallAnaesKey], editable, anaesInitials)}
         ${cicuReadout(dayCadex(d)["CICU"], anaesInitials)}
       </td></tr>`;
@@ -288,11 +290,11 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     w += `<tr${isToday(i + 5) ? " class='today'" : ""}><td class="daycell">${dayLabel(i + 5)}</td>
       <td>${field(d, "oncall_odp1", staff.odps, "odp", false, "SODP")}${field(d, "oncall_session1", ["ALL DAY","AM","PM"], "list", false, "Session")}<br>
           ${field(d, "oncall_odp2", staff.odps, "odp", false, "SODP")}${field(d, "oncall_session2", ["ALL DAY","AM","PM"], "list", false, "Session")}</td>
-      <td>${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}
+      <td>${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true)}
         ${cadexBadge(onCallAnaesKey, dayCadex(d)["On Call"], rota[onCallAnaesKey], editable, anaesInitials)}
         ${cicuReadout(dayCadex(d)["CICU"], anaesInitials)}
       </td>
-      <td>${field(d, "wl_odp", staff.odps, "odp", false, "SODP")}${field(d, "wl_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}
+      <td>${field(d, "wl_odp", staff.odps, "odp", false, "SODP")}${field(d, "wl_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true)}
         ${cadexBadge(wlAnaesKey, dayCadex(d)["Waiting List"], rota[wlAnaesKey], editable, anaesInitials)}
       </td>
     </tr>`;
@@ -307,6 +309,12 @@ export function attachChangeHandlers(container, rota, onChange) {
   container.querySelectorAll("select[data-key]").forEach(sel => {
     sel.addEventListener("change", () => {
       rota[sel.dataset.key] = sel.value;
+      // A person touching a CADEX-tracked field — including clearing it
+      // back to blank — is a deliberate choice. Recording that (rather
+      // than leaving the flag unset) is what stops applyCadexAuto() from
+      // re-filling it again next time CADEX data refreshes; see that
+      // function below for the full flag scheme.
+      if (sel.dataset.cadex) rota[`_cadexApplied_${sel.dataset.key}`] = false;
       onChange && onChange();
     });
   });
@@ -317,12 +325,60 @@ export function attachChangeHandlers(container, rota, onChange) {
     });
   });
   // CADEX "Apply" buttons — copies an imported value from The Atrium
-  // into the local field, same as if someone had picked it themselves.
+  // into the local field, same as if someone had picked it themselves,
+  // and marks the field CADEX-managed so future imports keep it current
+  // automatically until a person picks something else.
   container.querySelectorAll("button[data-apply-key]").forEach(btn => {
     btn.addEventListener("click", () => {
       rota[btn.dataset.applyKey] = btn.dataset.applyValue;
+      rota[`_cadexApplied_${btn.dataset.applyKey}`] = true;
       onChange && onChange();
     });
+  });
+}
+
+// Auto-fills CADEX-imported anaesthetist data into fields nobody has
+// deliberately set, every time this runs (so newly-synced data appears
+// as soon as the rota re-renders, not just on page load) — but never
+// into a field a person has explicitly chosen a value for (including
+// deliberately clearing one), and never an unmatched CADEX code (raw
+// initials with no Staff Admin match stay a manual decision always).
+//
+// Only ever mutates the in-memory `rota` object passed in — nothing
+// reaches Firestore until the editor saves, exactly like any other
+// field they'd filled in by hand.
+//
+// Flag scheme, per field key `fkey` (e.g. "Monday_theatre-1_anaes"):
+// rota[`_cadexApplied_${fkey}`] is `true` once CADEX has set it
+// (kept current on every future sync), `false` once a person has
+// touched it (never auto-filled again), or absent if nobody's ever
+// touched it (safe to auto-fill the first time a match arrives). The
+// leading underscore keeps these out of renderGrid's used()/diffRota's
+// key parsing — both only recognise keys starting with a day name.
+export function applyCadexAuto(rota, cadex, theatres, anaesInitials) {
+  if (!cadex) return;
+
+  function tryApply(fkey, importedRaw) {
+    if (!importedRaw) return;
+    const resolved = anaesInitials[importedRaw.trim().toUpperCase()];
+    if (!resolved) return;
+    const flagKey = `_cadexApplied_${fkey}`;
+    if (rota[flagKey] === false) return; // a person owns this field now
+    rota[fkey] = resolved;
+    rota[flagKey] = true;
+  }
+
+  WEEKDAYS.forEach(day => {
+    const dayData = cadex[day.toLowerCase()] || {};
+    theatres.forEach(t => {
+      if (t.name in dayData) tryApply(`${day}_${t.id}_anaes`, dayData[t.name]);
+    });
+    tryApply(`${day}_oncall_anaes`, dayData["On Call"]);
+  });
+  WEEKENDS.forEach(day => {
+    const dayData = cadex[day.toLowerCase()] || {};
+    tryApply(`${day}_oncall_anaes`, dayData["On Call"]);
+    tryApply(`${day}_wl_anaes`, dayData["Waiting List"]);
   });
 }
 

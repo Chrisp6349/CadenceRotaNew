@@ -118,7 +118,7 @@
 
   import { renderShell } from "./js/shell.js";
   import { getDepartment, listTheatres, listStaff, splitStaff, buildAnaesthetistInitialsMap } from "./js/department.js";
-  import { loadWeek, saveWeek, mondayOfCurrentWeek, renderGrid, attachChangeHandlers } from "./js/rota.js";
+  import { loadWeek, saveWeek, mondayOfCurrentWeek, renderGrid, attachChangeHandlers, applyCadexAuto } from "./js/rota.js";
   import { getCadexImports } from "./js/cadex.js";
   import { applyTheme } from "./js/theme.js";
   applyTheme();
@@ -238,6 +238,13 @@
   // immediately disappear from the other theatres' dropdowns.
   function renderOnly() {
     const showEditable = editable && !previewMode;
+
+    // Fills in CADEX-managed fields before rendering, not just once on
+    // load — so newly-synced data shows up as soon as this re-renders,
+    // without needing a page reload. Editors/admins only: viewers have
+    // no way to save, so mutating their in-memory copy would only be
+    // misleading, never something they can act on.
+    if (editable) applyCadexAuto(rota, cadexDays, theatres, anaesInitials);
 
     document.getElementById("printHeader").classList.toggle("force-show", previewMode);
     document.getElementById("editButtons").style.display = previewMode ? "none" : "";
