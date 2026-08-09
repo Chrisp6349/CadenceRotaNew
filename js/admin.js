@@ -172,7 +172,9 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
             <input type="text" id="cadexProviderKey" placeholder="API key The Atrium must send to Cadence" style="flex:1;">
             <button class="btn btn-ghost btn-sm" type="button" id="cadexGenProviderKey">Generate</button>
           </div>
-          <p class="empty-note" style="margin:0;">Cadence's own endpoints for The Atrium to call: <code id="cadexEndpoints"></code></p>
+          <input type="url" id="cadexCadenceUrl" placeholder="Cadence's own base URL for The Atrium to call, e.g. https://europe-west2-cadence-theatre-rota.cloudfunctions.net/cadex">
+          <p class="empty-note" style="margin:0;">This is the Cloud Functions URL from your Firebase deploy — not this app's own web address, since
+            they're hosted separately. Firebase Console → Functions → <code>cadex</code> → Trigger URL.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-primary btn-sm" type="submit">Save connection</button>
             <button class="btn btn-secondary btn-sm" type="button" id="cadexTestBtn">Test connection</button>
@@ -731,7 +733,6 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
   // ---- CADEX — Atrium integration ----------------------------------------
   const cadexMsgEl = container.querySelector("#cadexMsg");
   const cadexStatusEl = container.querySelector("#cadexStatus");
-  container.querySelector("#cadexEndpoints").textContent = `${window.location.origin}/api/v1/{odp,surgeons,status}`;
 
   function cadexMsg(text, isError) {
     cadexMsgEl.textContent = text;
@@ -750,6 +751,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
     container.querySelector("#cadexAtriumUrl").value = cfg.atriumBaseUrl || "";
     container.querySelector("#cadexAtriumKey").value = cfg.atriumApiKey || "";
     container.querySelector("#cadexProviderKey").value = cfg.providerApiKey || "";
+    container.querySelector("#cadexCadenceUrl").value = cfg.cadenceBaseUrl || "";
   }
 
   async function refreshCadexStatus() {
@@ -778,7 +780,8 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       enabled: container.querySelector("#cadexEnabled").checked,
       atriumBaseUrl: container.querySelector("#cadexAtriumUrl").value.trim(),
       atriumApiKey: container.querySelector("#cadexAtriumKey").value.trim(),
-      providerApiKey: container.querySelector("#cadexProviderKey").value.trim()
+      providerApiKey: container.querySelector("#cadexProviderKey").value.trim(),
+      cadenceBaseUrl: container.querySelector("#cadexCadenceUrl").value.trim()
     };
     try {
       await saveCadexConfig(deptId, fields);
