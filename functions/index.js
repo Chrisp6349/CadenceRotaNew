@@ -156,16 +156,29 @@ const cadex = onRequest(async (req, res) => {
   }
 });
 
-// ---- Consumer: pull The Atrium's consultant data for one department ---
-// Never writes into departments/{deptId}/weeks/{weekId}.data (the
-// editable rota) — only into cadexImports, a read-only projection the
-// client displays alongside the grid and can choose to apply (guiding
-// principles 7 and 9: imported data is clearly identifiable, and never
-// silently replaces something a person already entered).
-async function syncDepartment(deptId, config) {
-  const weekId = mondayOf();
+// How far ahead of the current week to pull each sync — staff naturally
+// look further ahead than "this week" when checking the rota (planning,
+// swaps, upcoming on-call), and Atrium confirmed it holds the current
+// quarter plus the next once published, so requesting a few weeks
+// ahead is well within what it can serve. A week Atrium hasn't
+// published yet just comes back as empty per-day objects (see §4.2 of
+// the contract) — harmless, and picked up automatically once published.
+const SYNC_WEEKS_AHEAD = 4;
+
+function addWeeks(weekId, weeks) {
+  const d = new Date(weekId + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + weeks * 7);
+  return d.toISOString().split("T")[0];
+}
+
+// Fetches and stores one week's consultant data. Never writes into
+// departments/{deptId}/weeks/{weekId}.data (the editable rota) — only
+// into cadexImports, a read-only projection the client displays
+// alongside the grid and can choose to apply (guiding principles 7 and
+// 9: imported data is clearly identifiable, and never silently
+// replaces something a person already entered).
+async function syncOneWeek(deptId, config, weekId) {
   const url = `${config.atriumBaseUrl.replace(/\/$/, "")}/api/v1/consultants?week=${weekId}`;
-  const statusRef = db.doc(`departments/${deptId}/cadexStatus/live`);
 
   let resp;
   try {
@@ -173,35 +186,18 @@ async function syncDepartment(deptId, config) {
       headers: { Authorization: `Bearer ${config.atriumApiKey}`, Accept: "application/json" }
     });
   } catch (err) {
-    await statusRef.set({ import: {
-      lastFailureAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastImportOk: false,
-      lastError: `network error: ${err.message}`
-    } }, { merge: true });
-    return { ok: false, error: err.message };
+    return { ok: false, weekId, error: `network error: ${err.message}` };
   }
 
   if (!resp.ok) {
-    const error = `Atrium returned HTTP ${resp.status}`;
-    await statusRef.set({ import: {
-      lastFailureAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastImportOk: false,
-      lastError: error
-    } }, { merge: true });
-    return { ok: false, error };
+    return { ok: false, weekId, error: `Atrium returned HTTP ${resp.status}` };
   }
 
   let payload;
   try {
     payload = await resp.json();
   } catch (err) {
-    const error = "invalid JSON from Atrium";
-    await statusRef.set({ import: {
-      lastFailureAt: admin.firestore.FieldValue.serverTimestamp(),
-      lastImportOk: false,
-      lastError: error
-    } }, { merge: true });
-    return { ok: false, error };
+    return { ok: false, weekId, error: "invalid JSON from Atrium" };
   }
 
   const receivedWeekId = mondayOf(payload.weekCommencing) || weekId;
@@ -215,13 +211,35 @@ async function syncDepartment(deptId, config) {
     days
   });
 
-  await statusRef.set({ import: {
-    lastImportAt: admin.firestore.FieldValue.serverTimestamp(),
-    lastImportOk: true,
-    lastError: null
-  } }, { merge: true });
-
   return { ok: true, weekId: receivedWeekId };
+}
+
+// Syncs the current week plus SYNC_WEEKS_AHEAD weeks ahead, then
+// records one combined status: "ok" if at least one week succeeded (a
+// single flaky week ahead shouldn't mark the whole import as failed),
+// with the first error kept for the status panel if none did.
+async function syncDepartment(deptId, config) {
+  const currentWeek = mondayOf();
+  const weekIds = Array.from({ length: SYNC_WEEKS_AHEAD + 1 }, (_, i) => addWeeks(currentWeek, i));
+  const results = await Promise.all(weekIds.map(weekId => syncOneWeek(deptId, config, weekId)));
+
+  const statusRef = db.doc(`departments/${deptId}/cadexStatus/live`);
+  const anyOk = results.some(r => r.ok);
+  if (anyOk) {
+    await statusRef.set({ import: {
+      lastImportAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastImportOk: true,
+      lastError: null
+    } }, { merge: true });
+  } else {
+    await statusRef.set({ import: {
+      lastFailureAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastImportOk: false,
+      lastError: results[0]?.error || "unknown error"
+    } }, { merge: true });
+  }
+
+  return { ok: anyOk, weekIds: results.filter(r => r.ok).map(r => r.weekId), errors: results.filter(r => !r.ok) };
 }
 
 async function enabledCadexConfigs() {

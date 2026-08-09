@@ -809,7 +809,9 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
     e.target.disabled = true;
     try {
       const result = await cadexManualSync(deptId);
-      cadexMsg(result.ok ? `Synced week commencing ${result.weekId}.` : `Sync failed: ${result.error}`, !result.ok);
+      cadexMsg(result.ok
+        ? `Synced ${result.weekIds.length} week${result.weekIds.length === 1 ? "" : "s"} (commencing ${result.weekIds[0]}${result.weekIds.length > 1 ? ` to ${result.weekIds[result.weekIds.length - 1]}` : ""}).`
+        : `Sync failed: ${result.errors?.[0]?.error || "unknown error"}`, !result.ok);
       refreshCadexStatus();
     } catch (err) {
       cadexMsg(err.message || "Couldn't sync — please try again.", true);
