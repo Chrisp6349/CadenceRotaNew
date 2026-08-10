@@ -36,6 +36,7 @@ const SHELL_FILES = [
   "./css/cadence.css",
   "./js/admin.js",
   "./js/auth.js",
+  "./js/cadex.js",
   "./js/department.js",
   "./js/firebase-config.js",
   "./js/firebase-init.js",

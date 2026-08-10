@@ -13,6 +13,7 @@ import {
 import { listUsers, createUserAccount, updateUserRole, revokeUserAccess } from "./users.js";
 import { loadWeek, saveWeek } from "./rota.js";
 import { loadNursingWeek, saveNursingWeek } from "./nursing-rota.js";
+import { getCadexConfig, saveCadexConfig, getCadexStatus, cadexManualSync, cadexTestConnection, generateApiKey } from "./cadex.js";
 
 const DEFAULT_LIST_OPTIONS = ["ROUTINE", "EMERGENCY", "URGENT"];
 
@@ -41,9 +42,13 @@ const DEFAULT_LIST_OPTIONS = ["ROUTINE", "EMERGENCY", "URGENT"];
 // banding existed) is also still merged in, so nobody already added
 // disappears — they just won't have a band until re-added/edited under
 // one of the three boxes below.
+// `hasInitials`: anaesthetists only — the initials The Atrium identifies
+// them by (e.g. "PJ"), used to auto-resolve CADEX-imported consultant
+// data to the right person. See buildAnaesthetistInitialsMap() in
+// department.js.
 const STAFF_TYPES = [
   { type: "odp",          label: "SODPs",            singular: "SODP",         hasRotaName: true },
-  { type: "anaesthetist", label: "Anaesthetists",    singular: "Anaesthetist", hasRotaName: false },
+  { type: "anaesthetist", label: "Anaesthetists",    singular: "Anaesthetist", hasRotaName: false, hasInitials: true },
   { type: "nurse_band5",  label: "Band 5 Nurses",     singular: "Band 5 Nurse", hasRotaName: true },
   { type: "nurse_band6",  label: "Band 6 Nurses",     singular: "Band 6 Nurse", hasRotaName: true },
   { type: "nurse_aptap",  label: "Band 4 AP/TAP",     singular: "AP/TAP",       hasRotaName: true },
@@ -150,6 +155,40 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       </section>
 
       <section>
+        <h4 class="admin-h">CADEX — Atrium integration</h4>
+        <p class="empty-note" style="margin:-6px 0 10px;">Cadence-Atrium Data Exchange. Automatically shares ODP and surgeon
+          on-call information with The Atrium, and imports consultant anaesthetist allocations back — see the CADEX proposal
+          for the full spec. Nothing here is enabled until you fill it in and save.</p>
+        <p class="empty-note" id="cadexLockNote" style="margin:0 0 10px;">🔒 Connection details are locked — tap <strong>Edit connection details</strong> below to change them. This is on purpose: these fields control a live integration, and locking them by default means nobody can change something here by an accidental tap or keystroke.</p>
+        <form id="cadexForm" class="inline-form" style="flex-direction:column;align-items:stretch;gap:10px;">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;">
+            <input type="checkbox" id="cadexEnabled" disabled> Enabled
+          </label>
+          <input type="url" id="cadexAtriumUrl" placeholder="The Atrium's base URL, e.g. https://atrium.example.com" disabled>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="cadexAtriumKey" placeholder="API key Cadence sends to The Atrium" style="flex:1;" disabled>
+            <button class="btn btn-ghost btn-sm" type="button" id="cadexGenAtriumKey" disabled>Generate</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="text" id="cadexProviderKey" placeholder="API key The Atrium must send to Cadence" style="flex:1;" disabled>
+            <button class="btn btn-ghost btn-sm" type="button" id="cadexGenProviderKey" disabled>Generate</button>
+          </div>
+          <input type="url" id="cadexCadenceUrl" placeholder="Cadence's own base URL for The Atrium to call, e.g. https://europe-west2-cadence-theatre-rota.cloudfunctions.net/cadex" disabled>
+          <p class="empty-note" style="margin:0;">This is the Cloud Functions URL from your Firebase deploy — not this app's own web address, since
+            they're hosted separately. Firebase Console → Functions → <code>cadex</code> → Trigger URL.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" type="button" id="cadexEditBtn">Edit connection details</button>
+            <button class="btn btn-primary btn-sm" type="submit" id="cadexSaveBtn" disabled>Save connection</button>
+            <button class="btn btn-ghost btn-sm" type="button" id="cadexCancelBtn" style="display:none;">Cancel</button>
+            <button class="btn btn-secondary btn-sm" type="button" id="cadexTestBtn">Test connection</button>
+            <button class="btn btn-secondary btn-sm" type="button" id="cadexSyncBtn">Sync now</button>
+          </div>
+        </form>
+        <div id="cadexMsg" class="empty-note" style="display:none;margin-top:8px;"></div>
+        <div id="cadexStatus" class="empty-note" style="margin-top:10px;"></div>
+      </section>
+
+      <section>
         <h4 class="admin-h">Theatres</h4>
         <form id="theatreForm" class="inline-form">
           <input type="text" id="theatreName" placeholder="Theatre name, e.g. Theatre 3" required>
@@ -169,6 +208,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
         <form id="staffForm_${st.type}" class="inline-form">
           <input type="text" id="staffName_${st.type}" placeholder="Full name" required>
           ${st.hasRotaName ? `<input type="text" id="staffRotaName_${st.type}" placeholder="How it shows on the rota, e.g. Chris (optional)">` : ""}
+          ${st.hasInitials ? `<input type="text" id="staffInitials_${st.type}" placeholder="CADEX initials, e.g. PJ (optional)" maxlength="6" style="text-transform:uppercase;width:100px;">` : ""}
           <button class="btn btn-primary btn-sm" type="submit">Add ${st.singular}</button>
         </form>
         <div class="section-list-head">
@@ -322,6 +362,19 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
     if (!staffCache) staffCache = await listStaff(deptId);
     return staffCache;
   }
+
+  // Two anaesthetists sharing the same CADEX initials would mean a CADEX
+  // import can't tell them apart (buildAnaesthetistInitialsMap() in
+  // department.js just lets the last one win) — a soft warning here,
+  // not a hard block, since it's still fine to save if that's genuinely
+  // what they want to happen for now.
+  async function warnIfDuplicateInitials(initials, excludeId) {
+    if (!initials) return true;
+    const clash = (await getAllStaff()).find(s =>
+      s.type === "anaesthetist" && s.id !== excludeId && (s.initials || "").trim().toUpperCase() === initials);
+    if (!clash) return true;
+    return confirm(`${clash.name} already uses the CADEX initials "${initials}" — a CADEX import won't be able to tell them apart. Save anyway?`);
+  }
   STAFF_TYPES.forEach(st => {
     const listEl = container.querySelector(`#staffList_${st.type}`);
     const countEl = container.querySelector(`#staffCount_${st.type}`);
@@ -339,7 +392,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
         row.className = "admin-row";
 
         function renderView() {
-          row.innerHTML = `<span>${s.name}${s.rotaName ? ` <span class="tag-mini">shows as: ${s.rotaName}</span>` : ""}</span>
+          row.innerHTML = `<span>${s.name}${s.rotaName ? ` <span class="tag-mini">shows as: ${s.rotaName}</span>` : ""}${s.initials ? ` <span class="tag-mini">CADEX: ${s.initials}</span>` : ""}</span>
             <span style="display:flex;gap:6px;flex-shrink:0;">
               <button class="btn btn-ghost btn-sm" data-edit="${s.id}">Edit</button>
               <button class="btn btn-ghost btn-sm" data-remove="${s.id}">Remove</button>
@@ -365,6 +418,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
           row.innerHTML = `
             <input type="text" class="edit-name" value="${s.name}" placeholder="Full name" style="flex:1;min-width:120px;">
             ${st.hasRotaName ? `<input type="text" class="edit-rotaname" value="${s.rotaName || ""}" placeholder="How it shows on the rota" style="flex:1;min-width:120px;">` : ""}
+            ${st.hasInitials ? `<input type="text" class="edit-initials" value="${s.initials || ""}" placeholder="CADEX initials" style="width:90px;text-transform:uppercase;">` : ""}
             <span style="display:flex;gap:6px;flex-shrink:0;">
               <button class="btn btn-primary btn-sm" data-save="${s.id}">Save</button>
               <button class="btn btn-ghost btn-sm" data-cancel="${s.id}">Cancel</button>
@@ -374,9 +428,13 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
             if (!newName) return;
             const rotaNameInput = row.querySelector(".edit-rotaname");
             const newRotaName = rotaNameInput ? rotaNameInput.value.trim() : "";
-            await saveStaff(deptId, s.id, { name: newName, type: st.type, rotaName: newRotaName });
+            const initialsInput = row.querySelector(".edit-initials");
+            const newInitials = initialsInput ? initialsInput.value.trim().toUpperCase() : "";
+            if (!(await warnIfDuplicateInitials(newInitials, s.id))) return;
+            await saveStaff(deptId, s.id, { name: newName, type: st.type, rotaName: newRotaName, initials: newInitials });
             s.name = newName;
             s.rotaName = newRotaName;
+            s.initials = newInitials;
             renderView();
             applyFilter(filterEl, listEl);
           });
@@ -398,9 +456,13 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       if (!name) return;
       const rotaNameInput = st.hasRotaName ? container.querySelector(`#staffRotaName_${st.type}`) : null;
       const rotaName = rotaNameInput ? rotaNameInput.value.trim() : "";
-           await saveStaff(deptId, slugId(name), { name, type: st.type, rotaName });
+      const initialsInput = st.hasInitials ? container.querySelector(`#staffInitials_${st.type}`) : null;
+      const initials = initialsInput ? initialsInput.value.trim().toUpperCase() : "";
+      if (!(await warnIfDuplicateInitials(initials, null))) return;
+      await saveStaff(deptId, slugId(name), { name, type: st.type, rotaName, initials });
       nameInput.value = "";
       if (rotaNameInput) rotaNameInput.value = "";
+      if (initialsInput) initialsInput.value = "";
       staffCache = null;
       refresh();
 
@@ -661,15 +723,158 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       const changesPreview = (e.changes || []).slice(0, 3)
         .map(c => `<div>${c.field}: ${c.from || "(empty)"} → ${c.to || "(empty)"}</div>`).join("");
       const moreCount = (e.changeCount || 0) - Math.min(3, (e.changes || []).length);
+      const headline = e.rota === "CADEX"
+        ? `<strong>${e.displayName || "Someone"}</strong> ${e.action || "changed"} the CADEX connection — ${e.changeCount || 0} change${e.changeCount === 1 ? "" : "s"}`
+        : `<strong>${e.displayName || "Someone"}</strong> ${e.action || "updated"} the ${e.rota || "SODP"} rota, week commencing ${e.weekStart} — ${e.changeCount || 0} change${e.changeCount === 1 ? "" : "s"}`;
       row.innerHTML = `
         <span class="audit-time">${formatTimestamp(e.timestamp)}</span>
-        <div class="audit-headline"><strong>${e.displayName || "Someone"}</strong> ${e.action || "updated"} the ${e.rota || "SODP"} rota, week commencing ${e.weekStart} — ${e.changeCount || 0} change${e.changeCount === 1 ? "" : "s"}</div>
+        <div class="audit-headline">${headline}</div>
         <div class="audit-changes">${changesPreview}${moreCount > 0 ? `<div>+${moreCount} more</div>` : ""}</div>
       `;
       auditLogEl.appendChild(row);
     });
     applyListCollapse("auditLog", auditLogEl, auditLogToggleBtn, auditLogCountEl, entries.length, "change");
   }
+
+  // ---- CADEX — Atrium integration ----------------------------------------
+  const cadexMsgEl = container.querySelector("#cadexMsg");
+  const cadexStatusEl = container.querySelector("#cadexStatus");
+
+  function cadexMsg(text, isError) {
+    cadexMsgEl.textContent = text;
+    cadexMsgEl.style.color = isError ? "var(--status-oncall)" : "";
+    cadexMsgEl.style.display = "block";
+  }
+
+  function formatCadexTimestamp(ts) {
+    if (!ts?.toDate) return "never";
+    return ts.toDate().toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  }
+
+  // The form loads locked (every field disabled) every time — including
+  // right after a save — so nothing here can be changed by an accidental
+  // tap/keystroke while just looking at the page. `lastLoadedCfg` is what
+  // Cancel reverts to, and what the submit handler compares against to
+  // know whether a save is actually changing a connection that's
+  // currently live.
+  let lastLoadedCfg = null;
+
+  function fillCadexForm(cfg) {
+    container.querySelector("#cadexEnabled").checked = !!cfg.enabled;
+    container.querySelector("#cadexAtriumUrl").value = cfg.atriumBaseUrl || "";
+    container.querySelector("#cadexAtriumKey").value = cfg.atriumApiKey || "";
+    container.querySelector("#cadexProviderKey").value = cfg.providerApiKey || "";
+    container.querySelector("#cadexCadenceUrl").value = cfg.cadenceBaseUrl || "";
+  }
+
+  function setCadexLocked(locked) {
+    ["cadexEnabled", "cadexAtriumUrl", "cadexAtriumKey", "cadexGenAtriumKey", "cadexProviderKey", "cadexGenProviderKey", "cadexCadenceUrl"]
+      .forEach(id => { container.querySelector(`#${id}`).disabled = locked; });
+    container.querySelector("#cadexSaveBtn").disabled = locked;
+    container.querySelector("#cadexEditBtn").style.display = locked ? "" : "none";
+    container.querySelector("#cadexCancelBtn").style.display = locked ? "none" : "";
+    container.querySelector("#cadexLockNote").style.display = locked ? "" : "none";
+  }
+
+  async function loadCadexForm() {
+    lastLoadedCfg = await getCadexConfig(deptId);
+    fillCadexForm(lastLoadedCfg);
+    setCadexLocked(true);
+  }
+
+  async function refreshCadexStatus() {
+    const status = await getCadexStatus(deptId);
+    const imp = status.import, exp = status.export;
+    const importLine = imp
+      ? `Import from Atrium: ${imp.lastImportOk ? "OK" : "FAILED"} — last successful ${formatCadexTimestamp(imp.lastImportAt)}${!imp.lastImportOk ? `, last failure ${formatCadexTimestamp(imp.lastFailureAt)} (${imp.lastError || "unknown error"})` : ""}`
+      : "Import from Atrium: no sync has run yet.";
+    const exportLine = exp
+      ? `Export to Atrium: last request ${formatCadexTimestamp(exp.lastRequestAt)} — ${exp.lastRequestOk ? "OK" : `failed (${exp.lastError || "unknown error"})`}`
+      : "Export to Atrium: not yet called.";
+    cadexStatusEl.innerHTML = `<div>${importLine}</div><div>${exportLine}</div><div>Poll interval: ~60 seconds</div>`;
+  }
+
+  container.querySelector("#cadexEditBtn").addEventListener("click", () => {
+    setCadexLocked(false);
+  });
+  container.querySelector("#cadexCancelBtn").addEventListener("click", () => {
+    fillCadexForm(lastLoadedCfg); // discard whatever was typed
+    setCadexLocked(true);
+    cadexMsgEl.style.display = "none";
+  });
+
+  // Regenerating a key that's already in use silently breaks the other
+  // side's calls until they're given the new one — worth a beat before
+  // overwriting something that might currently be working.
+  container.querySelector("#cadexGenAtriumKey").addEventListener("click", () => {
+    const el = container.querySelector("#cadexAtriumKey");
+    if (el.value && !confirm("This replaces the key already in this box. If The Atrium is already using the current one, its calls will fail until you send them the new key. Generate a new one anyway?")) return;
+    el.value = generateApiKey();
+  });
+  container.querySelector("#cadexGenProviderKey").addEventListener("click", () => {
+    const el = container.querySelector("#cadexProviderKey");
+    if (el.value && !confirm("This replaces the key already in this box. If The Atrium is already using the current one, its calls to Cadence will start failing until you send them the new key. Generate a new one anyway?")) return;
+    el.value = generateApiKey();
+  });
+
+  container.querySelector("#cadexForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    cadexMsgEl.style.display = "none";
+    const fields = {
+      enabled: container.querySelector("#cadexEnabled").checked,
+      atriumBaseUrl: container.querySelector("#cadexAtriumUrl").value.trim(),
+      atriumApiKey: container.querySelector("#cadexAtriumKey").value.trim(),
+      providerApiKey: container.querySelector("#cadexProviderKey").value.trim(),
+      cadenceBaseUrl: container.querySelector("#cadexCadenceUrl").value.trim()
+    };
+    // The connection was already enabled before this edit, and something
+    // about it is actually changing — that's the one case genuinely
+    // worth a confirm, since it could break a connection currently in
+    // use rather than just setting one up for the first time.
+    const changedSomething = Object.keys(fields).some(k => fields[k] !== (lastLoadedCfg?.[k] ?? (k === "enabled" ? false : "")));
+    if (lastLoadedCfg?.enabled && changedSomething) {
+      if (!confirm("This connection is currently enabled and may be live. Saving these changes could break it until both sides match again. Save anyway?")) return;
+    }
+    try {
+      await saveCadexConfig(deptId, fields, myUid, myDisplayName, lastLoadedCfg);
+      cadexMsg("Connection details saved.");
+      await loadCadexForm(); // re-locks and reloads from what was actually saved
+    } catch (err) {
+      cadexMsg("Couldn't save — please try again.", true);
+    }
+  });
+
+  container.querySelector("#cadexTestBtn").addEventListener("click", async (e) => {
+    cadexMsgEl.style.display = "none";
+    e.target.disabled = true;
+    try {
+      const result = await cadexTestConnection(deptId);
+      cadexMsg(result.ok ? `Connected — ${result.latencyMs}ms.` : `Couldn't connect: ${result.error}`, !result.ok);
+    } catch (err) {
+      cadexMsg(err.message || "Couldn't reach The Atrium — please try again.", true);
+    } finally {
+      e.target.disabled = false;
+    }
+  });
+
+  container.querySelector("#cadexSyncBtn").addEventListener("click", async (e) => {
+    cadexMsgEl.style.display = "none";
+    e.target.disabled = true;
+    try {
+      const result = await cadexManualSync(deptId);
+      cadexMsg(result.ok
+        ? `Synced ${result.weekIds.length} week${result.weekIds.length === 1 ? "" : "s"} (commencing ${result.weekIds[0]}${result.weekIds.length > 1 ? ` to ${result.weekIds[result.weekIds.length - 1]}` : ""}).`
+        : `Sync failed: ${result.errors?.[0]?.error || "unknown error"}`, !result.ok);
+      refreshCadexStatus();
+    } catch (err) {
+      cadexMsg(err.message || "Couldn't sync — please try again.", true);
+    } finally {
+      e.target.disabled = false;
+    }
+  });
+
+  loadCadexForm();
+  refreshCadexStatus();
 
   refreshTheatres();
   refreshAllStaff();

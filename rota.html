@@ -59,7 +59,16 @@
   .home-badge{display:inline-block;font-family:var(--font-mono);font-size:10px;color:var(--teal-700);background:var(--teal-100);
     padding:2px 6px;border-radius:4px;margin-top:2px;}
 
+  .cadex-badge{display:flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:9.5px;color:var(--ink-500);
+    background:var(--ink-100);padding:2px 6px;border-radius:4px;margin-top:2px;flex-wrap:wrap;}
+  .cadex-badge.cadex-readonly{color:var(--ink-500);}
+  .cadex-badge.cadex-unmatched{color:var(--status-turnover);background:var(--status-turnover-bg);}
+  .cadex-apply{font-family:var(--font-body);font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid var(--teal-700);
+    background:var(--surface);color:var(--teal-700);cursor:pointer;}
+  .cadex-apply:hover{background:var(--teal-100);}
+
   @media print{
+    .cadex-badge{display:none !important;}
     @page{ size: A4 landscape; margin: 8mm; }
     #shellRoot .app-sidebar,#shellRoot .app-topbar,.rota-toolbar{display:none !important;}
     #shellRoot .app-main,#shellRoot .app-content{overflow:visible !important;height:auto !important;padding:0 !important;}
@@ -109,8 +118,9 @@
   import { requireSession, blockBoardOnly } from "./js/auth.js";
 
   import { renderShell } from "./js/shell.js";
-  import { getDepartment, listTheatres, listStaff, splitStaff } from "./js/department.js";
-  import { loadWeek, saveWeek, mondayOfCurrentWeek, renderGrid, attachChangeHandlers } from "./js/rota.js";
+  import { getDepartment, listTheatres, listStaff, splitStaff, buildAnaesthetistInitialsMap } from "./js/department.js";
+  import { loadWeek, saveWeek, mondayOfCurrentWeek, renderGrid, attachChangeHandlers, applyCadexAuto } from "./js/rota.js";
+  import { getCadexImports } from "./js/cadex.js";
   import { applyTheme } from "./js/theme.js";
   applyTheme();
 
@@ -177,6 +187,7 @@
    const theatres = await theatresPromise;
   const staffList = await staffListPromise;
   const staff = splitStaff(staffList);
+  const anaesInitials = buildAnaesthetistInitialsMap(staffList);
 
   const weekInput = document.getElementById("weekDate");
   const thisWeekBtn = document.getElementById("thisWeekBtn");
@@ -206,6 +217,7 @@
 
   let rota = {};
   let overrideFields = new Set(); // fields with "Show booked" toggled on — see rota.js's field()
+  let cadexDays = null; // this week's imported CADEX data, keyed by lowercase day — see js/cadex.js
   let previewMode = false; // Full week view: read-only, print-styled, on screen
 
   function toast(msg, isError) {
@@ -229,6 +241,13 @@
   function renderOnly() {
     const showEditable = editable && !previewMode;
 
+    // Fills in CADEX-managed fields before rendering, not just once on
+    // load — so newly-synced data shows up as soon as this re-renders,
+    // without needing a page reload. Editors/admins only: viewers have
+    // no way to save, so mutating their in-memory copy would only be
+    // misleading, never something they can act on.
+    if (editable) applyCadexAuto(rota, cadexDays, theatres, anaesInitials);
+
     document.getElementById("printHeader").classList.toggle("force-show", previewMode);
     document.getElementById("editButtons").style.display = previewMode ? "none" : "";
     updatePrintHeader();
@@ -246,7 +265,7 @@
     }
 
     const { weekdayHtml, weekendHtml } = renderGrid({
-      weekStart: weekInput.value, dept, theatres, staff, rota, editable: showEditable, overrideFields
+      weekStart: weekInput.value, dept, theatres, staff, rota, editable: showEditable, overrideFields, cadex: cadexDays, anaesInitials
     });
     document.getElementById("weekdayGrid").innerHTML = weekdayHtml;
     document.getElementById("weekendGrid").innerHTML = weekendHtml;
@@ -268,9 +287,13 @@
   }
 
   async function loadAndRender() {
-    const week = await loadWeek(profile.departmentId, weekInput.value);
+    const [week, imports] = await Promise.all([
+      loadWeek(profile.departmentId, weekInput.value),
+      getCadexImports(profile.departmentId, weekInput.value)
+    ]);
     rota = week.data || {};
     overrideFields.clear();
+    cadexDays = imports?.days || null;
     renderOnly();
   }
 

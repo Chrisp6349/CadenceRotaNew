@@ -126,13 +126,68 @@ export async function saveWeek(deptId, weekStart, data, publish, uid, theatres =
   });
 }
 
+// The Atrium identifies consultants by initials (e.g. "PJ"); Cadence's
+// own anaesthetist dropdowns use full names. Resolves one against the
+// anaesInitials map built from Staff Admin (department.js's
+// buildAnaesthetistInitialsMap()) so a CADEX import can select the right
+// person automatically instead of just showing raw initials. No match
+// found — the initials aren't set up in Staff yet, or it's a locum with
+// no Cadence record at all — falls back to the raw initials as-is.
+function resolveCadexAnaesthetist(raw, anaesInitials) {
+  const resolved = anaesInitials[raw.trim().toUpperCase()];
+  return { value: resolved || raw, matched: !!resolved };
+}
+
+// A CADEX-imported value not yet reflected in the local field shows as
+// a small badge with an Apply button (editors/admins only) — never
+// written into `rota` automatically here (applyCadexAuto() above
+// handles the automatic case separately), so a stale import can never
+// silently overwrite something a person already typed in (see the
+// CADEX proposal, guiding principle 9). Once the field already matches
+// what The Atrium sent — the common case now that most fields
+// auto-apply — there's nothing to look at, so nothing is shown at all;
+// a badge on every already-correct field would just be noise.
+function cadexBadge(fkey, importedRaw, currentVal, editable, anaesInitials) {
+  if (!importedRaw) return "";
+  const { value: applyValue, matched } = resolveCadexAnaesthetist(importedRaw, anaesInitials);
+  if (applyValue === currentVal) {
+    return "";
+  }
+  const applyBtn = editable
+    ? `<button type="button" class="cadex-apply" data-apply-key="${fkey}" data-apply-value="${applyValue}">Apply</button>`
+    : "";
+  if (!matched) {
+    return `<span class="cadex-badge cadex-unmatched" title="No anaesthetist in Staff has the CADEX initials &quot;${importedRaw}&quot; — add them in Administration, or Apply to store the initials as-is">CADEX: ${importedRaw} (no match)${applyBtn}</span>`;
+  }
+  return `<span class="cadex-badge" title="Imported from The Atrium, not yet applied here">CADEX: ${applyValue}${applyBtn}</span>`;
+}
+
+// CICU has no equivalent field in Cadence's own rota — it's purely a
+// read-only import from The Atrium, shown alongside on-call info rather
+// than tied to any editable box.
+function cicuReadout(cicuVal, anaesInitials) {
+  if (!cicuVal) return "";
+  const { value } = resolveCadexAnaesthetist(cicuVal, anaesInitials);
+  return `<span class="cadex-badge cadex-readonly" title="From The Atrium">CICU: ${value}</span>`;
+}
+
 // ---- Grid rendering --------------------------------------------------------
 // `dept`   = department doc (listOptions, extraOnCall, bankHolidays)
 // `theatres` = [{id, name}, ...] in display order
 // `staff`  = { odps: [...], anaesthetists: [...] }
 // `rota`   = the flat key/value object for the week
 // `editable` = true for editor/admin, false for viewer
-export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, onChange, overrideFields }) {
+// `cadex`  = optional CADEX imports, keyed by lowercase day, e.g.
+//            { monday: { "Theatre 1": "PJ", "On Call": "NM", "CICU": "VR" }, ... }
+//            (see functions/cadex-mapping.js mapAtriumConsultants()) — omit
+//            or pass null/undefined when there's no import yet.
+// `anaesInitials` = optional { "PJ": "Mr P Jones", ... } map (see
+//            department.js's buildAnaesthetistInitialsMap()), used to
+//            resolve `cadex`'s raw initials to a full Cadence name.
+// `overrideFields` = optional Set of "<Day>_<key>" fields with the
+//            same-day double-booking check deliberately switched off —
+//            see field()'s "Show booked" button below.
+export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, onChange, overrideFields, cadex, anaesInitials = {} }) {
   overrideFields = overrideFields || new Set();
   function used(day) {
     let o = [], a = [];
@@ -143,7 +198,7 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     return { o, a };
   }
 
-  function field(day, key, list, type, restricted = true, placeholder) {
+  function field(day, key, list, type, restricted = true, placeholder, cadexTracked = false) {
     const fkey = `${day}_${key}`;
     const current = rota[fkey] || "";
     if (!editable) {
@@ -154,7 +209,9 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     // The blank option shows the role name (e.g. "ODP", "Anaesthetist")
     // instead of being empty, so whoever's filling in the rota can tell
     // what each box is for before they've picked anyone.
-       let h = `<select data-key="${fkey}" class="${current ? "" : "is-placeholder"}"><option value="">${placeholder || ""}</option>`;
+    // `data-cadex` marks fields applyCadexAuto()/attachChangeHandlers()
+    // manage — see applyCadexAuto() below for what that means.
+       let h = `<select data-key="${fkey}" class="${current ? "" : "is-placeholder"}"${cadexTracked ? ' data-cadex="1"' : ""}><option value="">${placeholder || ""}</option>`;
 
     [...list].sort().forEach(n => {
       let hide = false, dupe = "";
@@ -164,6 +221,14 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
       }
       if (!hide) h += `<option value="${n}" title="${n}" ${current === n ? "selected" : ""}>${n}${dupe}</option>`;
     });
+    // A saved value that isn't in the department's own staff list — most
+    // often a name just applied from a CADEX import (see cadexBadge()
+    // below), since The Atrium's consultants aren't part of Cadence's
+    // own anaesthetist list — would otherwise vanish from the dropdown
+    // even though it's still the value actually saved. Keep it visible.
+    if (current && !list.includes(current)) {
+      h += `<option title="${current}" selected>${current}</option>`;
+    }
     h += "</select>";
     // Booking the same person into two theatres the same day is blocked
     // by default (see `used()` above) since normally that's a genuine
@@ -198,10 +263,18 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     return `<label class="home-check"><input type="checkbox" data-key="${fkey}" data-kind="checkbox" ${checked ? "checked" : ""}> From home</label>`;
   }
 
-  function theatreCell(day, theatreId) {
+  function dayCadex(day) {
+    return (cadex && cadex[day.toLowerCase()]) || {};
+  }
+
+  function theatreCell(day, theatreId, theatreName) {
+    const anaesKey = `${theatreId}_anaes`;
+    const fkey = `${day}_${anaesKey}`;
+    const imported = dayCadex(day)[theatreName];
     return field(day, `${theatreId}_odp1`, staff.odps, "odp", true, "SODP")
       + field(day, `${theatreId}_odp2`, staff.odps, "odp", true, "SODP")
-      + field(day, `${theatreId}_anaes`, staff.anaesthetists, "anaes", true, "Anaesthetist")
+      + field(day, anaesKey, staff.anaesthetists, "anaes", true, "Anaesthetist", true)
+      + cadexBadge(fkey, imported, rota[fkey], editable, anaesInitials)
       + field(day, `${theatreId}_list`, dept.listOptions || [], "list", false, "List type");
   }
 
@@ -209,7 +282,8 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
 
   let h = `<table class="rota-table"><tr><th>Day</th>${theatreCols}<th class="support-col">Support</th><th class="oncall-col">On Call</th></tr>`;
   WEEKDAYS.forEach((d, i) => {
-    const cells = theatres.map(t => `<td>${theatreCell(d, t.id)}</td>`).join("");
+    const cells = theatres.map(t => `<td>${theatreCell(d, t.id, t.name)}</td>`).join("");
+    const onCallAnaesKey = `${d}_oncall_anaes`;
     h += `<tr${isToday(i) ? " class='today'" : ""}><td class="daycell">${dayLabel(i)}</td>${cells}<td>
         ${field(d, "support1", staff.odps, "odp", true, "SODP")}
         ${field(d, "support2", staff.odps, "odp", true, "SODP")}
@@ -219,18 +293,27 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
         ${field(d, "oncall_odp", staff.odps, "odp", false, "SODP")}
         ${homeCheckbox(d)}
         ${field(d, "oncall_extra", dept.extraOnCall || ["", "EXTRA O/C"], "list", false, "Extra on-call")}
-        ${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}
+        ${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true)}
+        ${cadexBadge(onCallAnaesKey, dayCadex(d)["On Call"], rota[onCallAnaesKey], editable, anaesInitials)}
+        ${cicuReadout(dayCadex(d)["CICU"], anaesInitials)}
       </td></tr>`;
   });
   h += "</table>";
 
   let w = `<table class="rota-table weekend-table"><tr><th>Day</th><th>On Call SODP</th><th>On Call Anaesthetist</th><th>Waiting List</th></tr>`;
   WEEKENDS.forEach((d, i) => {
+    const onCallAnaesKey = `${d}_oncall_anaes`;
+    const wlAnaesKey = `${d}_wl_anaes`;
     w += `<tr${isToday(i + 5) ? " class='today'" : ""}><td class="daycell">${dayLabel(i + 5)}</td>
       <td>${field(d, "oncall_odp1", staff.odps, "odp", false, "SODP")}${field(d, "oncall_session1", ["ALL DAY","AM","PM"], "list", false, "Session")}<br>
           ${field(d, "oncall_odp2", staff.odps, "odp", false, "SODP")}${field(d, "oncall_session2", ["ALL DAY","AM","PM"], "list", false, "Session")}</td>
-      <td>${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}</td>
-      <td>${field(d, "wl_odp", staff.odps, "odp", false, "SODP")}${field(d, "wl_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist")}</td>
+      <td>${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true)}
+        ${cadexBadge(onCallAnaesKey, dayCadex(d)["On Call"], rota[onCallAnaesKey], editable, anaesInitials)}
+        ${cicuReadout(dayCadex(d)["CICU"], anaesInitials)}
+      </td>
+      <td>${field(d, "wl_odp", staff.odps, "odp", false, "SODP")}${field(d, "wl_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true)}
+        ${cadexBadge(wlAnaesKey, dayCadex(d)["Waiting List"], rota[wlAnaesKey], editable, anaesInitials)}
+      </td>
     </tr>`;
   });
   w += "</table>";
@@ -243,6 +326,12 @@ export function attachChangeHandlers(container, rota, onChange, overrideFields) 
   container.querySelectorAll("select[data-key]").forEach(sel => {
     sel.addEventListener("change", () => {
       rota[sel.dataset.key] = sel.value;
+      // A person touching a CADEX-tracked field — including clearing it
+      // back to blank — is a deliberate choice. Recording that (rather
+      // than leaving the flag unset) is what stops applyCadexAuto() from
+      // re-filling it again next time CADEX data refreshes; see that
+      // function below for the full flag scheme.
+      if (sel.dataset.cadex) rota[`_cadexApplied_${sel.dataset.key}`] = false;
       onChange && onChange();
     });
   });
@@ -261,6 +350,62 @@ export function attachChangeHandlers(container, rota, onChange, overrideFields) 
       });
     });
   }
+  // CADEX "Apply" buttons — copies an imported value from The Atrium
+  // into the local field, same as if someone had picked it themselves,
+  // and marks the field CADEX-managed so future imports keep it current
+  // automatically until a person picks something else.
+  container.querySelectorAll("button[data-apply-key]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      rota[btn.dataset.applyKey] = btn.dataset.applyValue;
+      rota[`_cadexApplied_${btn.dataset.applyKey}`] = true;
+      onChange && onChange();
+    });
+  });
 }
 
-export { WEEKDAYS, WEEKENDS };
+// Auto-fills CADEX-imported anaesthetist data into fields nobody has
+// deliberately set, every time this runs (so newly-synced data appears
+// as soon as the rota re-renders, not just on page load) — but never
+// into a field a person has explicitly chosen a value for (including
+// deliberately clearing one), and never an unmatched CADEX code (raw
+// initials with no Staff Admin match stay a manual decision always).
+//
+// Only ever mutates the in-memory `rota` object passed in — nothing
+// reaches Firestore until the editor saves, exactly like any other
+// field they'd filled in by hand.
+//
+// Flag scheme, per field key `fkey` (e.g. "Monday_theatre-1_anaes"):
+// rota[`_cadexApplied_${fkey}`] is `true` once CADEX has set it
+// (kept current on every future sync), `false` once a person has
+// touched it (never auto-filled again), or absent if nobody's ever
+// touched it (safe to auto-fill the first time a match arrives). The
+// leading underscore keeps these out of renderGrid's used()/diffRota's
+// key parsing — both only recognise keys starting with a day name.
+export function applyCadexAuto(rota, cadex, theatres, anaesInitials) {
+  if (!cadex) return;
+
+  function tryApply(fkey, importedRaw) {
+    if (!importedRaw) return;
+    const resolved = anaesInitials[importedRaw.trim().toUpperCase()];
+    if (!resolved) return;
+    const flagKey = `_cadexApplied_${fkey}`;
+    if (rota[flagKey] === false) return; // a person owns this field now
+    rota[fkey] = resolved;
+    rota[flagKey] = true;
+  }
+
+  WEEKDAYS.forEach(day => {
+    const dayData = cadex[day.toLowerCase()] || {};
+    theatres.forEach(t => {
+      if (t.name in dayData) tryApply(`${day}_${t.id}_anaes`, dayData[t.name]);
+    });
+    tryApply(`${day}_oncall_anaes`, dayData["On Call"]);
+  });
+  WEEKENDS.forEach(day => {
+    const dayData = cadex[day.toLowerCase()] || {};
+    tryApply(`${day}_oncall_anaes`, dayData["On Call"]);
+    tryApply(`${day}_wl_anaes`, dayData["Waiting List"]);
+  });
+}
+
+export { WEEKDAYS, WEEKENDS, resolveCadexAnaesthetist };

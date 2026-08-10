@@ -70,6 +70,73 @@ service cloud.firestore {
         allow read: if inMyDept(deptId);
         allow write: if isEditorOrAdmin(deptId);
       }
+
+      match /nursingWeeks/{weekId} {
+        allow read: if inMyDept(deptId);
+        allow write: if isEditorOrAdmin(deptId);
+      }
+
+      match /auditLog/{docId} {
+        allow read: if inMyDept(deptId);
+        allow write: if isEditorOrAdmin(deptId);
+      }
+
+      match /nursingAuditLog/{docId} {
+        allow read: if inMyDept(deptId);
+        allow write: if isEditorOrAdmin(deptId);
+      }
+
+      // Team Board — an informal message board anyone in the department
+      // can post to, including "board" kiosk logins on the corridor
+      // screen itself, so this is intentionally open to every role, not
+      // just editor/admin. Three independent boards, one per page (ODP
+      // dashboard, nursing dashboard, corridor board) — see messages.js.
+      match /messages/{docId} {
+        allow read, write: if inMyDept(deptId);
+      }
+
+      match /nursingMessages/{docId} {
+        allow read, write: if inMyDept(deptId);
+      }
+
+      match /theatreMessages/{docId} {
+        allow read, write: if inMyDept(deptId);
+      }
+
+      // Who changed the CADEX connection and when — admin-only in both
+      // directions, matching cadexConfig itself, since this is about a
+      // secret-bearing connection rather than rota staffing.
+      match /cadexAuditLog/{docId} {
+        allow read, write: if isAdmin(deptId);
+      }
+
+      // ---- CADEX (Cadence-Atrium Data Exchange) ------------------------
+      // cadexConfig/settings holds the Atrium base URL and both API keys
+      // (inbound + outbound) — admin-only in both directions, same as
+      // user account management. Cloud Functions read/write all three
+      // CADEX collections via the Admin SDK, which bypasses these rules
+      // entirely, so "write: if false" below only blocks direct client
+      // writes — it doesn't block the sync itself.
+      match /cadexConfig/{docId} {
+        allow read, write: if isAdmin(deptId);
+      }
+
+      // Connection/last-sync status — everyone in the department can see
+      // it (same visibility as the rota itself), nobody can write it
+      // from the client; it only ever changes via the cadexSync /
+      // cadexManualSync Cloud Functions.
+      match /cadexStatus/{docId} {
+        allow read: if inMyDept(deptId);
+        allow write: if false;
+      }
+
+      // Imported consultant data, one doc per week — read-only projection
+      // the rota page displays alongside the grid; never written by a
+      // client, only by the Consumer sync Cloud Function.
+      match /cadexImports/{weekId} {
+        allow read: if inMyDept(deptId);
+        allow write: if false;
+      }
     }
   }
 }

@@ -75,19 +75,36 @@ export function splitStaff(staffList) {
   };
 }
 
+// Maps each anaesthetist's CADEX initials (set in Staff Admin, e.g. "PJ")
+// to their full Cadence name — used to resolve CADEX-imported consultant
+// data (The Atrium identifies anaesthetists by initials; Cadence's rota
+// dropdown uses full names) to the right person automatically instead of
+// just showing raw initials. Matching is case-insensitive; if two
+// anaesthetists share the same initials, whichever was read last wins —
+// admin.js warns on save if that would happen.
+export function buildAnaesthetistInitialsMap(staffList) {
+  const map = {};
+  staffList
+    .filter(s => s.type === "anaesthetist" && s.initials)
+    .forEach(s => { map[s.initials.trim().toUpperCase()] = s.name; });
+  return map;
+}
+
 // ---- Audit log ------------------------------------------------------------
-// The SODP and nursing rotas log to separate collections (rota.js writes
-// to "auditLog", nursing-rota.js to "nursingAuditLog" — see the header
-// comment in nursing-rota.js), so both are fetched and merged here into
-// one timeline, tagged with which rota each entry came from.
+// The SODP rota, nursing rota, and CADEX connection each log to their own
+// collection (rota.js -> "auditLog", nursing-rota.js -> "nursingAuditLog",
+// cadex.js -> "cadexAuditLog"), so all three are fetched and merged here
+// into one timeline, tagged with which one each entry came from.
 export async function listRecentAuditLog(deptId, count = 20) {
-  const [sodpSnap, nursingSnap] = await Promise.all([
+  const [sodpSnap, nursingSnap, cadexSnap] = await Promise.all([
     getDocs(query(collection(db, "departments", deptId, "auditLog"), orderBy("timestamp", "desc"), limit(count))),
-    getDocs(query(collection(db, "departments", deptId, "nursingAuditLog"), orderBy("timestamp", "desc"), limit(count)))
+    getDocs(query(collection(db, "departments", deptId, "nursingAuditLog"), orderBy("timestamp", "desc"), limit(count))),
+    getDocs(query(collection(db, "departments", deptId, "cadexAuditLog"), orderBy("timestamp", "desc"), limit(count)))
   ]);
   const entries = [
     ...sodpSnap.docs.map(d => ({ id: d.id, ...d.data(), rota: "SODP" })),
-    ...nursingSnap.docs.map(d => ({ id: d.id, ...d.data(), rota: "Nursing" }))
+    ...nursingSnap.docs.map(d => ({ id: d.id, ...d.data(), rota: "Nursing" })),
+    ...cadexSnap.docs.map(d => ({ id: d.id, ...d.data(), rota: "CADEX" }))
   ];
   entries.sort((a, b) => (b.timestamp?.toMillis?.() ?? 0) - (a.timestamp?.toMillis?.() ?? 0));
   return entries.slice(0, count);
