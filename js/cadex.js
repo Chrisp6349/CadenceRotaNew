@@ -52,19 +52,28 @@ function diffCadexFields(previous, next) {
 // `previous`/`uid`/`displayName` are optional — omit them (e.g. from an
 // older call site) and the save still works, it just skips logging,
 // same pattern as rota.js's saveWeek().
+// Logging is best-effort and never allowed to make an otherwise-
+// successful save look like it failed — the connection itself saving
+// correctly matters far more than a Change log entry existing for it,
+// so a logging failure (permission rules not deployed yet, a transient
+// error, anything) is swallowed rather than thrown.
 export async function saveCadexConfig(deptId, fields, uid, displayName, previous) {
   await setDoc(doc(db, "departments", deptId, "cadexConfig", "settings"), fields, { merge: true });
   if (!uid) return;
   const changes = diffCadexFields(previous, fields);
   if (!changes.length) return;
-  await addDoc(collection(db, "departments", deptId, "cadexAuditLog"), {
-    uid,
-    displayName,
-    action: "changed",
-    changeCount: changes.length,
-    changes,
-    timestamp: serverTimestamp()
-  });
+  try {
+    await addDoc(collection(db, "departments", deptId, "cadexAuditLog"), {
+      uid,
+      displayName,
+      action: "changed",
+      changeCount: changes.length,
+      changes,
+      timestamp: serverTimestamp()
+    });
+  } catch (err) {
+    console.warn("CADEX audit log write failed (connection itself still saved):", err);
+  }
 }
 
 export async function getCadexStatus(deptId) {
