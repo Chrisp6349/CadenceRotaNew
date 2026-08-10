@@ -43,6 +43,8 @@
    table.rota-table select{width:100%;min-width:118px;font-family:var(--font-body);font-size:12px;padding:4px;margin-bottom:2px;
     border:1px solid var(--ink-150);border-radius:4px;background:var(--surface);color:var(--ink-900);}
   table.rota-table select.is-placeholder{color:var(--ink-300);}
+  table.rota-table .field-override-btn{display:inline-block;background:none;border:none;color:var(--teal-600);
+    font-size:10px;cursor:pointer;padding:0;margin:0 0 4px;text-decoration:underline;white-space:nowrap;}
 
   table.rota-table th.theatre-col,table.rota-table th.support-col,table.rota-table th.oncall-col{min-width:130px;}
   table.rota-table .ro-field{display:block;padding:3px 0;font-size:12.5px;}
@@ -203,6 +205,7 @@
   }
 
   let rota = {};
+  let overrideFields = new Set(); // fields with "Show booked" toggled on — see rota.js's field()
   let previewMode = false; // Full week view: read-only, print-styled, on screen
 
   function toast(msg, isError) {
@@ -243,14 +246,14 @@
     }
 
     const { weekdayHtml, weekendHtml } = renderGrid({
-      weekStart: weekInput.value, dept, theatres, staff, rota, editable: showEditable
+      weekStart: weekInput.value, dept, theatres, staff, rota, editable: showEditable, overrideFields
     });
     document.getElementById("weekdayGrid").innerHTML = weekdayHtml;
     document.getElementById("weekendGrid").innerHTML = weekendHtml;
 
     if (showEditable) {
-      attachChangeHandlers(document.getElementById("weekdayGrid"), rota, renderOnly);
-      attachChangeHandlers(document.getElementById("weekendGrid"), rota, renderOnly);
+      attachChangeHandlers(document.getElementById("weekdayGrid"), rota, renderOnly, overrideFields);
+      attachChangeHandlers(document.getElementById("weekendGrid"), rota, renderOnly, overrideFields);
     }
 
     // The print copy always uses the read-only rendering, independent of
@@ -267,6 +270,7 @@
   async function loadAndRender() {
     const week = await loadWeek(profile.departmentId, weekInput.value);
     rota = week.data || {};
+    overrideFields.clear();
     renderOnly();
   }
 

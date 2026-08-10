@@ -132,7 +132,8 @@ export async function saveWeek(deptId, weekStart, data, publish, uid, theatres =
 // `staff`  = { odps: [...], anaesthetists: [...] }
 // `rota`   = the flat key/value object for the week
 // `editable` = true for editor/admin, false for viewer
-export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, onChange }) {
+export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, onChange, overrideFields }) {
+  overrideFields = overrideFields || new Set();
   function used(day) {
     let o = [], a = [];
     Object.entries(rota).forEach(([k, v]) => {
@@ -149,20 +150,30 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
       return `<span class="ro-field">${current}</span>`;
     }
     const u = used(day);
+    const overridden = restricted && overrideFields.has(fkey);
     // The blank option shows the role name (e.g. "ODP", "Anaesthetist")
     // instead of being empty, so whoever's filling in the rota can tell
     // what each box is for before they've picked anyone.
        let h = `<select data-key="${fkey}" class="${current ? "" : "is-placeholder"}"><option value="">${placeholder || ""}</option>`;
 
     [...list].sort().forEach(n => {
-      let hide = false;
+      let hide = false, dupe = "";
       if (restricted) {
-        if (type === "odp") hide = u.o.includes(n) && n !== current;
-        if (type === "anaes") hide = u.a.includes(n) && n !== current;
+        const usedElsewhere = (type === "odp" ? u.o.includes(n) : u.a.includes(n)) && n !== current;
+        if (usedElsewhere) { if (overridden) dupe = " — already booked today"; else hide = true; }
       }
-      if (!hide) h += `<option title="${n}" ${current === n ? "selected" : ""}>${n}</option>`;
+      if (!hide) h += `<option value="${n}" title="${n}" ${current === n ? "selected" : ""}>${n}${dupe}</option>`;
     });
     h += "</select>";
+    // Booking the same person into two theatres the same day is blocked
+    // by default (see `used()` above) since normally that's a genuine
+    // clash — but occasionally it's legitimate, e.g. a back-to-back
+    // AM list in one theatre and a PM list in another. This link is a
+    // deliberate one-field-at-a-time escape hatch for exactly that,
+    // rather than weakening the rule for everyone.
+    if (restricted) {
+      h += ` <button type="button" class="field-override-btn" data-override-key="${fkey}">${overridden ? "Hide booked" : "Show booked"}</button>`;
+    }
     return h;
   }
 
@@ -227,7 +238,7 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
   return { weekdayHtml: h, weekendHtml: w };
 }
 
-export function attachChangeHandlers(container, rota, onChange) {
+export function attachChangeHandlers(container, rota, onChange, overrideFields) {
   if (!container) return;
   container.querySelectorAll("select[data-key]").forEach(sel => {
     sel.addEventListener("change", () => {
@@ -241,6 +252,15 @@ export function attachChangeHandlers(container, rota, onChange) {
       onChange && onChange();
     });
   });
+  if (overrideFields) {
+    container.querySelectorAll("button[data-override-key]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const k = btn.dataset.overrideKey;
+        overrideFields.has(k) ? overrideFields.delete(k) : overrideFields.add(k);
+        onChange && onChange();
+      });
+    });
+  }
 }
 
 export { WEEKDAYS, WEEKENDS };
