@@ -10,15 +10,61 @@
 // cadexStatus/live), one doc per week for imports.
 // -----------------------------------------------------------------------
 
-import { db, doc, getDoc, setDoc, functions, httpsCallable } from "./firebase-init.js";
+import { db, doc, getDoc, setDoc, collection, addDoc, serverTimestamp, functions, httpsCallable } from "./firebase-init.js";
 
 export async function getCadexConfig(deptId) {
   const snap = await getDoc(doc(db, "departments", deptId, "cadexConfig", "settings"));
   return snap.exists() ? snap.data() : { enabled: false, atriumBaseUrl: "", atriumApiKey: "", providerApiKey: "" };
 }
 
-export async function saveCadexConfig(deptId, fields) {
+const CADEX_FIELD_LABELS = {
+  enabled: "Enabled",
+  atriumBaseUrl: "The Atrium's base URL",
+  atriumApiKey: "API key Cadence sends to The Atrium",
+  providerApiKey: "API key The Atrium must send to Cadence",
+  cadenceBaseUrl: "Cadence's own base URL"
+};
+
+// Keys never appear as their actual value in the audit log — this log
+// is meant to answer "who changed the connection and when", not to be
+// another place a secret is sitting in plain text for anyone who can
+// see it later.
+const SECRET_CADEX_FIELDS = ["atriumApiKey", "providerApiKey"];
+
+function formatCadexVal(field, v) {
+  if (SECRET_CADEX_FIELDS.includes(field)) return v ? "(set)" : "(empty)";
+  if (v === true) return "Yes";
+  if (v === false) return "No";
+  return v || "(empty)";
+}
+
+function diffCadexFields(previous, next) {
+  const changes = [];
+  Object.keys(CADEX_FIELD_LABELS).forEach(field => {
+    const oldV = previous?.[field] ?? (field === "enabled" ? false : "");
+    const newV = next?.[field] ?? (field === "enabled" ? false : "");
+    if (oldV === newV) return;
+    changes.push({ field: CADEX_FIELD_LABELS[field], from: formatCadexVal(field, oldV), to: formatCadexVal(field, newV) });
+  });
+  return changes;
+}
+
+// `previous`/`uid`/`displayName` are optional — omit them (e.g. from an
+// older call site) and the save still works, it just skips logging,
+// same pattern as rota.js's saveWeek().
+export async function saveCadexConfig(deptId, fields, uid, displayName, previous) {
   await setDoc(doc(db, "departments", deptId, "cadexConfig", "settings"), fields, { merge: true });
+  if (!uid) return;
+  const changes = diffCadexFields(previous, fields);
+  if (!changes.length) return;
+  await addDoc(collection(db, "departments", deptId, "cadexAuditLog"), {
+    uid,
+    displayName,
+    action: "changed",
+    changeCount: changes.length,
+    changes,
+    timestamp: serverTimestamp()
+  });
 }
 
 export async function getCadexStatus(deptId) {

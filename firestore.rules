@@ -103,6 +103,13 @@ service cloud.firestore {
         allow read, write: if inMyDept(deptId);
       }
 
+      // Who changed the CADEX connection and when — admin-only in both
+      // directions, matching cadexConfig itself, since this is about a
+      // secret-bearing connection rather than rota staffing.
+      match /cadexAuditLog/{docId} {
+        allow read, write: if isAdmin(deptId);
+      }
+
       // ---- CADEX (Cadence-Atrium Data Exchange) ------------------------
       // cadexConfig/settings holds the Atrium base URL and both API keys
       // (inbound + outbound) — admin-only in both directions, same as

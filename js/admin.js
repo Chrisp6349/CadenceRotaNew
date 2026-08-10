@@ -723,9 +723,12 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       const changesPreview = (e.changes || []).slice(0, 3)
         .map(c => `<div>${c.field}: ${c.from || "(empty)"} → ${c.to || "(empty)"}</div>`).join("");
       const moreCount = (e.changeCount || 0) - Math.min(3, (e.changes || []).length);
+      const headline = e.rota === "CADEX"
+        ? `<strong>${e.displayName || "Someone"}</strong> ${e.action || "changed"} the CADEX connection — ${e.changeCount || 0} change${e.changeCount === 1 ? "" : "s"}`
+        : `<strong>${e.displayName || "Someone"}</strong> ${e.action || "updated"} the ${e.rota || "SODP"} rota, week commencing ${e.weekStart} — ${e.changeCount || 0} change${e.changeCount === 1 ? "" : "s"}`;
       row.innerHTML = `
         <span class="audit-time">${formatTimestamp(e.timestamp)}</span>
-        <div class="audit-headline"><strong>${e.displayName || "Someone"}</strong> ${e.action || "updated"} the ${e.rota || "SODP"} rota, week commencing ${e.weekStart} — ${e.changeCount || 0} change${e.changeCount === 1 ? "" : "s"}</div>
+        <div class="audit-headline">${headline}</div>
         <div class="audit-changes">${changesPreview}${moreCount > 0 ? `<div>+${moreCount} more</div>` : ""}</div>
       `;
       auditLogEl.appendChild(row);
@@ -833,7 +836,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       if (!confirm("This connection is currently enabled and may be live. Saving these changes could break it until both sides match again. Save anyway?")) return;
     }
     try {
-      await saveCadexConfig(deptId, fields);
+      await saveCadexConfig(deptId, fields, myUid, myDisplayName, lastLoadedCfg);
       cadexMsg("Connection details saved.");
       await loadCadexForm(); // re-locks and reloads from what was actually saved
     } catch (err) {
