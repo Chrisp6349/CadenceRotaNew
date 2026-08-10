@@ -159,24 +159,27 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
         <p class="empty-note" style="margin:-6px 0 10px;">Cadence-Atrium Data Exchange. Automatically shares ODP and surgeon
           on-call information with The Atrium, and imports consultant anaesthetist allocations back — see the CADEX proposal
           for the full spec. Nothing here is enabled until you fill it in and save.</p>
+        <p class="empty-note" id="cadexLockNote" style="margin:0 0 10px;">🔒 Connection details are locked — tap <strong>Edit connection details</strong> below to change them. This is on purpose: these fields control a live integration, and locking them by default means nobody can change something here by an accidental tap or keystroke.</p>
         <form id="cadexForm" class="inline-form" style="flex-direction:column;align-items:stretch;gap:10px;">
           <label style="display:flex;align-items:center;gap:8px;font-size:13px;">
-            <input type="checkbox" id="cadexEnabled"> Enabled
+            <input type="checkbox" id="cadexEnabled" disabled> Enabled
           </label>
-          <input type="url" id="cadexAtriumUrl" placeholder="The Atrium's base URL, e.g. https://atrium.example.com">
+          <input type="url" id="cadexAtriumUrl" placeholder="The Atrium's base URL, e.g. https://atrium.example.com" disabled>
           <div style="display:flex;gap:8px;align-items:center;">
-            <input type="text" id="cadexAtriumKey" placeholder="API key Cadence sends to The Atrium" style="flex:1;">
-            <button class="btn btn-ghost btn-sm" type="button" id="cadexGenAtriumKey">Generate</button>
+            <input type="text" id="cadexAtriumKey" placeholder="API key Cadence sends to The Atrium" style="flex:1;" disabled>
+            <button class="btn btn-ghost btn-sm" type="button" id="cadexGenAtriumKey" disabled>Generate</button>
           </div>
           <div style="display:flex;gap:8px;align-items:center;">
-            <input type="text" id="cadexProviderKey" placeholder="API key The Atrium must send to Cadence" style="flex:1;">
-            <button class="btn btn-ghost btn-sm" type="button" id="cadexGenProviderKey">Generate</button>
+            <input type="text" id="cadexProviderKey" placeholder="API key The Atrium must send to Cadence" style="flex:1;" disabled>
+            <button class="btn btn-ghost btn-sm" type="button" id="cadexGenProviderKey" disabled>Generate</button>
           </div>
-          <input type="url" id="cadexCadenceUrl" placeholder="Cadence's own base URL for The Atrium to call, e.g. https://europe-west2-cadence-theatre-rota.cloudfunctions.net/cadex">
+          <input type="url" id="cadexCadenceUrl" placeholder="Cadence's own base URL for The Atrium to call, e.g. https://europe-west2-cadence-theatre-rota.cloudfunctions.net/cadex" disabled>
           <p class="empty-note" style="margin:0;">This is the Cloud Functions URL from your Firebase deploy — not this app's own web address, since
             they're hosted separately. Firebase Console → Functions → <code>cadex</code> → Trigger URL.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-primary btn-sm" type="submit">Save connection</button>
+            <button class="btn btn-secondary btn-sm" type="button" id="cadexEditBtn">Edit connection details</button>
+            <button class="btn btn-primary btn-sm" type="submit" id="cadexSaveBtn" disabled>Save connection</button>
+            <button class="btn btn-ghost btn-sm" type="button" id="cadexCancelBtn" style="display:none;">Cancel</button>
             <button class="btn btn-secondary btn-sm" type="button" id="cadexTestBtn">Test connection</button>
             <button class="btn btn-secondary btn-sm" type="button" id="cadexSyncBtn">Sync now</button>
           </div>
@@ -745,13 +748,35 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
     return ts.toDate().toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   }
 
-  async function loadCadexForm() {
-    const cfg = await getCadexConfig(deptId);
+  // The form loads locked (every field disabled) every time — including
+  // right after a save — so nothing here can be changed by an accidental
+  // tap/keystroke while just looking at the page. `lastLoadedCfg` is what
+  // Cancel reverts to, and what the submit handler compares against to
+  // know whether a save is actually changing a connection that's
+  // currently live.
+  let lastLoadedCfg = null;
+
+  function fillCadexForm(cfg) {
     container.querySelector("#cadexEnabled").checked = !!cfg.enabled;
     container.querySelector("#cadexAtriumUrl").value = cfg.atriumBaseUrl || "";
     container.querySelector("#cadexAtriumKey").value = cfg.atriumApiKey || "";
     container.querySelector("#cadexProviderKey").value = cfg.providerApiKey || "";
     container.querySelector("#cadexCadenceUrl").value = cfg.cadenceBaseUrl || "";
+  }
+
+  function setCadexLocked(locked) {
+    ["cadexEnabled", "cadexAtriumUrl", "cadexAtriumKey", "cadexGenAtriumKey", "cadexProviderKey", "cadexGenProviderKey", "cadexCadenceUrl"]
+      .forEach(id => { container.querySelector(`#${id}`).disabled = locked; });
+    container.querySelector("#cadexSaveBtn").disabled = locked;
+    container.querySelector("#cadexEditBtn").style.display = locked ? "" : "none";
+    container.querySelector("#cadexCancelBtn").style.display = locked ? "none" : "";
+    container.querySelector("#cadexLockNote").style.display = locked ? "" : "none";
+  }
+
+  async function loadCadexForm() {
+    lastLoadedCfg = await getCadexConfig(deptId);
+    fillCadexForm(lastLoadedCfg);
+    setCadexLocked(true);
   }
 
   async function refreshCadexStatus() {
@@ -766,11 +791,27 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
     cadexStatusEl.innerHTML = `<div>${importLine}</div><div>${exportLine}</div><div>Poll interval: ~60 seconds</div>`;
   }
 
+  container.querySelector("#cadexEditBtn").addEventListener("click", () => {
+    setCadexLocked(false);
+  });
+  container.querySelector("#cadexCancelBtn").addEventListener("click", () => {
+    fillCadexForm(lastLoadedCfg); // discard whatever was typed
+    setCadexLocked(true);
+    cadexMsgEl.style.display = "none";
+  });
+
+  // Regenerating a key that's already in use silently breaks the other
+  // side's calls until they're given the new one — worth a beat before
+  // overwriting something that might currently be working.
   container.querySelector("#cadexGenAtriumKey").addEventListener("click", () => {
-    container.querySelector("#cadexAtriumKey").value = generateApiKey();
+    const el = container.querySelector("#cadexAtriumKey");
+    if (el.value && !confirm("This replaces the key already in this box. If The Atrium is already using the current one, its calls will fail until you send them the new key. Generate a new one anyway?")) return;
+    el.value = generateApiKey();
   });
   container.querySelector("#cadexGenProviderKey").addEventListener("click", () => {
-    container.querySelector("#cadexProviderKey").value = generateApiKey();
+    const el = container.querySelector("#cadexProviderKey");
+    if (el.value && !confirm("This replaces the key already in this box. If The Atrium is already using the current one, its calls to Cadence will start failing until you send them the new key. Generate a new one anyway?")) return;
+    el.value = generateApiKey();
   });
 
   container.querySelector("#cadexForm").addEventListener("submit", async (e) => {
@@ -783,9 +824,18 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       providerApiKey: container.querySelector("#cadexProviderKey").value.trim(),
       cadenceBaseUrl: container.querySelector("#cadexCadenceUrl").value.trim()
     };
+    // The connection was already enabled before this edit, and something
+    // about it is actually changing — that's the one case genuinely
+    // worth a confirm, since it could break a connection currently in
+    // use rather than just setting one up for the first time.
+    const changedSomething = Object.keys(fields).some(k => fields[k] !== (lastLoadedCfg?.[k] ?? (k === "enabled" ? false : "")));
+    if (lastLoadedCfg?.enabled && changedSomething) {
+      if (!confirm("This connection is currently enabled and may be live. Saving these changes could break it until both sides match again. Save anyway?")) return;
+    }
     try {
       await saveCadexConfig(deptId, fields);
       cadexMsg("Connection details saved.");
+      await loadCadexForm(); // re-locks and reloads from what was actually saved
     } catch (err) {
       cadexMsg("Couldn't save — please try again.", true);
     }
