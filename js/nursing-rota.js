@@ -147,8 +147,11 @@ export async function saveNursingWeek(deptId, weekStart, data, publish, uid, the
 // `staff`  = { nurses: [...], hcas: [...], surgeons: [...] }
 // `rota`   = the flat key/value object for the week (nursing's own)
 // `editable` = true for editor/admin, false for viewer
-export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, editable, overrideFields }) {
-  overrideFields = overrideFields || new Set();
+// `showBooked` = when true, the same-day double-booking check is
+//            switched off across every field — see rota.js's field()
+//            for why this is a single page-level toggle rather than
+//            a per-field control.
+export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, editable, showBooked }) {
   // Theatre + support placements only — deliberately excludes on call,
   // the weekend waiting list, list types, and the coordinator, which
   // all stay unrestricted per the mutual-exclusion rule above.
@@ -185,7 +188,6 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
     if (restrictKind === "nurse") hideSet = used(day).n;
     if (restrictKind === "hca") hideSet = used(day).h;
     if (restrictKind === "surgeon") hideSet = usedSurgeons(day);
-    const overridden = restrictKind && overrideFields.has(fkey);
     // The blank option shows the role name (e.g. "Nurse", "HCA") instead
     // of being empty, so whoever's filling in the rota can tell what
     // each box is for before they've picked anyone — particularly useful
@@ -194,15 +196,10 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
     [...list].sort().forEach(name => {
       const usedElsewhere = hideSet.includes(name) && name !== current;
       let hide = false, dupe = "";
-      if (usedElsewhere) { if (overridden) dupe = " — already booked today"; else hide = true; }
+      if (usedElsewhere) { if (showBooked) dupe = " — already booked today"; else hide = true; }
       if (!hide) h += `<option value="${name}" title="${name}" ${current === name ? "selected" : ""}>${name}${dupe}</option>`;
     });
     h += "</select>";
-    // See rota.js's field() for why this escape hatch exists — same
-    // back-to-back AM/PM scenario applies to nurses/HCAs/surgeons here.
-    if (restrictKind) {
-      h += ` <button type="button" class="field-override-btn" data-override-key="${fkey}">${overridden ? "Hide booked" : "Show booked"}</button>`;
-    }
     return h;
   }
 
@@ -274,7 +271,7 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
   return { weekdayHtml: h, weekendHtml: w };
 }
 
-export function attachNursingChangeHandlers(container, rota, onChange, overrideFields) {
+export function attachNursingChangeHandlers(container, rota, onChange) {
   if (!container) return;
   container.querySelectorAll("select[data-key]").forEach(sel => {
     sel.addEventListener("change", () => {
@@ -282,15 +279,6 @@ export function attachNursingChangeHandlers(container, rota, onChange, overrideF
       onChange && onChange();
     });
   });
-  if (overrideFields) {
-    container.querySelectorAll("button[data-override-key]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const k = btn.dataset.overrideKey;
-        overrideFields.has(k) ? overrideFields.delete(k) : overrideFields.add(k);
-        onChange && onChange();
-      });
-    });
-  }
 }
 
 export { WEEKDAYS, WEEKENDS };

@@ -184,11 +184,15 @@ function cicuReadout(cicuVal, anaesInitials) {
 // `anaesInitials` = optional { "PJ": "Mr P Jones", ... } map (see
 //            department.js's buildAnaesthetistInitialsMap()), used to
 //            resolve `cadex`'s raw initials to a full Cadence name.
-// `overrideFields` = optional Set of "<Day>_<key>" fields with the
-//            same-day double-booking check deliberately switched off —
-//            see field()'s "Show booked" button below.
-export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, onChange, overrideFields, cadex, anaesInitials = {} }) {
-  overrideFields = overrideFields || new Set();
+// `showBooked` = when true, the same-day double-booking check is
+//            switched off across every field (see the "Show staff
+//            already booked" toggle in rota.html) — for a genuine
+//            back-to-back booking, e.g. an AM list in one theatre and
+//            a PM list in another. A per-field version of this was
+//            tried first but ended up showing on nearly every field
+//            any time the day had a reasonable amount of staffing, so
+//            it's a single page-level toggle instead.
+export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, onChange, showBooked, cadex, anaesInitials = {} }) {
   function used(day) {
     let o = [], a = [];
     Object.entries(rota).forEach(([k, v]) => {
@@ -205,7 +209,6 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
       return `<span class="ro-field">${current}</span>`;
     }
     const u = used(day);
-    const overridden = restricted && overrideFields.has(fkey);
     // The blank option shows the role name (e.g. "ODP", "Anaesthetist")
     // instead of being empty, so whoever's filling in the rota can tell
     // what each box is for before they've picked anyone.
@@ -217,7 +220,7 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
       let hide = false, dupe = "";
       if (restricted) {
         const usedElsewhere = (type === "odp" ? u.o.includes(n) : u.a.includes(n)) && n !== current;
-        if (usedElsewhere) { if (overridden) dupe = " — already booked today"; else hide = true; }
+        if (usedElsewhere) { if (showBooked) dupe = " — already booked today"; else hide = true; }
       }
       if (!hide) h += `<option value="${n}" title="${n}" ${current === n ? "selected" : ""}>${n}${dupe}</option>`;
     });
@@ -230,15 +233,6 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
       h += `<option title="${current}" selected>${current}</option>`;
     }
     h += "</select>";
-    // Booking the same person into two theatres the same day is blocked
-    // by default (see `used()` above) since normally that's a genuine
-    // clash — but occasionally it's legitimate, e.g. a back-to-back
-    // AM list in one theatre and a PM list in another. This link is a
-    // deliberate one-field-at-a-time escape hatch for exactly that,
-    // rather than weakening the rule for everyone.
-    if (restricted) {
-      h += ` <button type="button" class="field-override-btn" data-override-key="${fkey}">${overridden ? "Hide booked" : "Show booked"}</button>`;
-    }
     return h;
   }
 
@@ -321,7 +315,7 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
   return { weekdayHtml: h, weekendHtml: w };
 }
 
-export function attachChangeHandlers(container, rota, onChange, overrideFields) {
+export function attachChangeHandlers(container, rota, onChange) {
   if (!container) return;
   container.querySelectorAll("select[data-key]").forEach(sel => {
     sel.addEventListener("change", () => {
@@ -341,15 +335,6 @@ export function attachChangeHandlers(container, rota, onChange, overrideFields) 
       onChange && onChange();
     });
   });
-  if (overrideFields) {
-    container.querySelectorAll("button[data-override-key]").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const k = btn.dataset.overrideKey;
-        overrideFields.has(k) ? overrideFields.delete(k) : overrideFields.add(k);
-        onChange && onChange();
-      });
-    });
-  }
   // CADEX "Apply" buttons — copies an imported value from The Atrium
   // into the local field, same as if someone had picked it themselves,
   // and marks the field CADEX-managed so future imports keep it current

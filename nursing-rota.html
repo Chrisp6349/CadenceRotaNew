@@ -21,6 +21,8 @@
   .rota-toolbar .spacer{flex:1;}
   .view-badge{font-family:var(--font-mono);font-size:11px;padding:5px 10px;border-radius:var(--r-pill);background:var(--ink-100);color:var(--ink-500);}
   .view-badge.editing{background:var(--teal-100);color:var(--teal-700);}
+  .show-booked-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-500);cursor:pointer;user-select:none;}
+  .show-booked-toggle input{cursor:pointer;}
   /* Bounded height + its own scrollbar, rather than letting the table
      grow tall and scroll with the rest of the page — that's what makes
      the sticky header below actually work. (A sticky element only
@@ -43,8 +45,6 @@
    table.rota-table select{width:100%;min-width:118px;font-family:var(--font-body);font-size:12px;padding:4px;margin-bottom:2px;
     border:1px solid var(--ink-150);border-radius:4px;background:var(--surface);color:var(--ink-900);}
   table.rota-table select.is-placeholder{color:var(--ink-300);}
-  table.rota-table .field-override-btn{display:inline-block;background:none;border:none;color:var(--teal-600);
-    font-size:10px;cursor:pointer;padding:0;margin:0 0 4px;text-decoration:underline;white-space:nowrap;}
 
   table.rota-table th.theatre-col,table.rota-table th.support-col,table.rota-table th.oncall-col{min-width:130px;}
   table.rota-table .ro-field{display:block;padding:3px 0;font-size:12.5px;}
@@ -156,7 +156,10 @@
       <button class="btn btn-secondary btn-sm" id="fullWeekBtn">Full week view</button>
       <button class="btn btn-secondary btn-sm" id="printBtn">Print preview</button>
       <span id="editButtons">
-        ${editable ? `<button class="btn btn-ghost btn-sm" id="clearBtn">Clear week</button>
+        ${editable ? `<label class="show-booked-toggle" title="Normally someone already booked into a theatre that day is hidden from every other dropdown, to stop accidental double-booking. Turn this on for a genuine exception — e.g. an AM list in one theatre and a PM list in another.">
+                        <input type="checkbox" id="showBookedToggle"> Show staff already booked elsewhere today
+                      </label>
+                      <button class="btn btn-ghost btn-sm" id="clearBtn">Clear week</button>
                       <button class="btn btn-secondary btn-sm" id="saveDraftBtn">Save draft</button>
                       <button class="btn btn-primary btn-sm" id="publishBtn">Publish</button>` : ""}
       </span>
@@ -212,7 +215,7 @@
   }
 
   let rota = {};
-  let overrideFields = new Set(); // fields with "Show booked" toggled on — see nursing-rota.js's field()
+  let showBooked = false; // "Show staff already booked elsewhere today" toggle — see nursing-rota.js's field()
   let previewMode = false;
 
   function toast(msg, isError) {
@@ -250,14 +253,14 @@
     }
 
     const { weekdayHtml, weekendHtml } = renderNursingGrid({
-      weekStart: weekInput.value, dept, theatres, staff, rota, editable: showEditable, overrideFields
+      weekStart: weekInput.value, dept, theatres, staff, rota, editable: showEditable, showBooked
     });
     document.getElementById("weekdayGrid").innerHTML = weekdayHtml;
     document.getElementById("weekendGrid").innerHTML = weekendHtml;
 
     if (showEditable) {
-      attachNursingChangeHandlers(document.getElementById("weekdayGrid"), rota, renderOnly, overrideFields);
-      attachNursingChangeHandlers(document.getElementById("weekendGrid"), rota, renderOnly, overrideFields);
+      attachNursingChangeHandlers(document.getElementById("weekdayGrid"), rota, renderOnly);
+      attachNursingChangeHandlers(document.getElementById("weekendGrid"), rota, renderOnly);
     }
 
     // The print copy always uses the read-only rendering, independent of
@@ -274,7 +277,8 @@
   async function loadAndRender() {
     const week = await loadNursingWeek(profile.departmentId, weekInput.value);
     rota = week.data || {};
-    overrideFields.clear();
+    showBooked = false;
+    if (editable) document.getElementById("showBookedToggle").checked = false;
     renderOnly();
   }
 
@@ -313,6 +317,10 @@
       rota = {};
       renderOnly();
       toast("Week cleared — remember to save or publish");
+    });
+    document.getElementById("showBookedToggle").addEventListener("change", (e) => {
+      showBooked = e.target.checked;
+      renderOnly();
     });
   }
 
