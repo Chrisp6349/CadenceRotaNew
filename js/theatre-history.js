@@ -401,14 +401,14 @@ export const SPOTLIGHTS = [
     sources: ["Wikipedia — Bernard Lown", "The American Journal of Cardiology"]
   },
   {
-    type: "Robotics Spotlight",
-    category: "Robotics",
-    title: "The First Robotic Heart Surgery",
-    summary: "In 1998, French surgeon Alain Carpentier and his team in Paris performed the first robotically assisted mitral valve repair, using an early prototype of what became the da Vinci Surgical System. The same team performed the first totally endoscopic robotic coronary bypass shortly after. Both were proof-of-concept cases rather than routine practice — the technology, and the surgical community's confidence in it, both needed years more to catch up.",
-    whyItMatters: "Robotic and minimally invasive techniques descended from that early work are now established options for mitral valve repair and other cardiac procedures at specialist centres.",
-    didYouKnow: "Carpentier is also the surgeon behind the modern approach to mitral valve repair itself (rather than replacement) — a technique that now bears his name.",
-    tags: ["Robotics", "Alain Carpentier", "da Vinci", "Mitral valve"],
-    sources: ["PMC — \"Robotics in cardiac surgery\"", "Wikipedia — Alain Carpentier"]
+    type: "Procedure Spotlight",
+    category: "Congenital Cardiac Surgery",
+    title: "Building a Circulation With One Ventricle",
+    summary: "For babies born with only one working heart ventricle instead of two, William Norwood developed a staged sequence of operations, beginning in the late 1970s, that rebuilds the circulation around the single ventricle rather than attempting to create a second one. The first stage alone was, for years, one of the highest-risk operations in paediatric cardiac surgery — a condition previously considered universally fatal became, gradually, a survivable one across a series of operations spread over the first few years of life.",
+    whyItMatters: "The Norwood procedure and its later refinements remain the standard first step for hypoplastic left heart syndrome and similar single-ventricle defects, giving many infants a working circulation who would otherwise have had none.",
+    didYouKnow: "The condition Norwood's procedure treats was considered essentially untreatable for decades after it was first medically described in the 1950s.",
+    tags: ["Congenital", "William Norwood", "Hypoplastic left heart syndrome"],
+    sources: ["Journal of Cardiac Surgery", "Wikipedia — Norwood procedure"]
   },
   {
     type: "Innovation Spotlight",
@@ -431,14 +431,14 @@ export const SPOTLIGHTS = [
     sources: ["Johns Hopkins Medicine", "The Journal of Thoracic and Cardiovascular Surgery"]
   },
   {
-    type: "Procedure Spotlight",
-    category: "Congenital Cardiac Surgery",
-    title: "Building a Circulation With One Ventricle",
-    summary: "For babies born with only one working heart ventricle instead of two, William Norwood developed a staged sequence of operations, beginning in the late 1970s, that rebuilds the circulation around the single ventricle rather than attempting to create a second one. The first stage alone was, for years, one of the highest-risk operations in paediatric cardiac surgery — a condition previously considered universally fatal became, gradually, a survivable one across a series of operations spread over the first few years of life.",
-    whyItMatters: "The Norwood procedure and its later refinements remain the standard first step for hypoplastic left heart syndrome and similar single-ventricle defects, giving many infants a working circulation who would otherwise have had none.",
-    didYouKnow: "The condition Norwood's procedure treats was considered essentially untreatable for decades after it was first medically described in the 1950s.",
-    tags: ["Congenital", "William Norwood", "Hypoplastic left heart syndrome"],
-    sources: ["Journal of Cardiac Surgery", "Wikipedia — Norwood procedure"]
+    type: "Robotics Spotlight",
+    category: "Robotics",
+    title: "The First Robotic Heart Surgery",
+    summary: "In 1998, French surgeon Alain Carpentier and his team in Paris performed the first robotically assisted mitral valve repair, using an early prototype of what became the da Vinci Surgical System. The same team performed the first totally endoscopic robotic coronary bypass shortly after. Both were proof-of-concept cases rather than routine practice — the technology, and the surgical community's confidence in it, both needed years more to catch up.",
+    whyItMatters: "Robotic and minimally invasive techniques descended from that early work are now established options for mitral valve repair and other cardiac procedures at specialist centres.",
+    didYouKnow: "Carpentier is also the surgeon behind the modern approach to mitral valve repair itself (rather than replacement) — a technique that now bears his name.",
+    tags: ["Robotics", "Alain Carpentier", "da Vinci", "Mitral valve"],
+    sources: ["PMC — \"Robotics in cardiac surgery\"", "Wikipedia — Alain Carpentier"]
   }
 ];
 
