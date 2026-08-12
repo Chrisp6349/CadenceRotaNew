@@ -344,11 +344,10 @@ export const ENTRIES = [
 // Order matters: todaysHistoryEntry() rotates through this list by
 // day-of-year, so two entries placed next to each other here can end
 // up shown on consecutive calendar days. Deliberately interleaved so
-// no two adjacent entries — including position 8 wrapping back round
-// to position 0 at the turn of the year — share the same `type`
-// (there are 4 "Innovation Spotlight" entries out of 9, so left in
-// their natural grouping they'd otherwise land back-to-back a couple
-// of times a cycle). Keep this spread out when adding more.
+// no two adjacent entries — including the last position wrapping back
+// round to the first at the turn of the year — share the same `type`.
+// Keep this spread out when adding more (check with a quick script
+// rather than by eye once the list gets long).
 export const SPOTLIGHTS = [
   {
     type: "Innovation Spotlight",
@@ -371,6 +370,26 @@ export const SPOTLIGHTS = [
     sources: ["The Annals of Thoracic Surgery — \"Classics in Thoracic Surgery\"", "Wikipedia — Median sternotomy"]
   },
   {
+    type: "Surgical Instruments Spotlight",
+    category: "Surgical Instruments",
+    title: "The Forceps in (Almost) Every Cardiac Tray",
+    summary: "Michael DeBakey designed his now-famous atraumatic forceps after growing frustrated with the serrated instruments of his early career, which tended to crush or tear delicate blood vessels. His design uses fine, interlocking ridges that distribute grip pressure evenly across the tip rather than concentrating it at a few sharp points, letting a surgeon hold a vessel securely without damaging it.",
+    whyItMatters: "DeBakey forceps are still a fixture of vascular and cardiac trays worldwide, essentially unchanged since DeBakey's own design decades ago.",
+    didYouKnow: "DeBakey designed a whole family of vascular instruments and grafts beyond the forceps that bear his name, alongside a surgical career spanning over 60 years.",
+    tags: ["Surgical instruments", "Michael DeBakey", "Vascular surgery"],
+    sources: ["Wikipedia — DeBakey forceps", "The Annals of Thoracic Surgery — \"Legends Behind Cardiothoracic Surgical Instruments\""]
+  },
+  {
+    type: "Pioneer Spotlight",
+    category: "Pioneers",
+    title: "The Surgeon Without a Medical Degree",
+    summary: "Vivien Thomas joined Alfred Blalock's lab in 1930 as a technician, without any formal medical training, and over the following years taught himself surgical technique to a standard colleagues described as better than most surgeons'. He developed much of the animal-model groundwork and the instruments behind the Blalock-Taussig shunt (see 29 November), and stood behind Blalock guiding him through the first human operation. He went on to train generations of Johns Hopkins surgeons in technique.",
+    whyItMatters: "Thomas's work is a direct ancestor of every modern shunt procedure for cyanotic congenital heart disease, and his career remains a landmark case for recognising skill built outside formal credentials.",
+    didYouKnow: "Johns Hopkins didn't formally recognise Thomas's contribution until 1976, when it awarded him an honorary doctorate and a faculty appointment — 32 years after the operation itself.",
+    tags: ["Pioneers", "Vivien Thomas", "Congenital", "Johns Hopkins"],
+    sources: ["Johns Hopkins Medicine", "The Journal of Thoracic and Cardiovascular Surgery"]
+  },
+  {
     type: "Innovation Spotlight",
     category: "Anaesthesia",
     title: "Isolating a Lung to Operate on It",
@@ -381,14 +400,24 @@ export const SPOTLIGHTS = [
     sources: ["British Journal of Anaesthesia", "Wood Library-Museum of Anesthesiology"]
   },
   {
-    type: "Surgical Instruments Spotlight",
-    category: "Surgical Instruments",
-    title: "The Forceps in (Almost) Every Cardiac Tray",
-    summary: "Michael DeBakey designed his now-famous atraumatic forceps after growing frustrated with the serrated instruments of his early career, which tended to crush or tear delicate blood vessels. His design uses fine, interlocking ridges that distribute grip pressure evenly across the tip rather than concentrating it at a few sharp points, letting a surgeon hold a vessel securely without damaging it.",
-    whyItMatters: "DeBakey forceps are still a fixture of vascular and cardiac trays worldwide, essentially unchanged since DeBakey's own design decades ago.",
-    didYouKnow: "DeBakey designed a whole family of vascular instruments and grafts beyond the forceps that bear his name, alongside a surgical career spanning over 60 years.",
-    tags: ["Surgical instruments", "Michael DeBakey", "Vascular surgery"],
-    sources: ["Wikipedia — DeBakey forceps", "The Annals of Thoracic Surgery — \"Legends Behind Cardiothoracic Surgical Instruments\""]
+    type: "Device Spotlight",
+    category: "Mechanical Circulatory Support",
+    title: "A Balloon That Helps the Heart Pump",
+    summary: "In June 1967 at Maimonides Medical Center in Brooklyn, Adrian Kantrowitz and his team used a balloon-tipped catheter — inflating and deflating in the aorta in time with the heartbeat — to support a 45-year-old woman in cardiogenic shock after a heart attack. The intra-aortic balloon pump had been designed and built by Kantrowitz's own engineering team in under a year.",
+    whyItMatters: "The intra-aortic balloon pump remains, more than 50 years on, the most widely used form of short-term mechanical circulatory support for patients in cardiogenic shock or awaiting more definitive treatment.",
+    didYouKnow: "Kantrowitz performed the first US infant heart transplant just months later that same year, three days after Christiaan Barnard's landmark operation (see 6 December).",
+    tags: ["Device", "Adrian Kantrowitz", "Intra-aortic balloon pump", "Cardiogenic shock"],
+    sources: ["The Annals of Thoracic Surgery — \"Origins of intraaortic balloon pumping\"", "PMC — \"IABP: history-evolution-pathophysiology-indications\""]
+  },
+  {
+    type: "Robotics Spotlight",
+    category: "Robotics",
+    title: "The First Robotic Heart Surgery",
+    summary: "In 1998, French surgeon Alain Carpentier and his team in Paris performed the first robotically assisted mitral valve repair, using an early prototype of what became the da Vinci Surgical System. The same team performed the first totally endoscopic robotic coronary bypass shortly after. Both were proof-of-concept cases rather than routine practice — the technology, and the surgical community's confidence in it, both needed years more to catch up.",
+    whyItMatters: "Robotic and minimally invasive techniques descended from that early work are now established options for mitral valve repair and other cardiac procedures at specialist centres.",
+    didYouKnow: "Carpentier is also the surgeon behind the modern approach to mitral valve repair itself (rather than replacement) — a technique that now bears his name.",
+    tags: ["Robotics", "Alain Carpentier", "da Vinci", "Mitral valve"],
+    sources: ["PMC — \"Robotics in cardiac surgery\"", "Wikipedia — Alain Carpentier"]
   },
   {
     type: "Innovation Spotlight",
@@ -411,6 +440,26 @@ export const SPOTLIGHTS = [
     sources: ["Journal of Cardiac Surgery", "Wikipedia — Norwood procedure"]
   },
   {
+    type: "Surgical Instruments Spotlight",
+    category: "Vascular Surgery",
+    title: "The Vascular Graft Sewn on a Kitchen Machine",
+    summary: "In 1954, Michael DeBakey needed a synthetic material to replace a diseased section of a patient's aorta. A Houston store was out of the nylon he wanted, so a clerk suggested a new synthetic fabric instead: Dacron. Drawing on sewing skills his mother had taught him as a child, DeBakey cut and stitched the fabric into a tube-shaped graft on his wife's sewing machine at home, then used it to replace a resected abdominal aortic aneurysm — the first successful synthetic vascular graft used in a person.",
+    whyItMatters: "Dacron proved far more durable than the nylon grafts tried before it, and variations of DeBakey's original design are still used to replace or bypass diseased blood vessels throughout the body today.",
+    didYouKnow: "DeBakey settled on Dacron partly by accident — he had gone shopping for nylon and only switched fabrics because the store happened to be out of stock that day.",
+    tags: ["Surgical instruments", "Michael DeBakey", "Dacron graft", "Vascular surgery"],
+    sources: ["Baylor College of Medicine — \"Behind the Sewing Machine\"", "Academy of Achievement — Michael E. DeBakey"]
+  },
+  {
+    type: "Interventional Cardiology Spotlight",
+    category: "Interventional Cardiology",
+    title: "Replacing a Heart Valve Without Opening the Chest",
+    summary: "In 2002, Alain Cribier treated a 57-year-old man dying of severe aortic stenosis who was considered too unwell for open surgery, by threading a collapsible replacement valve through a catheter and expanding it inside his own diseased valve — without a single incision in the chest. The man's blood pressure and heart function improved immediately. It was the first transcatheter aortic valve implantation performed in a person.",
+    whyItMatters: "TAVI has since become a mainstream alternative to open surgical valve replacement for many patients, particularly those considered too frail for conventional surgery — one of the fastest-adopted innovations in the field's history.",
+    didYouKnow: "Cribier's first patient was expected to survive only days without intervention; the procedure was a last resort rather than a proof of concept at the time.",
+    tags: ["Interventional cardiology", "Alain Cribier", "TAVI", "Aortic stenosis"],
+    sources: ["PCR Online — \"The history of Transcatheter Aortic Valve Implantation (TAVI)\"", "Medscape — \"ACC Recognizes Alain Cribier, MD, PhD, for Developing TAVR\""]
+  },
+  {
     type: "Innovation Spotlight",
     category: "Heart Transplant",
     title: "One Transplant Creating Another",
@@ -421,24 +470,24 @@ export const SPOTLIGHTS = [
     sources: ["Magdi Yacoub Institute", "PMC — domino heart transplant systematic review"]
   },
   {
-    type: "Pioneer Spotlight",
-    category: "Pioneers",
-    title: "The Surgeon Without a Medical Degree",
-    summary: "Vivien Thomas joined Alfred Blalock's lab in 1930 as a technician, without any formal medical training, and over the following years taught himself surgical technique to a standard colleagues described as better than most surgeons'. He developed much of the animal-model groundwork and the instruments behind the Blalock-Taussig shunt (see 29 November), and stood behind Blalock guiding him through the first human operation. He went on to train generations of Johns Hopkins surgeons in technique.",
-    whyItMatters: "Thomas's work is a direct ancestor of every modern shunt procedure for cyanotic congenital heart disease, and his career remains a landmark case for recognising skill built outside formal credentials.",
-    didYouKnow: "Johns Hopkins didn't formally recognise Thomas's contribution until 1976, when it awarded him an honorary doctorate and a faculty appointment — 32 years after the operation itself.",
-    tags: ["Pioneers", "Vivien Thomas", "Congenital", "Johns Hopkins"],
-    sources: ["Johns Hopkins Medicine", "The Journal of Thoracic and Cardiovascular Surgery"]
+    type: "Perfusion Spotlight",
+    category: "Perfusion",
+    title: "The Heart-Lung Machine Simple Enough to Spread Worldwide",
+    summary: "C. Walton Lillehei's cross-circulation technique (see 26 March) kept patients alive during surgery, but by risking a healthy parent to save a child, it was never a lasting solution. In 1955, his resident Richard DeWall built a simpler alternative: a disposable bubble oxygenator that fed oxygen through blood via a series of fine needles, using cheap plastic tubing instead of the complex moving parts other machines relied on.",
+    whyItMatters: "Its simplicity meant visiting surgeons could learn the technique at Minnesota and take a working heart-lung machine design home with them — within a few years, hundreds of open-heart programmes worldwide were using bubble oxygenators built on DeWall's design.",
+    didYouKnow: "Unlike its more expensive rivals, DeWall's machine had no moving parts to fail, and could be built from little more than plastic tubing and basic hardware-store parts.",
+    tags: ["Perfusion", "Richard DeWall", "Walton Lillehei", "Bubble oxygenator", "Heart-lung machine"],
+    sources: ["American Heart Association — \"The chaotic beginnings of the tool that made heart surgery possible\"", "JACC — \"Origins and Evolution of Extracorporeal Circulation\""]
   },
   {
-    type: "Robotics Spotlight",
-    category: "Robotics",
-    title: "The First Robotic Heart Surgery",
-    summary: "In 1998, French surgeon Alain Carpentier and his team in Paris performed the first robotically assisted mitral valve repair, using an early prototype of what became the da Vinci Surgical System. The same team performed the first totally endoscopic robotic coronary bypass shortly after. Both were proof-of-concept cases rather than routine practice — the technology, and the surgical community's confidence in it, both needed years more to catch up.",
-    whyItMatters: "Robotic and minimally invasive techniques descended from that early work are now established options for mitral valve repair and other cardiac procedures at specialist centres.",
-    didYouKnow: "Carpentier is also the surgeon behind the modern approach to mitral valve repair itself (rather than replacement) — a technique that now bears his name.",
-    tags: ["Robotics", "Alain Carpentier", "da Vinci", "Mitral valve"],
-    sources: ["PMC — \"Robotics in cardiac surgery\"", "Wikipedia — Alain Carpentier"]
+    type: "Device Spotlight",
+    category: "Perfusion",
+    title: "Keeping a Newborn Alive Outside Her Own Lungs",
+    summary: "In 1975, surgeon Robert Bartlett used extracorporeal membrane oxygenation — ECMO, a modified heart-lung machine capable of supporting a patient for days rather than hours — to save a newborn later known as \"Esperanza\", whose lungs had been damaged by meconium aspiration at birth. After three days connected to the machine, she recovered fully. A medical journal declined to publish the case at the time, and it wasn't formally published for over four decades.",
+    whyItMatters: "That first survival helped establish ECMO as a genuine treatment for reversible heart or lung failure, now used worldwide in newborns, children and adults — including, decades later, thousands of patients during the COVID-19 pandemic.",
+    didYouKnow: "The paper documenting Esperanza's case was finally published in 2017, 42 years after her treatment — by which point ECMO was already saving thousands of lives a year.",
+    tags: ["Perfusion", "Robert Bartlett", "ECMO", "Neonatal"],
+    sources: ["Michigan Medicine — \"Robert H. Bartlett, 'Father of ECMO,' dies at 86\"", "PubMed — \"Esperanza: The First Neonatal ECMO Patient\""]
   }
 ];
 
@@ -446,17 +495,27 @@ function dayKey(month, day) { return `${month}-${day}`; }
 
 const BY_DAY = new Map(ENTRIES.map(e => [dayKey(e.month, e.day), e]));
 
-function dayOfYear(now) {
-  const start = new Date(now.getFullYear(), 0, 0);
-  return Math.floor((now - start) / 86400000);
+// Days since a fixed reference point — deliberately NOT reset each
+// 1 January. An earlier version counted from the start of the current
+// year, which reset the index to 1 every New Year's Day; whether that
+// collided with 31 December's index depended on (days-in-year mod
+// SPOTLIGHTS.length), which shifts unpredictably every time the pool
+// grows — harmless with 9 entries, but a genuine repeat with 14 (since
+// 365 mod 14 === 1 mod 14). Counting continuously instead means every
+// calendar day is simply +1 from the last, forever, so the "no two
+// adjacent entries share a type" ordering above is actually guaranteed
+// year-round rather than true by coincidence.
+function dayIndex(now) {
+  return Math.floor(now.getTime() / 86400000);
 }
 
 // A genuine dated entry for today if one exists; otherwise an evergreen
-// spotlight, rotated by day-of-year so it's stable across the whole day
-// and moves on tomorrow rather than reshuffling on every reload.
+// spotlight, rotated by a continuous day count so it's stable across
+// the whole day and moves on tomorrow rather than reshuffling on every
+// reload.
 export function todaysHistoryEntry(now = new Date()) {
   const dated = BY_DAY.get(dayKey(now.getMonth() + 1, now.getDate()));
   if (dated) return dated;
   if (!SPOTLIGHTS.length) return null;
-  return SPOTLIGHTS[dayOfYear(now) % SPOTLIGHTS.length];
+  return SPOTLIGHTS[dayIndex(now) % SPOTLIGHTS.length];
 }
