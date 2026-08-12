@@ -340,6 +340,15 @@ export const ENTRIES = [
 
 // Undated, evergreen facts — true on any day, so never claim "on this
 // day". Used to fill in the days ENTRIES doesn't cover yet.
+//
+// Order matters: todaysHistoryEntry() rotates through this list by
+// day-of-year, so two entries placed next to each other here can end
+// up shown on consecutive calendar days. Deliberately interleaved so
+// no two adjacent entries — including position 8 wrapping back round
+// to position 0 at the turn of the year — share the same `type`
+// (there are 4 "Innovation Spotlight" entries out of 9, so left in
+// their natural grouping they'd otherwise land back-to-back a couple
+// of times a cycle). Keep this spread out when adding more.
 export const SPOTLIGHTS = [
   {
     type: "Innovation Spotlight",
@@ -352,16 +361,6 @@ export const SPOTLIGHTS = [
     sources: ["The Journal of Thoracic and Cardiovascular Surgery", "PubMed"]
   },
   {
-    type: "Innovation Spotlight",
-    category: "Anaesthesia",
-    title: "Isolating a Lung to Operate on It",
-    summary: "Before 1949, keeping one lung still during thoracic surgery — to stop blood or secretions spilling into the other side — was difficult and unreliable. Swedish physician Eric Carlens introduced a double-lumen tube that year, originally to measure each lung's function separately, with a small hook to help position it using nothing more than a laryngoscope. Surgeons quickly realised the same tube let them ventilate one lung while the other stayed collapsed and controlled.",
-    whyItMatters: "One-lung ventilation with a double-lumen tube is still the standard anaesthetic technique for most thoracic surgery today, letting the operative lung stay deflated while the other keeps the patient oxygenated.",
-    didYouKnow: "Carlens never intended his tube for anaesthesia at all — it was designed purely as a diagnostic tool for measuring lung function.",
-    tags: ["Anaesthesia", "Eric Carlens", "One-lung ventilation", "Thoracic surgery"],
-    sources: ["British Journal of Anaesthesia", "Wood Library-Museum of Anesthesiology"]
-  },
-  {
     type: "Procedure Spotlight",
     category: "Innovation",
     title: "Why Cardiac Surgery Goes Through the Sternum",
@@ -370,6 +369,16 @@ export const SPOTLIGHTS = [
     didYouKnow: "The technique itself was 60 years old by the time it caught on — a reminder that a good idea sometimes just needs the right moment.",
     tags: ["Innovation", "Median sternotomy", "Oscar Julian"],
     sources: ["The Annals of Thoracic Surgery — \"Classics in Thoracic Surgery\"", "Wikipedia — Median sternotomy"]
+  },
+  {
+    type: "Innovation Spotlight",
+    category: "Anaesthesia",
+    title: "Isolating a Lung to Operate on It",
+    summary: "Before 1949, keeping one lung still during thoracic surgery — to stop blood or secretions spilling into the other side — was difficult and unreliable. Swedish physician Eric Carlens introduced a double-lumen tube that year, originally to measure each lung's function separately, with a small hook to help position it using nothing more than a laryngoscope. Surgeons quickly realised the same tube let them ventilate one lung while the other stayed collapsed and controlled.",
+    whyItMatters: "One-lung ventilation with a double-lumen tube is still the standard anaesthetic technique for most thoracic surgery today, letting the operative lung stay deflated while the other keeps the patient oxygenated.",
+    didYouKnow: "Carlens never intended his tube for anaesthesia at all — it was designed purely as a diagnostic tool for measuring lung function.",
+    tags: ["Anaesthesia", "Eric Carlens", "One-lung ventilation", "Thoracic surgery"],
+    sources: ["British Journal of Anaesthesia", "Wood Library-Museum of Anesthesiology"]
   },
   {
     type: "Surgical Instruments Spotlight",
@@ -382,6 +391,16 @@ export const SPOTLIGHTS = [
     sources: ["Wikipedia — DeBakey forceps", "The Annals of Thoracic Surgery — \"Legends Behind Cardiothoracic Surgical Instruments\""]
   },
   {
+    type: "Innovation Spotlight",
+    category: "Innovation",
+    title: "Shocking a Heart Back Into Rhythm",
+    summary: "In the early 1960s, Bernard Lown showed that a carefully timed direct-current shock — delivered outside a specific vulnerable moment in the heart's electrical cycle — could reliably convert a dangerous rhythm back to normal without damaging the heart or the patient's skeletal muscles, as earlier, cruder shock methods sometimes did. He called the refined technique \"cardioversion\".",
+    whyItMatters: "Timed DC cardioversion, along with the closely related technique of emergency defibrillation, is still the standard treatment for many dangerous heart rhythms today, in and out of the operating theatre.",
+    didYouKnow: "Lown later co-founded International Physicians for the Prevention of Nuclear War, which was awarded the Nobel Peace Prize in 1985 — a very different achievement to his cardiology work.",
+    tags: ["Innovation", "Bernard Lown", "Defibrillation", "Cardioversion"],
+    sources: ["Wikipedia — Bernard Lown", "The American Journal of Cardiology"]
+  },
+  {
     type: "Robotics Spotlight",
     category: "Robotics",
     title: "The First Robotic Heart Surgery",
@@ -390,6 +409,16 @@ export const SPOTLIGHTS = [
     didYouKnow: "Carpentier is also the surgeon behind the modern approach to mitral valve repair itself (rather than replacement) — a technique that now bears his name.",
     tags: ["Robotics", "Alain Carpentier", "da Vinci", "Mitral valve"],
     sources: ["PMC — \"Robotics in cardiac surgery\"", "Wikipedia — Alain Carpentier"]
+  },
+  {
+    type: "Innovation Spotlight",
+    category: "Heart Transplant",
+    title: "One Transplant Creating Another",
+    summary: "In 1987 at Harefield Hospital in London, Magdi Yacoub performed the UK's first \"domino\" transplant: a patient with failing lungs but a healthy heart received a combined heart-lung transplant, and their own perfectly healthy heart was then transplanted into a second patient who needed one. Rather than one donor organ helping one patient, a single operation created two donations at once.",
+    whyItMatters: "Domino transplantation made better use of scarce donor organs at a time when heart-lung transplant recipients often had hearts too healthy to discard, and the underlying idea is still used selectively today.",
+    didYouKnow: "Yacoub, one of the most prolific transplant surgeons in history, was knighted in 1991 for his contributions to cardiac surgery.",
+    tags: ["Heart transplant", "Magdi Yacoub", "Domino transplant", "Harefield Hospital"],
+    sources: ["Magdi Yacoub Institute", "PMC — domino heart transplant systematic review"]
   },
   {
     type: "Pioneer Spotlight",
@@ -410,26 +439,6 @@ export const SPOTLIGHTS = [
     didYouKnow: "The condition Norwood's procedure treats was considered essentially untreatable for decades after it was first medically described in the 1950s.",
     tags: ["Congenital", "William Norwood", "Hypoplastic left heart syndrome"],
     sources: ["Journal of Cardiac Surgery", "Wikipedia — Norwood procedure"]
-  },
-  {
-    type: "Innovation Spotlight",
-    category: "Innovation",
-    title: "Shocking a Heart Back Into Rhythm",
-    summary: "In the early 1960s, Bernard Lown showed that a carefully timed direct-current shock — delivered outside a specific vulnerable moment in the heart's electrical cycle — could reliably convert a dangerous rhythm back to normal without damaging the heart or the patient's skeletal muscles, as earlier, cruder shock methods sometimes did. He called the refined technique \"cardioversion\".",
-    whyItMatters: "Timed DC cardioversion, along with the closely related technique of emergency defibrillation, is still the standard treatment for many dangerous heart rhythms today, in and out of the operating theatre.",
-    didYouKnow: "Lown later co-founded International Physicians for the Prevention of Nuclear War, which was awarded the Nobel Peace Prize in 1985 — a very different achievement to his cardiology work.",
-    tags: ["Innovation", "Bernard Lown", "Defibrillation", "Cardioversion"],
-    sources: ["Wikipedia — Bernard Lown", "The American Journal of Cardiology"]
-  },
-  {
-    type: "Innovation Spotlight",
-    category: "Heart Transplant",
-    title: "One Transplant Creating Another",
-    summary: "In 1987 at Harefield Hospital in London, Magdi Yacoub performed the UK's first \"domino\" transplant: a patient with failing lungs but a healthy heart received a combined heart-lung transplant, and their own perfectly healthy heart was then transplanted into a second patient who needed one. Rather than one donor organ helping one patient, a single operation created two donations at once.",
-    whyItMatters: "Domino transplantation made better use of scarce donor organs at a time when heart-lung transplant recipients often had hearts too healthy to discard, and the underlying idea is still used selectively today.",
-    didYouKnow: "Yacoub, one of the most prolific transplant surgeons in history, was knighted in 1991 for his contributions to cardiac surgery.",
-    tags: ["Heart transplant", "Magdi Yacoub", "Domino transplant", "Harefield Hospital"],
-    sources: ["Magdi Yacoub Institute", "PMC — domino heart transplant systematic review"]
   }
 ];
 
