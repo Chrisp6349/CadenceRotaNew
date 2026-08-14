@@ -33,9 +33,9 @@ function render(items) {
   }
   listEl.innerHTML = items.map(item => `
     <li class="shop-item ${item.checked ? "checked" : ""}" data-id="${item.id}">
-      <button class="chk" data-toggle>
+      <span class="chk">
         ${item.checked ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>` : ""}
-      </button>
+      </span>
       <span class="txt">${escapeHtml(item.text)}</span>
       <button class="del" data-delete aria-label="Remove">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -43,15 +43,18 @@ function render(items) {
     </li>
   `).join("");
 
-  listEl.querySelectorAll("[data-toggle]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const li = btn.closest("li");
+  // The whole row is the toggle target — bigger and easier to hit on a
+  // phone than a small checkbox alone. Deleting stops the click there so
+  // it doesn't also toggle the item on its way out.
+  listEl.querySelectorAll("li.shop-item").forEach(li => {
+    li.addEventListener("click", () => {
       const checked = li.classList.contains("checked");
       updateDoc(doc(listCol, li.dataset.id), { checked: !checked });
     });
   });
   listEl.querySelectorAll("[data-delete]").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
       const li = btn.closest("li");
       deleteDoc(doc(listCol, li.dataset.id));
     });
