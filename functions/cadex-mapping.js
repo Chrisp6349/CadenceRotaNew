@@ -134,8 +134,56 @@ function mapAtriumConsultants(atriumPayload) {
   return days;
 }
 
+// ---- Consumer side: apply imported consultants into the live rota -----
+// Mirrors js/rota.js's client-side applyCadexAuto() exactly, field for
+// field, so a week updates the same way whether triggered by someone
+// opening the rota page or by the scheduled sync running with nobody
+// watching it. Same flag convention: rotaData[`_cadexApplied_<fkey>`]
+// is `true` once CADEX has set that field (kept current on future
+// syncs), `false` once a person has explicitly chosen a value there
+// (including clearing it — never touched again), or absent if nobody's
+// ever touched it (safe to fill the first time a match arrives). Never
+// applies an unmatched CADEX code — that always stays a person's
+// decision, made from the rota page itself.
+//
+// Pure: returns a new { data, changes } rather than mutating `rotaData`,
+// so the caller decides whether/how to write it (and can tell, from
+// `changes`, whether a write and an audit log entry are even needed).
+function applyCadexToWeekData(rotaData, days, theatres, anaesInitials) {
+  const data = { ...(rotaData || {}) };
+  const changes = [];
+
+  function tryApply(fkey, importedRaw, label) {
+    if (!importedRaw) return;
+    const resolved = anaesInitials[importedRaw.trim().toUpperCase()];
+    if (!resolved) return;
+    const flagKey = `_cadexApplied_${fkey}`;
+    if (data[flagKey] === false) return; // a person owns this field now
+    if (data[fkey] !== resolved) {
+      changes.push({ field: label, from: data[fkey] || "(empty)", to: resolved });
+      data[fkey] = resolved;
+    }
+    data[flagKey] = true;
+  }
+
+  WEEKDAYS.forEach(day => {
+    const dayData = days?.[day.toLowerCase()] || {};
+    theatres.forEach(t => {
+      if (t.name in dayData) tryApply(`${day}_${t.id}_anaes`, dayData[t.name], `${day} ${t.name} Anaesthetist`);
+    });
+    tryApply(`${day}_oncall_anaes`, dayData["On Call"], `${day} On Call Anaesthetist`);
+  });
+  WEEKENDS.forEach(day => {
+    const dayData = days?.[day.toLowerCase()] || {};
+    tryApply(`${day}_oncall_anaes`, dayData["On Call"], `${day} On Call Anaesthetist`);
+    tryApply(`${day}_wl_anaes`, dayData["Waiting List"], `${day} Weekend Waiting List Anaesthetist`);
+  });
+
+  return { data, changes };
+}
+
 module.exports = {
   WEEKDAYS, WEEKENDS, ALL_DAYS, CADEX_THEATRE_NAMES,
   findTheatreId, resolveCadexTheatreIds,
-  buildOdpExport, buildSurgeonsExport, mapAtriumConsultants
+  buildOdpExport, buildSurgeonsExport, mapAtriumConsultants, applyCadexToWeekData
 };

@@ -29,7 +29,7 @@ const { setGlobalOptions } = require("firebase-functions/v2");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 
-const { buildOdpExport, buildSurgeonsExport, mapAtriumConsultants } = require("./cadex-mapping");
+const { buildOdpExport, buildSurgeonsExport, mapAtriumConsultants, applyCadexToWeekData } = require("./cadex-mapping");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -171,13 +171,17 @@ function addWeeks(weekId, weeks) {
   return d.toISOString().split("T")[0];
 }
 
-// Fetches and stores one week's consultant data. Never writes into
-// departments/{deptId}/weeks/{weekId}.data (the editable rota) — only
-// into cadexImports, a read-only projection the client displays
-// alongside the grid and can choose to apply (guiding principles 7 and
-// 9: imported data is clearly identifiable, and never silently
-// replaces something a person already entered).
-async function syncOneWeek(deptId, config, weekId) {
+// Fetches one week's consultant data, stores it in cadexImports (the
+// read-only projection the rota page displays badges from), and — new —
+// also applies whatever's safe to apply directly into the live
+// weeks/{weekId} document, the same way applyCadexToWeekData() would
+// if someone had the rota page open. This is what makes an already-
+// published week's Dashboard/corridor board display update on its own,
+// instead of staying stale until someone opens Rota and republishes.
+// `published` is never touched here — merge() only changes `data` and
+// leaves whatever publish state a human already chose exactly as it
+// was, for a draft or a published week alike.
+async function syncOneWeek(deptId, config, weekId, theatres, anaesInitials) {
   const url = `${config.atriumBaseUrl.replace(/\/$/, "")}/api/v1/consultants?week=${weekId}`;
 
   let resp;
@@ -211,7 +215,37 @@ async function syncOneWeek(deptId, config, weekId) {
     days
   });
 
+  await applyToLiveWeek(deptId, receivedWeekId, days, theatres, anaesInitials);
+
   return { ok: true, weekId: receivedWeekId };
+}
+
+// Applies matched, non-overridden anaesthetist fields straight into the
+// week's live data and logs it to the same Change log the rota page's
+// own saves go to — under "CADEX (automatic)" rather than a person's
+// name, so it's always clear from the log which changes were made by
+// someone and which happened on their own. A no-op (no write, no log
+// entry) when nothing actually changed, which is the common case once
+// a week's already in sync.
+async function applyToLiveWeek(deptId, weekId, days, theatres, anaesInitials) {
+  const ref = db.doc(`departments/${deptId}/weeks/${weekId}`);
+  const snap = await ref.get();
+  const current = snap.exists ? snap.data() : { data: {}, published: false };
+  const { data, changes } = applyCadexToWeekData(current.data || {}, days, theatres, anaesInitials);
+  if (!changes.length) return;
+
+  await ref.set({ data }, { merge: true });
+
+  await db.collection(`departments/${deptId}/auditLog`).add({
+    weekStart: weekId,
+    uid: "cadex",
+    displayName: "CADEX (automatic)",
+    action: "auto-updated",
+    changeCount: changes.length,
+    changes: changes.slice(0, 20),
+    truncated: changes.length > 20,
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
 }
 
 // Syncs the current week plus SYNC_WEEKS_AHEAD weeks ahead, then
@@ -219,9 +253,20 @@ async function syncOneWeek(deptId, config, weekId) {
 // single flaky week ahead shouldn't mark the whole import as failed),
 // with the first error kept for the status panel if none did.
 async function syncDepartment(deptId, config) {
+  const [theatreSnap, staffSnap] = await Promise.all([
+    db.collection(`departments/${deptId}/theatres`).get(),
+    db.collection(`departments/${deptId}/staff`).get()
+  ]);
+  const theatres = theatreSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const anaesInitials = {};
+  staffSnap.docs.forEach(d => {
+    const s = d.data();
+    if (s.type === "anaesthetist" && s.initials) anaesInitials[s.initials.trim().toUpperCase()] = s.name;
+  });
+
   const currentWeek = mondayOf();
   const weekIds = Array.from({ length: SYNC_WEEKS_AHEAD + 1 }, (_, i) => addWeeks(currentWeek, i));
-  const results = await Promise.all(weekIds.map(weekId => syncOneWeek(deptId, config, weekId)));
+  const results = await Promise.all(weekIds.map(weekId => syncOneWeek(deptId, config, weekId, theatres, anaesInitials)));
 
   const statusRef = db.doc(`departments/${deptId}/cadexStatus/live`);
   const anyOk = results.some(r => r.ok);
