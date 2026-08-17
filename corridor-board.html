@@ -298,32 +298,52 @@
     } else if (yestIdx === 5) { // yesterday Saturday: weekend ends 07:00 today (Sunday)
       if (now < atTime(now, 7, 0)) return { mode: "weekend", dataDay: yestName };
     } else { // yesterday Sunday: weekend ends 06:30 today (Monday)
-      if (now < atTime(now, 6, 30)) return { mode: "weekend", dataDay: yestName };
+      // The only carryover that crosses into a NEW week's rota
+      // document — every other branch above stays within the same
+      // Monday-Sunday week as `now`. `prevWeek: true` tells renderBody()
+      // to read last week's loaded rota instead of this week's.
+      if (now < atTime(now, 6, 30)) return { mode: "weekend", dataDay: yestName, prevWeek: true };
     }
 
     return { mode: "day", dataDay: todayName };
   }
 
+  // `prev*` holds LAST week's rota — needed because Sunday night's
+  // on-call/waiting-list carries over and is still shown until 06:30
+  // Monday morning (see getDisplayState() below), but by then Monday
+  // has already started a new week's document. Without this, reading
+  // "Sunday_..." fields during that window would silently read
+  // *this coming* Sunday's document instead of the one that actually
+  // ran last night — blank if nobody's filled it in yet, or a future
+  // weekend's already-planned staff if they have.
   let odpRota = {}, nursingRota = {}, cadexDays = null;
+  let prevOdpRota = {}, prevNursingRota = {}, prevCadexDays = null;
 
   async function loadBoth() {
     const weekStart = mondayOfCurrentWeek();
-    const [odpWeek, nursingWeek, cadexImports] = await Promise.all([
+    const prevWeekStart = localIso(isoPlusDays(weekStart, -7));
+    const [odpWeek, nursingWeek, cadexImports, prevOdpWeek, prevNursingWeek, prevCadexImports] = await Promise.all([
       loadWeek(profile.departmentId, weekStart),
       loadNursingWeek(profile.departmentId, weekStart),
-      getCadexImports(profile.departmentId, weekStart)
+      getCadexImports(profile.departmentId, weekStart),
+      loadWeek(profile.departmentId, prevWeekStart),
+      loadNursingWeek(profile.departmentId, prevWeekStart),
+      getCadexImports(profile.departmentId, prevWeekStart)
     ]);
     odpRota = odpWeek.data || {};
     nursingRota = nursingWeek.data || {};
     cadexDays = cadexImports?.days || null;
+    prevOdpRota = prevOdpWeek.data || {};
+    prevNursingRota = prevNursingWeek.data || {};
+    prevCadexDays = prevCadexImports?.days || null;
     const el = document.getElementById("cbUpdated");
     if (el) el.textContent = `Updated ${new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
   }
 
   // CICU has no local field anywhere in Cadence (see rota.js) — it's
   // purely a CADEX import, resolved the same way the rota page does.
-  function cicuFor(day) {
-    const raw = cadexDays?.[day.toLowerCase()]?.CICU;
+  function cicuFor(day, cadexSrc) {
+    const raw = cadexSrc?.[day.toLowerCase()]?.CICU;
     if (!raw) return "";
     return resolveCadexAnaesthetist(raw, anaesInitials).value;
   }
@@ -515,7 +535,13 @@
     const todayIsoNow = localIso(now);
     const state = getDisplayState(now);
     const day = state.dataDay;
-    const cicu = cicuFor(day) || "—";
+    // See loadBoth()'s comment above — only the Sunday-night-to-Monday-
+    // morning carryover needs last week's document; every other mode
+    // uses this week's, same as before.
+    const odpSrc = state.prevWeek ? prevOdpRota : odpRota;
+    const nursingSrc = state.prevWeek ? prevNursingRota : nursingRota;
+    const cadexSrc = state.prevWeek ? prevCadexDays : cadexDays;
+    const cicu = cicuFor(day, cadexSrc) || "—";
 
     document.getElementById("cbBhBanner").innerHTML = (dept.bankHolidays && dept.bankHolidays[todayIsoNow])
       ? `<div class="cb-bh">Bank holiday</div>` : "";
@@ -551,13 +577,13 @@
       // since none of that is relevant once theatres are closed for
       // the night. Same six roles as the weekday on-call strip, just
       // given the whole screen since there's nothing else to show.
-      const anaes = odpRota[`${day}_oncall_anaes`] || "—";
-      const surgeonCardiac = nursingRota[`${day}_oncall_surgeon`] || "—";
-      const surgeonThoracic = nursingRota[`${day}_oncall_surgeon_thoracic`] || "—";
-      const odpOc = odpRota[`${day}_oncall_odp`] || "—";
-      const odpOcHome = !!odpRota[`${day}_oncall_home`];
-      const nurOc = [1, 2, 3].map(n => nursingRota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
-      const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
+      const anaes = odpSrc[`${day}_oncall_anaes`] || "—";
+      const surgeonCardiac = nursingSrc[`${day}_oncall_surgeon`] || "—";
+      const surgeonThoracic = nursingSrc[`${day}_oncall_surgeon_thoracic`] || "—";
+      const odpOc = odpSrc[`${day}_oncall_odp`] || "—";
+      const odpOcHome = !!odpSrc[`${day}_oncall_home`];
+      const nurOc = [1, 2, 3].map(n => nursingSrc[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
+      const nurOcHca = nursingSrc[`${day}_oncall_hca`] || "—";
 
       body.innerHTML = `
         <div class="nm-banner"><span class="nm-banner-dot"></span><span class="nm-banner-text">On call</span></div>
@@ -575,18 +601,18 @@
     }
 
     if (state.mode === "weekend") {
-      const odpOc = [odpRota[`${day}_oncall_odp1`], odpRota[`${day}_oncall_odp2`]].filter(Boolean).join(", ") || "—";
-      const odpOcAnaes = odpRota[`${day}_oncall_anaes`] || "—";
-      const odpWlOdpRaw = odpRota[`${day}_wl_odp`] || "";
-      const odpWlAnaesRaw = odpRota[`${day}_wl_anaes`] || "";
+      const odpOc = [odpSrc[`${day}_oncall_odp1`], odpSrc[`${day}_oncall_odp2`]].filter(Boolean).join(", ") || "—";
+      const odpOcAnaes = odpSrc[`${day}_oncall_anaes`] || "—";
+      const odpWlOdpRaw = odpSrc[`${day}_wl_odp`] || "";
+      const odpWlAnaesRaw = odpSrc[`${day}_wl_anaes`] || "";
 
-      const nurOc = [1, 2, 3].map(n => nursingRota[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
-      const nurOcHca = nursingRota[`${day}_oncall_hca`] || "—";
-      const nurOcSurgeonCardiac = nursingRota[`${day}_oncall_surgeon`] || "—";
-      const nurOcSurgeonThoracic = nursingRota[`${day}_oncall_surgeon_thoracic`] || "—";
-      const nurWlRaw = [1, 2, 3].map(n => nursingRota[`${day}_wl_nurse${n}`]).filter(Boolean);
-      const nurWlHcaRaw = nursingRota[`${day}_wl_hca`] || "";
-      const nurWlSurgeonRaw = nursingRota[`${day}_wl_surgeon`] || "";
+      const nurOc = [1, 2, 3].map(n => nursingSrc[`${day}_oncall_nurse${n}`]).filter(Boolean).join(", ") || "—";
+      const nurOcHca = nursingSrc[`${day}_oncall_hca`] || "—";
+      const nurOcSurgeonCardiac = nursingSrc[`${day}_oncall_surgeon`] || "—";
+      const nurOcSurgeonThoracic = nursingSrc[`${day}_oncall_surgeon_thoracic`] || "—";
+      const nurWlRaw = [1, 2, 3].map(n => nursingSrc[`${day}_wl_nurse${n}`]).filter(Boolean);
+      const nurWlHcaRaw = nursingSrc[`${day}_wl_hca`] || "";
+      const nurWlSurgeonRaw = nursingSrc[`${day}_wl_surgeon`] || "";
 
       const hasWeekendList = !!(odpWlOdpRaw || odpWlAnaesRaw || nurWlRaw.length || nurWlHcaRaw || nurWlSurgeonRaw);
       const weekendListHtml = hasWeekendList
