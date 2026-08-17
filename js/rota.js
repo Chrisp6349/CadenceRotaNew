@@ -315,6 +315,109 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
   return { weekdayHtml: h, weekendHtml: w };
 }
 
+// ---- Print grid ------------------------------------------------------------
+// A dedicated, compact layout for the physical printout — matches the
+// department's previous standalone rota app rather than reusing the
+// on-screen editable grid's row shape (which needs room for 4 fields
+// per theatre plus dropdown chrome that a printed page doesn't). Kept
+// entirely separate from renderGrid() rather than adding print-mode
+// branches to it, since the two now diverge in more than just
+// editable-vs-read-only: anaesthetists print as initials, not full
+// names, and an empty theatre prints its list type in place of blank
+// names rather than alongside filled ones.
+//
+// `staffList` = the raw staff docs (not the odps/anaesthetists arrays
+// `staff` already splits out) — needed here to look up each
+// anaesthetist's own `initials` field by their full name, the reverse
+// direction from department.js's buildAnaesthetistInitialsMap().
+export function renderPrintGrid({ weekStart, dept, theatres, staff, staffList, rota }) {
+  const initialsByName = {};
+  (staffList || []).forEach(s => {
+    if (s.type === "anaesthetist" && s.initials) initialsByName[s.name] = s.initials.trim().toUpperCase();
+  });
+  function anaesInitials(name) {
+    return name ? (initialsByName[name] || name) : "";
+  }
+
+  function dayLabel(i) {
+    const ds = isoPlusDays(weekStart, i);
+    const d = new Date(ds);
+    let txt = `${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][i]}<br>${suffix(d.getDate())}`;
+    if (dept.bankHolidays && dept.bankHolidays[ds]) txt += `<br><span class="bh">BANK HOLIDAY</span>`;
+    return txt;
+  }
+
+  // A theatre with nobody assigned prints its list type alone (e.g. "NO
+  // LIST", "ENT") in place of blank names, rather than showing the list
+  // type text alongside a filled-in theatre every single day — the list
+  // type is only useful on the print as a stand-in for "nothing's on".
+  function theatrePrintCell(day, theatreId) {
+    const odps = [rota[`${day}_${theatreId}_odp1`], rota[`${day}_${theatreId}_odp2`]].filter(Boolean);
+    const anaes = rota[`${day}_${theatreId}_anaes`];
+    const list = rota[`${day}_${theatreId}_list`] || "";
+    if (!odps.length && !anaes) return list ? `<div class="pr-empty">${list}</div>` : "";
+    return `${odps.map(n => `<div class="pr-name">${n}</div>`).join("")}${anaes ? `<div class="pr-init">${anaesInitials(anaes)}</div>` : ""}`;
+  }
+
+  function supportPrintCell(day) {
+    const names = [1, 2, 3].map(n => rota[`${day}_support${n}`]).filter(Boolean);
+    return names.map(n => `<div class="pr-name">${n}</div>`).join("");
+  }
+
+  function oncallPrintCell(day) {
+    const odp = rota[`${day}_oncall_odp`] || "";
+    const home = !!rota[`${day}_oncall_home`];
+    const extra = rota[`${day}_oncall_extra`] || "";
+    const anaes = rota[`${day}_oncall_anaes`] || "";
+    let h = odp ? `<div class="pr-name">${odp}${home ? ` <span class="pr-home">HOME</span>` : ""}</div>` : "";
+    if (extra) h += `<div class="pr-extra">${extra}</div>`;
+    if (anaes) h += `<div class="pr-init">${anaesInitials(anaes)}</div>`;
+    return h;
+  }
+
+  const theatreCols = theatres.map(t => `<th>${t.name}</th>`).join("");
+  let h = `<table class="rota-table print-rota-table"><tr><th>Day</th>${theatreCols}<th>Support</th><th>On Call</th></tr>`;
+  WEEKDAYS.forEach((d, i) => {
+    const cells = theatres.map(t => `<td>${theatrePrintCell(d, t.id)}</td>`).join("");
+    h += `<tr><td class="daycell">${dayLabel(i)}</td>${cells}<td>${supportPrintCell(d)}</td><td>${oncallPrintCell(d)}</td></tr>`;
+  });
+  h += "</table>";
+
+  // Weekend on-call SODP can hold two people across the day (e.g. an AM
+  // and a PM cover) — each prints on its own line with its session
+  // tag, but only when a session other than the default "ALL DAY" was
+  // actually picked, so the common single-person-all-day case doesn't
+  // print a redundant "ALL DAY" label.
+  function weekendOncallOdp(day) {
+    const rows = [1, 2].map(n => {
+      const name = rota[`${day}_oncall_odp${n}`];
+      if (!name) return "";
+      const session = rota[`${day}_oncall_session${n}`] || "";
+      return `<div class="pr-name">${name}${session && session !== "ALL DAY" ? ` <span class="pr-extra">${session}</span>` : ""}</div>`;
+    }).filter(Boolean);
+    return rows.join("");
+  }
+
+  function weekendWaitingListCell(day) {
+    const odp = rota[`${day}_wl_odp`] || "";
+    const anaes = rota[`${day}_wl_anaes`] || "";
+    return `${odp ? `<div class="pr-name">${odp}</div>` : ""}${anaes ? `<div class="pr-init">${anaesInitials(anaes)}</div>` : ""}`;
+  }
+
+  let w = `<table class="rota-table print-rota-table weekend-table"><tr><th>Day</th><th>On Call SODP</th><th>On Call Anaesthetist</th><th>Waiting List</th></tr>`;
+  WEEKENDS.forEach((d, i) => {
+    const anaes = rota[`${d}_oncall_anaes`] || "";
+    w += `<tr><td class="daycell">${dayLabel(i + 5)}</td>
+      <td>${weekendOncallOdp(d)}</td>
+      <td>${anaes ? `<div class="pr-init">${anaesInitials(anaes)}</div>` : ""}</td>
+      <td>${weekendWaitingListCell(d)}</td>
+    </tr>`;
+  });
+  w += "</table>";
+
+  return { weekdayHtml: h, weekendHtml: w };
+}
+
 export function attachChangeHandlers(container, rota, onChange) {
   if (!container) return;
   container.querySelectorAll("select[data-key]").forEach(sel => {

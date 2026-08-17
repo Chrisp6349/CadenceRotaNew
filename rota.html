@@ -73,8 +73,10 @@
     #shellRoot .app-sidebar,#shellRoot .app-topbar,.rota-toolbar{display:none !important;}
     #shellRoot .app-main,#shellRoot .app-content{overflow:visible !important;height:auto !important;padding:0 !important;}
     body{background:#fff;}
-    .print-header{display:flex !important;margin-bottom:8px;padding-bottom:5px;}
-    .print-header .ph-org{font-size:14px;}
+    .print-header{display:block !important;margin-bottom:8px;padding-bottom:6px;border-bottom-color:#000 !important;}
+    .print-header .ph-title{font-size:15px;}
+    .print-header .ph-sub,.print-header .ph-week{font-size:11px;}
+    .ph-footer{display:block !important;font-size:8.5px;}
     .table-scroll{border:none;overflow:visible;max-height:none;padding:0;box-shadow:none;}
     #screenGridWrap{display:none !important;}
     #printGridWrap{display:block !important;}
@@ -101,13 +103,27 @@
     .home-badge{border:1px solid #000;background:none !important;color:#000;}
     h4.section-title{margin:8px 0 4px;font-size:9px;color:#000;}
     .weekend-table{page-break-inside:avoid;margin-top:0;}
+
+    /* Print-grid cell content (renderPrintGrid() in js/rota.js) — a
+       name plus the anaesthetist's initials underneath, matching the
+       compact two-line layout of the department's previous standalone
+       rota printout rather than the on-screen editable grid's full
+       name + list type + dropdown chrome. */
+    .print-rota-table .pr-name{font-weight:700;}
+    .print-rota-table .pr-init{font-size:8.5px;color:#000;margin-top:1px;}
+    .print-rota-table .pr-extra{font-size:8px;margin-top:1px;}
+    .print-rota-table .pr-home{font-size:7.5px;border:1px solid #000;padding:0 3px;border-radius:2px;}
+    /* A theatre with nobody on it — the list type (e.g. "NO LIST",
+       "ENT") prints alone, centred, in place of blank names. */
+    .print-rota-table .pr-empty{text-align:center;color:#555;}
   }
-  .print-header{display:none;align-items:baseline;justify-content:space-between;margin-bottom:14px;
-    border-bottom:2px solid var(--ink-900);padding-bottom:8px;}
-  .print-header.force-show{display:flex;}
-  .print-header .ph-org{font-family:var(--font-display);font-weight:800;font-size:16px;}
-  .print-header .ph-dept{font-size:12px;color:var(--ink-500);margin-top:2px;}
-  .print-header .ph-week{font-family:var(--font-mono);font-size:11px;color:var(--ink-500);text-align:right;}
+  .print-header{display:none;text-align:center;margin-bottom:14px;
+    border-bottom:3px double var(--ink-900);padding-bottom:8px;}
+  .print-header.force-show{display:block;}
+  .print-header .ph-title{font-family:var(--font-display);font-weight:800;font-size:18px;}
+  .print-header .ph-sub{font-size:12px;color:var(--ink-500);margin-top:3px;}
+  .print-header .ph-week{font-family:var(--font-mono);font-weight:700;font-size:12px;margin-top:6px;}
+  .ph-footer{display:none;text-align:right;font-size:10px;color:var(--ink-500);margin-top:6px;}
 </style>
 </head>
 <body>
@@ -119,7 +135,7 @@
 
   import { renderShell } from "./js/shell.js";
   import { getDepartment, listTheatres, listStaff, splitStaff, buildAnaesthetistInitialsMap } from "./js/department.js";
-  import { loadWeek, saveWeek, mondayOfCurrentWeek, renderGrid, attachChangeHandlers, applyCadexAuto } from "./js/rota.js";
+  import { loadWeek, saveWeek, mondayOfCurrentWeek, renderGrid, renderPrintGrid, attachChangeHandlers, applyCadexAuto } from "./js/rota.js";
   import { getCadexImports } from "./js/cadex.js";
   import { applyTheme } from "./js/theme.js";
   applyTheme();
@@ -169,10 +185,8 @@
       </span>
     </div>
     <div class="print-header" id="printHeader">
-      <div>
-        <div class="ph-org" id="phOrg"></div>
-        <div class="ph-dept" id="phDept"></div>
-      </div>
+      <div class="ph-title" id="phTitle"></div>
+      <div class="ph-sub" id="phSub"></div>
       <div class="ph-week" id="phWeek"></div>
     </div>
     <div id="screenGridWrap">
@@ -184,6 +198,7 @@
       <div class="table-scroll"><div id="printWeekdayGrid"></div></div>
       <h4 class="section-title">Weekend</h4>
       <div class="table-scroll"><div id="printWeekendGrid"></div></div>
+      <div class="ph-footer" id="phFooter"></div>
     </div>
   `;
 
@@ -230,12 +245,25 @@
     setTimeout(() => t.classList.remove("show"), 2400);
   }
 
+  function ordinalSuffix(n) {
+    if (n % 100 >= 11 && n % 100 <= 13) return n + "th";
+    switch (n % 10) { case 1: return n + "st"; case 2: return n + "nd"; case 3: return n + "rd"; default: return n + "th"; }
+  }
+
   function updatePrintHeader() {
-    document.getElementById("phOrg").textContent = dept.hospitalName || "";
-    document.getElementById("phDept").textContent = dept.name || profile.departmentName || "";
+    const deptName = dept.name || profile.departmentName || "";
+    const hospitalName = dept.hospitalName || "";
+    document.getElementById("phTitle").textContent = `${deptName} SODP Allocations`;
+    document.getElementById("phSub").textContent = [deptName, hospitalName].filter(Boolean).join(" · ");
     const mon = new Date(weekInput.value + "T00:00:00");
-    const fmt = d => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-    document.getElementById("phWeek").textContent = `Week commencing ${fmt(mon)}`;
+    const monthYear = mon.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    document.getElementById("phWeek").textContent = `Week Commencing: ${ordinalSuffix(mon.getDate())} ${monthYear}`;
+    const footer = document.getElementById("phFooter");
+    if (footer) {
+      const now = new Date();
+      const stamp = now.toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      footer.textContent = `Printed: ${stamp}`;
+    }
   }
 
   // Re-renders the grid from the in-memory `rota` object only — no
@@ -284,7 +312,7 @@
     // so that click never needs to touch the DOM at all, and
     // window.print() can fire immediately and synchronously (see the
     // printBtn handler below for why that matters).
-    const printCopy = renderGrid({ weekStart: weekInput.value, dept, theatres, staff, rota, editable: false });
+    const printCopy = renderPrintGrid({ weekStart: weekInput.value, dept, theatres, staff, staffList, rota });
     document.getElementById("printWeekdayGrid").innerHTML = printCopy.weekdayHtml;
     document.getElementById("printWeekendGrid").innerHTML = printCopy.weekendHtml;
   }
