@@ -113,9 +113,10 @@
     .print-rota-table .pr-init{font-size:8.5px;color:#000;margin-top:1px;}
     .print-rota-table .pr-extra{font-size:8px;margin-top:1px;}
     .print-rota-table .pr-home{font-size:7.5px;border:1px solid #000;padding:0 3px;border-radius:2px;}
-    /* A theatre with nobody on it — the list type (e.g. "NO LIST",
-       "ENT") prints alone, centred, in place of blank names. */
-    .print-rota-table .pr-empty{text-align:center;color:#555;}
+    /* List type — rarely picked, so worth flagging clearly whenever it
+       IS set (e.g. "NO LIST", "ENT", "THORACIC CT3"), alongside names
+       or alone on an empty theatre alike. */
+    .print-rota-table .pr-list{font-weight:700;font-size:8px;margin-top:2px;border:1px solid #000;padding:0 3px;display:inline-block;}
   }
   .print-header{display:none;text-align:center;margin-bottom:14px;
     border-bottom:3px double var(--ink-900);padding-bottom:8px;}

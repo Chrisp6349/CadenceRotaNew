@@ -323,8 +323,9 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
 // entirely separate from renderGrid() rather than adding print-mode
 // branches to it, since the two now diverge in more than just
 // editable-vs-read-only: anaesthetists print as initials, not full
-// names, and an empty theatre prints its list type in place of blank
-// names rather than alongside filled ones.
+// names, and the list type always prints when set — rarely picked,
+// so worth flagging whenever it is, whether or not the theatre also
+// has staff assigned.
 //
 // `staffList` = the raw staff docs (not the odps/anaesthetists arrays
 // `staff` already splits out) — needed here to look up each
@@ -347,21 +348,25 @@ export function renderPrintGrid({ weekStart, dept, theatres, staff, staffList, r
     return txt;
   }
 
-  // A theatre with nobody assigned prints its list type alone (e.g. "NO
-  // LIST", "ENT") in place of blank names, rather than showing the list
-  // type text alongside a filled-in theatre every single day — the list
-  // type is only useful on the print as a stand-in for "nothing's on".
+  // List type always prints when set — it's rarely picked, so on the
+  // occasions it is, that's worth flagging alongside the names, not
+  // just standing in for them on an otherwise-empty theatre.
   function theatrePrintCell(day, theatreId) {
     const odps = [rota[`${day}_${theatreId}_odp1`], rota[`${day}_${theatreId}_odp2`]].filter(Boolean);
     const anaes = rota[`${day}_${theatreId}_anaes`];
     const list = rota[`${day}_${theatreId}_list`] || "";
-    if (!odps.length && !anaes) return list ? `<div class="pr-empty">${list}</div>` : "";
-    return `${odps.map(n => `<div class="pr-name">${n}</div>`).join("")}${anaes ? `<div class="pr-init">${anaesInitials(anaes)}</div>` : ""}`;
+    let h = odps.map(n => `<div class="pr-name">${n}</div>`).join("");
+    if (anaes) h += `<div class="pr-init">${anaesInitials(anaes)}</div>`;
+    if (list) h += `<div class="pr-list">${list}</div>`;
+    return h;
   }
 
   function supportPrintCell(day) {
     const names = [1, 2, 3].map(n => rota[`${day}_support${n}`]).filter(Boolean);
-    return names.map(n => `<div class="pr-name">${n}</div>`).join("");
+    const list = rota[`${day}_support_list`] || "";
+    let h = names.map(n => `<div class="pr-name">${n}</div>`).join("");
+    if (list) h += `<div class="pr-list">${list}</div>`;
+    return h;
   }
 
   function oncallPrintCell(day) {
