@@ -112,6 +112,17 @@
      doesn't apply in this context, .cb-strip's own gap already spaces
      it correctly. */
   .cb-strip .th-card{margin-top:0;}
+  /* On a wide enough screen (iPad landscape, a big TV) auto-fit still
+     computes a 4th+ column, because the on-call card below spans every
+     column (1/-1) and so counts as "using" all of them even though
+     nothing in THIS row does — auto-fit only collapses a track that's
+     completely unused anywhere in the grid. Explicitly stretching the
+     history card from column 3 to the last one reclaims that leftover
+     space instead of leaving it blank; on a narrower screen where only
+     3 columns exist in the first place this is a no-op. */
+  @media (min-width:900px){
+    .cb-strip .th-card{grid-column:3/-1;}
+  }
   .cb-oncall-card{grid-column:1/-1;}
   .cb-oncall-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;}
   .cb-oncall-item .oc-role{font-family:var(--font-mono);font-size:10px;color:var(--ink-300);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
