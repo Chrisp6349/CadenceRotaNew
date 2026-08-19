@@ -106,6 +106,12 @@
   .cb-strip .card{padding:14px 18px;}
   .cb-strip .card-label{font-size:11px;}
   .cb-strip .card-value{font-size:17px;line-height:1.5;}
+  /* The history card sits as a third tile alongside the two support
+     cards here (there's a free grid slot before the full-width on-call
+     card forces its own row) — the standalone bottom-of-page margin
+     doesn't apply in this context, .cb-strip's own gap already spaces
+     it correctly. */
+  .cb-strip .th-card{margin-top:0;}
   .cb-oncall-card{grid-column:1/-1;}
   .cb-oncall-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;}
   .cb-oncall-item .oc-role{font-family:var(--font-mono);font-size:10px;color:var(--ink-300);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;}
@@ -172,7 +178,7 @@
   .tb-title{font-family:var(--font-mono);font-size:11px;color:var(--ink-500);text-transform:uppercase;letter-spacing:.05em;}
   .tb-toggle{background:none;border:none;color:var(--teal-600);font-size:13px;font-weight:600;
     cursor:pointer;padding:0;text-decoration:underline;}
-  .tb-list{display:flex;flex-direction:column;gap:14px;max-height:260px;overflow-y:auto;margin-bottom:16px;padding-right:4px;}
+  .tb-list{display:flex;flex-direction:column;gap:14px;max-height:190px;overflow-y:auto;margin-bottom:16px;padding-right:4px;}
   .tb-msg{display:flex;gap:12px;align-items:flex-start;}
   .tb-avatar{width:32px;height:32px;border-radius:50%;background:var(--teal-100);color:var(--teal-700);
     display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:12px;flex-shrink:0;}
@@ -566,11 +572,14 @@
         <div class="th-title">${historyEntry.title}</div>
         <div class="th-summary">${historyEntry.summary}</div>
       </div>` : "";
-    // Sits at the very bottom of the page — its own container outside
-    // #boardBody, rather than inside each mode's template, so it stays
-    // in the same spot (after the Team Board/QR row) regardless of
-    // which of the three layouts is currently showing.
-    document.getElementById("cbHistoryCard").innerHTML = historyHtml;
+    // In "day" mode this now sits inline in .cb-strip, next to the
+    // support cards, where there's a free grid slot (see below) — it
+    // used to live in its own container after the Team Board/QR row,
+    // at the very bottom of the page, which on most screens meant
+    // scrolling to see it at all. Night/weekend have no equivalent
+    // free slot (their strips are already full), so it keeps its old
+    // spot at the bottom for those two modes.
+    document.getElementById("cbHistoryCard").innerHTML = state.mode === "day" ? "" : historyHtml;
 
     if (state.mode === "night") {
       // On-call only — no theatre grid, no coordinator, no support,
@@ -673,6 +682,7 @@
       <div class="cb-strip">
         <div class="card"><div class="card-label">SODP support</div><div class="card-value">${supportOdps}</div></div>
         <div class="card"><div class="card-label">Nursing support</div><div class="card-value">Nurses: ${supportNurses}<br>HCAs: ${supportHcas}</div></div>
+        ${historyHtml}
         <div class="card cb-oncall-card">
           <div class="card-label">On call</div>
           <div class="cb-oncall-grid">
