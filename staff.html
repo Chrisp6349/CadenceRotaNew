@@ -48,26 +48,6 @@
   .sp-badges{display:flex;flex-wrap:wrap;gap:8px;}
   .sp-badge{background:var(--teal-100);color:var(--teal-700);font-size:12px;font-weight:600;
     padding:6px 12px;border-radius:var(--r-pill);}
-
-  .lb-group{border:1px solid var(--ink-150);border-radius:var(--r-lg);background:var(--surface);
-    margin-bottom:14px;overflow:hidden;}
-  .lb-group-title{cursor:pointer;list-style:none;padding:14px 18px;font-family:var(--font-display);
-    font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:space-between;}
-  .lb-group-title::-webkit-details-marker{display:none;}
-  .lb-group-title::after{content:"\2212";font-family:var(--font-mono);color:var(--ink-500);font-size:16px;}
-  .lb-group:not([open]) .lb-group-title::after{content:"+";}
-  .lb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;padding:0 18px 18px;}
-  .lb-card{background:var(--canvas);border:1px solid var(--ink-150);border-radius:var(--r-md);padding:14px;}
-  .lb-cat{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-500);text-transform:uppercase;
-    letter-spacing:.05em;margin-bottom:10px;}
-  .lb-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
-  .lb-row{display:flex;align-items:center;gap:10px;}
-  .lb-rank{font-family:var(--font-mono);font-weight:700;font-size:11px;width:22px;height:22px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--ink-100);color:var(--ink-500);}
-  .lb-row:first-child .lb-rank{background:var(--teal-100);color:var(--teal-700);}
-  .lb-name{font-size:13px;font-weight:600;color:var(--ink-900);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .lb-value{font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--ink-700);flex-shrink:0;}
-  .lb-empty{color:var(--ink-500);font-size:12.5px;margin:0;padding:0 18px 18px;}
 </style>
 </head>
 <body>
@@ -77,56 +57,20 @@
    import { requireSession, blockBoardOnly } from "./js/auth.js";
 
   import { renderShell } from "./js/shell.js";
-  import { getDepartment, listTheatres, listStaff } from "./js/department.js";
-  import { mondayOfCurrentWeek } from "./js/rota.js";
-  import { loadEligibleEntries as loadOdpEntries, classify as classifyOdp, buildSessionGroups as buildOdpSessionGroups } from "./js/insights.js";
-  import { loadEligibleEntries as loadNursingEntries, classify as classifyNursing, buildSessionGroups as buildNursingSessionGroups } from "./js/nursing-insights.js";
   import { applyTheme } from "./js/theme.js";
+  import { TYPE_LABELS, NURSE_LIKE_TYPES, shownName, loadStaffInsights, buildProfile } from "./js/staff-insights.js";
   applyTheme();
 
    const { user, profile } = await requireSession();
   await blockBoardOnly(profile);
-  // Fired together, not one-after-another — see rota.html for the same
-  // pattern and why.
-  const deptPromise = getDepartment(profile.departmentId);
-  const theatresPromise = listTheatres(profile.departmentId);
-  const staffListPromise = listStaff(profile.departmentId);
 
-  const dept = await deptPromise;
-  profile.departmentName = dept?.name || "Department";
+  const insights = await loadStaffInsights(profile.departmentId);
+  const { staffList } = insights;
+  profile.departmentName = insights.dept?.name || "Department";
 
   const content = renderShell({ profile, activePage: "staff", title: "Staff Profiles" });
 
-  const theatres = await theatresPromise;
-  const staffList = await staffListPromise;
-
-  // Every role in the department now shows up here — ODPs and
-  // anaesthetists pull their history from the ODP rota, everyone else
-  // (nurses, HCAs, surgeons) from the nursing rota. Display name follows
-  // the same convention department.js's splitStaff() uses when building
-  // the rota's own dropdowns, since that's what's actually stored in the
-  // rota data this page matches names against: rotaName-or-name for
-  // ODPs/nurses/HCAs, always the full name for anaesthetists/surgeons.
-  const TYPE_LABELS = {
-    odp: "SODP", anaesthetist: "Anaesthetist",
-    nurse: "Nurse", nurse_band5: "Band 5 Nurse", nurse_band6: "Band 6 Nurse", nurse_aptap: "AP/TAP",
-    hca: "HCA", surgeon: "Surgeon"
-  };
-  const NURSE_LIKE_TYPES = ["nurse", "nurse_band5", "nurse_band6", "nurse_aptap"];
-  const NURSING_TYPES = [...NURSE_LIKE_TYPES, "hca", "surgeon"];
-  function isNursingType(type) { return NURSING_TYPES.includes(type); }
-  function shownName(s) { return (s.type === "anaesthetist" || s.type === "surgeon") ? s.name : (s.rotaName || s.name); }
-
-  function localIso(d) {
-    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }
-  const todayIso = localIso(new Date());
-
   content.innerHTML = `
-    <div class="sp-section-title" style="margin-top:0;">Department leaderboards</div>
-    <div id="leaderboardArea"><p class="empty-note">Loading…</p></div>
-
     <div class="sp-picker">
       <select id="staffSelect">
         <option value="">Select someone…</option>
@@ -152,32 +96,8 @@
     </div>`;
   }
 
-  // Fetch and flatten both published histories once, in parallel — every
-  // profile lookup after that is instant, no further Firestore reads.
-  const [odpResult, nursingResult] = await Promise.all([
-    loadOdpEntries(profile.departmentId, theatres, mondayOfCurrentWeek(), todayIso),
-    loadNursingEntries(profile.departmentId, theatres, mondayOfCurrentWeek(), todayIso)
-  ]);
-  const odpEntries = odpResult.entries;
-  const odpSessionGroups = buildOdpSessionGroups(odpEntries, theatres);
-  const nurEntries = nursingResult.entries;
-  const nurSessionGroups = buildNursingSessionGroups(nurEntries, theatres);
-
-  // The full set of published weeks (across everyone, not just one
-  // person) — this is the trend chart's x-axis, so a week where someone
-  // did zero sessions still shows up as a real zero bar rather than a
-  // gap, instead of only ever listing weeks that person actually worked.
-  const ALL_ODP_WEEKS = [...new Set(odpSessionGroups.map(g => g.weekStart))].sort();
-  const ALL_NUR_WEEKS = [...new Set(nurSessionGroups.map(g => g.weekStart))].sort();
-
   function initials(name) {
     return name.split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase();
-  }
-
-  function buildWeeklyTrend(mySessions, allWeeks) {
-    const counts = {};
-    mySessions.forEach(g => { counts[g.weekStart] = (counts[g.weekStart] || 0) + 1; });
-    return allWeeks.slice(-8).map(w => ({ weekStart: w, count: counts[w] || 0 }));
   }
 
   function weekShortLabel(iso) {
@@ -203,156 +123,13 @@
     </div>`;
   }
 
-  function buildOdpProfile(name) {
-    const mySessions = odpSessionGroups.filter(g => g.odps.includes(name) || g.anaes === name);
-    const theatreCounts = {};
-    const dayCounts = {};
-    const partnerCounts = {};
-
-    mySessions.forEach(g => {
-      theatreCounts[g.theatreName] = (theatreCounts[g.theatreName] || 0) + 1;
-      dayCounts[g.day] = (dayCounts[g.day] || 0) + 1;
-      if (g.anaes === name) {
-        g.odps.forEach(odp => { partnerCounts[odp] = (partnerCounts[odp] || 0) + 1; });
-      } else if (g.anaes) {
-        partnerCounts[g.anaes] = (partnerCounts[g.anaes] || 0) + 1;
-      }
-    });
-
-    let onCallCount = 0, supportCount = 0;
-    odpEntries.forEach(({ suffix, value }) => {
-      if (value !== name) return;
-      const c = classifyOdp(suffix, theatres);
-      if (c?.kind === "oncall_odp" || c?.kind === "oncall_anaes") onCallCount++;
-      else if (c?.kind === "support") supportCount++;
-    });
-
-    const favouriteTheatre = Object.entries(theatreCounts).sort((a, b) => b[1] - a[1])[0] || null;
-    const topPartner = Object.entries(partnerCounts).sort((a, b) => b[1] - a[1])[0] || null;
-
-    const badges = [];
-    if (mySessions.length >= 20) badges.push("Regular — 20+ sessions");
-    if (onCallCount >= 10) badges.push("On-call veteran — 10+ shifts");
-    if (Object.keys(partnerCounts).length >= 5) badges.push("Team player — worked with 5+ colleagues");
-    if (favouriteTheatre && favouriteTheatre[1] >= 10) badges.push(`${favouriteTheatre[0]} regular`);
-
-    return { sessionsWorked: mySessions.length, theatreCounts, dayCounts, onCallCount, supportCount, coordinatorCount: 0, favouriteTheatre, topPartner, badges, weeklyTrend: buildWeeklyTrend(mySessions, ALL_ODP_WEEKS) };
-  }
-
-  // Nursing sessions don't pair an ODP with an anaesthetist — they pair a
-  // surgeon with that session's nurses. "Most frequent colleague" for a
-  // surgeon is their most-worked-with nurse; for a nurse/HCA, it's their
-  // most-worked-with surgeon.
-  function buildNursingProfile(name) {
-    const mySessions = nurSessionGroups.filter(g => g.nurses.includes(name) || g.hcas.includes(name) || g.surgeons.includes(name));
-    const theatreCounts = {};
-    const dayCounts = {};
-    const partnerCounts = {};
-
-    mySessions.forEach(g => {
-      theatreCounts[g.theatreName] = (theatreCounts[g.theatreName] || 0) + 1;
-      dayCounts[g.day] = (dayCounts[g.day] || 0) + 1;
-      if (g.surgeons.includes(name)) {
-        if (g.nurses[0]) partnerCounts[g.nurses[0]] = (partnerCounts[g.nurses[0]] || 0) + 1;
-      } else {
-        g.surgeons.forEach(s => { partnerCounts[s] = (partnerCounts[s] || 0) + 1; });
-      }
-    });
-
-    let onCallCount = 0, supportCount = 0, coordinatorCount = 0;
-    nurEntries.forEach(({ suffix, value }) => {
-      if (value !== name) return;
-      const c = classifyNursing(suffix, theatres);
-      if (!c) return;
-      if (c.kind.startsWith("oncall_")) onCallCount++;
-      else if (c.kind.startsWith("support_")) supportCount++;
-      else if (c.kind === "coordinator") coordinatorCount++;
-    });
-
-    const favouriteTheatre = Object.entries(theatreCounts).sort((a, b) => b[1] - a[1])[0] || null;
-    const topPartner = Object.entries(partnerCounts).sort((a, b) => b[1] - a[1])[0] || null;
-
-    const badges = [];
-    if (mySessions.length >= 20) badges.push("Regular — 20+ sessions");
-    if (onCallCount >= 10) badges.push("On-call veteran — 10+ shifts");
-    if (coordinatorCount >= 10) badges.push("Coordination veteran — 10+ shifts");
-    if (Object.keys(partnerCounts).length >= 5) badges.push("Team player — worked with 5+ colleagues");
-    if (favouriteTheatre && favouriteTheatre[1] >= 10) badges.push(`${favouriteTheatre[0]} regular`);
-
-    return { sessionsWorked: mySessions.length, theatreCounts, dayCounts, onCallCount, supportCount, coordinatorCount, favouriteTheatre, topPartner, badges, weeklyTrend: buildWeeklyTrend(mySessions, ALL_NUR_WEEKS) };
-  }
-
-  function buildProfile(name, type) {
-    const stats = isNursingType(type) ? buildNursingProfile(name) : buildOdpProfile(name);
-    return { type, ...stats };
-  }
-
-  // Broad groups rather than one board per exact role — a department's
-  // Band 6 Nurses or AP/TAPs alone can be only a handful of people, and a
-  // "top 3" of 4 people isn't a leaderboard. This mirrors the two rotas
-  // the app already splits everyone into, just with anaesthetists and
-  // surgeons pulled out as their own boards since they're a clearly
-  // distinct group either way.
-  const LEADERBOARD_GROUPS = [
-    { label: "SODP", types: ["odp"] },
-    { label: "Anaesthetists", types: ["anaesthetist"] },
-    { label: "Nursing", types: ["nurse", "nurse_band5", "nurse_band6", "nurse_aptap", "hca"] },
-    { label: "Surgeons", types: ["surgeon"] }
-  ];
-
-  function buildLeaderboardHtml() {
-    const sections = LEADERBOARD_GROUPS.map(group => {
-      const members = staffList.filter(s => group.types.includes(s.type));
-      if (!members.length) return "";
-
-      const profiles = members.map(s => {
-        const name = shownName(s);
-        return { name, ...buildProfile(name, s.type) };
-      }).filter(p => p.sessionsWorked > 0 || p.onCallCount > 0 || p.supportCount > 0 || p.coordinatorCount > 0);
-
-      // Same rule the individual profile card grid uses: on-call and
-      // sessions apply to everyone, support/coordinator only to the
-      // roles that can actually be assigned those rota slots.
-      const showSupport = group.types.some(t => t !== "anaesthetist" && t !== "surgeon");
-      const showCoordinator = group.types.some(t => NURSE_LIKE_TYPES.includes(t));
-      const categories = [
-        { key: "sessionsWorked", label: "Theatre sessions" },
-        { key: "onCallCount", label: "On call" },
-        ...(showSupport ? [{ key: "supportCount", label: "Support duty" }] : []),
-        ...(showCoordinator ? [{ key: "coordinatorCount", label: "Coordinated" }] : [])
-      ];
-
-      const bodyHtml = !profiles.length
-        ? `<p class="lb-empty">No published history yet for this group.</p>`
-        : `<div class="lb-grid">${categories.map(cat => {
-            const ranked = profiles.filter(p => p[cat.key] > 0).sort((a, b) => b[cat.key] - a[cat.key]).slice(0, 3);
-            if (!ranked.length) return `<div class="lb-card"><div class="lb-cat">${cat.label}</div><p class="lb-empty" style="padding:0;">No data yet</p></div>`;
-            return `<div class="lb-card">
-              <div class="lb-cat">${cat.label}</div>
-              <ol class="lb-list">
-                ${ranked.map((p, i) => `<li class="lb-row"><span class="lb-rank">${i + 1}</span><span class="lb-name">${p.name}</span><span class="lb-value">${p[cat.key]}</span></li>`).join("")}
-              </ol>
-            </div>`;
-          }).join("")}</div>`;
-
-      return `<details class="lb-group" open>
-        <summary class="lb-group-title">${group.label}</summary>
-        ${bodyHtml}
-      </details>`;
-    }).filter(Boolean).join("");
-
-    return sections || `<p class="empty-note">No staff set up yet.</p>`;
-  }
-
-  document.getElementById("leaderboardArea").innerHTML = buildLeaderboardHtml();
-
   function render(name, type) {
     const el = document.getElementById("profileArea");
     if (!name) {
       el.innerHTML = emptyStateHtml("staff", "Pick a name to see their history", "Choose anyone above — sessions, on-call, and their favourite theatre all pull from the published rota.");
       return;
     }
-    const p = buildProfile(name, type);
+    const p = buildProfile(name, type, insights);
     const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
     const roleLabel = TYPE_LABELS[type] || type;
     // Anaesthetists and surgeons never fill a Support slot; only

@@ -17,7 +17,7 @@
 // this shouldn't need a manual "clear site data" to take effect.
 // -----------------------------------------------------------------------
 
-const CACHE_VERSION = "v68";
+const CACHE_VERSION = "v69";
 const CACHE_NAME = `cadence-shell-${CACHE_VERSION}`;
 
 const SHELL_FILES = [
@@ -31,6 +31,7 @@ const SHELL_FILES = [
   "./calendar.html",
   "./nursing-calendar.html",
   "./staff.html",
+  "./staff-leaderboard.html",
   "./admin.html",
   "./account.html",
   "./css/cadence.css",
@@ -47,6 +48,7 @@ const SHELL_FILES = [
   "./js/pwa.js",
   "./js/rota.js",
   "./js/shell.js",
+  "./js/staff-insights.js",
   "./js/theatre-history.js",
   "./js/theme.js",
   "./js/users.js",

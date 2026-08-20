@@ -19,6 +19,7 @@ const ICONS = {
   calendar: `<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>`,
   admin: `<path d="M12 2l8 3v6c0 5-3.4 8.4-8 11-4.6-2.6-8-6-8-11V5l8-3z"/>`,
   staff: `<circle cx="12" cy="8" r="3.2"/><path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7"/>`,
+  trophy: `<path d="M8 4h8v5a4 4 0 01-8 0V4z"/><path d="M8 5H5a3 3 0 003 3M16 5h3a3 3 0 01-3 3"/><path d="M12 13v3"/><path d="M9 20h6M9 20a3 3 0 013-3 3 3 0 013 3"/>`,
   settings: `<circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.6 1.6 0 00.32 1.76"/>`,
   moon: `<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>`,
   minus: `<path d="M5 12h14"/>`,
@@ -45,6 +46,7 @@ const NAV = [
   { key: "nursingCalendar", label: "Nursing On Call Calendar", href: "nursing-calendar.html", icon: "calendar", roles: ["viewer","editor","admin"] },
   { section: "Staff" },
   { key: "staff", label: "Staff Profiles", href: "staff.html", icon: "staff", roles: ["viewer","editor","admin"] },
+  { key: "staffLeaderboard", label: "Staff Leaderboard", href: "staff-leaderboard.html", icon: "trophy", roles: ["viewer","editor","admin"] },
   { section: "System" },
   { key: "admin", label: "Administration", href: "admin.html", icon: "admin", roles: ["admin"] },
 ];
