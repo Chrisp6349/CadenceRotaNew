@@ -537,7 +537,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
   function refreshCaseList() {
     caseListEl.innerHTML = caseList.length ? "" :
       emptyState("tag", "No cases yet", "Add CABG, AVR, TAVI, or your own values above.");
-    caseList.forEach(val => {
+    [...caseList].sort((a, b) => a.localeCompare(b)).forEach(val => {
       const row = document.createElement("div");
       row.className = "admin-row";
       row.innerHTML = `<span>${val}</span><button class="btn btn-ghost btn-sm">Remove</button>`;

@@ -639,7 +639,7 @@
   // same one, in more than one slot.
   function openCaseModal(theatreId, theatreName) {
     const current = getSelectedCases(theatreId, localIso(new Date()));
-    const options = dept.caseList || [];
+    const options = [...(dept.caseList || [])].sort((a, b) => a.localeCompare(b));
     caseModalTitle.textContent = `${theatreName} — today's cases`;
     caseModalBody.innerHTML = options.length
       ? `<div class="cb-case-slots">${[0, 1, 2].map(i => `
