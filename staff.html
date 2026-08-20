@@ -31,12 +31,19 @@
 
   .sp-section-title{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-500);text-transform:uppercase;
     letter-spacing:.05em;margin:24px 0 10px;}
-  .sp-pattern{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;}
-  .sp-pattern-day{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-sm);
-    padding:10px;text-align:center;}
-  .sp-pattern-day .d-label{font-family:var(--font-mono);font-size:10px;color:var(--ink-500);text-transform:uppercase;}
-  .sp-pattern-day .d-count{font-family:var(--font-display);font-weight:800;font-size:20px;margin-top:4px;}
-  .sp-pattern-day.zero{opacity:.35;}
+
+  .sp-bar-chart{display:flex;align-items:flex-end;gap:4px;}
+  .sp-bar-col{flex:1;max-width:64px;display:flex;flex-direction:column;align-items:center;border-radius:4px;}
+  .sp-bar-value{font-family:var(--font-mono);font-size:10px;color:var(--ink-500);height:14px;opacity:0;
+    transition:opacity .15s;}
+  .sp-bar-col.always-label .sp-bar-value,.sp-bar-col:hover .sp-bar-value,.sp-bar-col:focus-visible .sp-bar-value{opacity:1;}
+  .sp-bar-area{height:72px;width:100%;max-width:24px;display:flex;align-items:flex-end;}
+  .sp-bar{width:100%;background:var(--teal-600);border-radius:4px 4px 0 0;min-height:2px;transition:opacity .15s;}
+  .sp-bar.zero{background:var(--ink-150);}
+  .sp-bar-col:hover .sp-bar,.sp-bar-col:focus-visible .sp-bar{opacity:.75;}
+  .sp-bar-label{font-family:var(--font-mono);font-size:10px;color:var(--ink-500);text-transform:uppercase;margin-top:6px;
+    white-space:nowrap;}
+  .sp-bar-col:focus-visible{outline:2px solid var(--teal-500);outline-offset:2px;}
 
   .sp-badges{display:flex;flex-wrap:wrap;gap:8px;}
   .sp-badge{background:var(--teal-100);color:var(--teal-700);font-size:12px;font-weight:600;
@@ -133,8 +140,44 @@
   const nurEntries = nursingResult.entries;
   const nurSessionGroups = buildNursingSessionGroups(nurEntries, theatres);
 
+  // The full set of published weeks (across everyone, not just one
+  // person) — this is the trend chart's x-axis, so a week where someone
+  // did zero sessions still shows up as a real zero bar rather than a
+  // gap, instead of only ever listing weeks that person actually worked.
+  const ALL_ODP_WEEKS = [...new Set(odpSessionGroups.map(g => g.weekStart))].sort();
+  const ALL_NUR_WEEKS = [...new Set(nurSessionGroups.map(g => g.weekStart))].sort();
+
   function initials(name) {
     return name.split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase();
+  }
+
+  function buildWeeklyTrend(mySessions, allWeeks) {
+    const counts = {};
+    mySessions.forEach(g => { counts[g.weekStart] = (counts[g.weekStart] || 0) + 1; });
+    return allWeeks.slice(-8).map(w => ({ weekStart: w, count: counts[w] || 0 }));
+  }
+
+  function weekShortLabel(iso) {
+    return new Date(iso + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  }
+
+  // Shared renderer for both the weekly-trend and day-of-week charts —
+  // same bar anatomy either way. items: [{label, value, title}]. The
+  // single tallest bar keeps a permanent value label (the one the story
+  // is about); the rest reveal their value on hover/focus so the chart
+  // doesn't drown in numbers.
+  function barChartHtml(items) {
+    const max = Math.max(1, ...items.map(i => i.value));
+    return `<div class="sp-bar-chart">
+      ${items.map(i => {
+        const pct = i.value === 0 ? 0 : Math.max(6, Math.round((i.value / max) * 100));
+        return `<div class="sp-bar-col${i.value === max && i.value > 0 ? " always-label" : ""}" tabindex="0" title="${i.title}">
+          <div class="sp-bar-value">${i.value}</div>
+          <div class="sp-bar-area"><div class="sp-bar${i.value === 0 ? " zero" : ""}" style="height:${i.value === 0 ? 2 : pct}%"></div></div>
+          <div class="sp-bar-label">${i.label}</div>
+        </div>`;
+      }).join("")}
+    </div>`;
   }
 
   function buildOdpProfile(name) {
@@ -170,7 +213,7 @@
     if (Object.keys(partnerCounts).length >= 5) badges.push("Team player — worked with 5+ colleagues");
     if (favouriteTheatre && favouriteTheatre[1] >= 10) badges.push(`${favouriteTheatre[0]} regular`);
 
-    return { sessionsWorked: mySessions.length, theatreCounts, dayCounts, onCallCount, supportCount, coordinatorCount: 0, favouriteTheatre, topPartner, badges };
+    return { sessionsWorked: mySessions.length, theatreCounts, dayCounts, onCallCount, supportCount, coordinatorCount: 0, favouriteTheatre, topPartner, badges, weeklyTrend: buildWeeklyTrend(mySessions, ALL_ODP_WEEKS) };
   }
 
   // Nursing sessions don't pair an ODP with an anaesthetist — they pair a
@@ -213,7 +256,7 @@
     if (Object.keys(partnerCounts).length >= 5) badges.push("Team player — worked with 5+ colleagues");
     if (favouriteTheatre && favouriteTheatre[1] >= 10) badges.push(`${favouriteTheatre[0]} regular`);
 
-    return { sessionsWorked: mySessions.length, theatreCounts, dayCounts, onCallCount, supportCount, coordinatorCount, favouriteTheatre, topPartner, badges };
+    return { sessionsWorked: mySessions.length, theatreCounts, dayCounts, onCallCount, supportCount, coordinatorCount, favouriteTheatre, topPartner, badges, weeklyTrend: buildWeeklyTrend(mySessions, ALL_NUR_WEEKS) };
   }
 
   function buildProfile(name, type) {
@@ -246,13 +289,23 @@
       return;
     }
 
-    const patternHtml = ALL_DAYS.map(d => {
-      const count = p.dayCounts[d] || 0;
-      return `<div class="sp-pattern-day${count === 0 ? " zero" : ""}">
-        <div class="d-label">${d.slice(0, 3)}</div>
-        <div class="d-count">${count}</div>
-      </div>`;
-    }).join("");
+    const patternHtml = barChartHtml(ALL_DAYS.map(d => ({
+      label: d.slice(0, 3),
+      value: p.dayCounts[d] || 0,
+      title: `${d}: ${p.dayCounts[d] || 0} session${(p.dayCounts[d] || 0) === 1 ? "" : "s"}`
+    })));
+
+    // A trend needs at least a couple of distinct weeks to say anything —
+    // one bar is just the stat tile above repeated as a chart, so skip
+    // the section entirely rather than show something meaningless.
+    const trendHtml = p.weeklyTrend.length > 1 ? `
+      <div class="sp-section-title">Sessions per week</div>
+      ${barChartHtml(p.weeklyTrend.map(w => ({
+        label: weekShortLabel(w.weekStart),
+        value: w.count,
+        title: `Week of ${weekShortLabel(w.weekStart)}: ${w.count} session${w.count === 1 ? "" : "s"}`
+      })))}
+    ` : "";
 
     el.innerHTML = `
       <div class="sp-head">
@@ -266,9 +319,9 @@
         ${showCoordinator ? `<div class="card"><div class="card-label">Coordinated</div><div class="card-value">${p.coordinatorCount}</div></div>` : ""}
         <div class="card"><div class="card-label">Favourite theatre</div><div class="card-value" style="font-size:18px;">${p.favouriteTheatre ? p.favouriteTheatre[0] : "—"}</div></div>
       </div>
-
+      ${trendHtml}
       <div class="sp-section-title">Work pattern by day</div>
-      <div class="sp-pattern">${patternHtml}</div>
+      ${patternHtml}
 
       <div class="sp-section-title">Most frequent colleague</div>
       <p style="font-size:13.5px;color:var(--ink-700);">${p.topPartner ? `${p.topPartner[0]} — worked together ${p.topPartner[1]} time${p.topPartner[1] === 1 ? "" : "s"}` : "Not enough data yet"}</p>
