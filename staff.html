@@ -48,6 +48,26 @@
   .sp-badges{display:flex;flex-wrap:wrap;gap:8px;}
   .sp-badge{background:var(--teal-100);color:var(--teal-700);font-size:12px;font-weight:600;
     padding:6px 12px;border-radius:var(--r-pill);}
+
+  .lb-group{border:1px solid var(--ink-150);border-radius:var(--r-lg);background:var(--surface);
+    margin-bottom:14px;overflow:hidden;}
+  .lb-group-title{cursor:pointer;list-style:none;padding:14px 18px;font-family:var(--font-display);
+    font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:space-between;}
+  .lb-group-title::-webkit-details-marker{display:none;}
+  .lb-group-title::after{content:"\2212";font-family:var(--font-mono);color:var(--ink-500);font-size:16px;}
+  .lb-group:not([open]) .lb-group-title::after{content:"+";}
+  .lb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;padding:0 18px 18px;}
+  .lb-card{background:var(--canvas);border:1px solid var(--ink-150);border-radius:var(--r-md);padding:14px;}
+  .lb-cat{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-500);text-transform:uppercase;
+    letter-spacing:.05em;margin-bottom:10px;}
+  .lb-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .lb-row{display:flex;align-items:center;gap:10px;}
+  .lb-rank{font-family:var(--font-mono);font-weight:700;font-size:11px;width:22px;height:22px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--ink-100);color:var(--ink-500);}
+  .lb-row:first-child .lb-rank{background:var(--teal-100);color:var(--teal-700);}
+  .lb-name{font-size:13px;font-weight:600;color:var(--ink-900);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lb-value{font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--ink-700);flex-shrink:0;}
+  .lb-empty{color:var(--ink-500);font-size:12.5px;margin:0;padding:0 18px 18px;}
 </style>
 </head>
 <body>
@@ -104,6 +124,9 @@
   const todayIso = localIso(new Date());
 
   content.innerHTML = `
+    <div class="sp-section-title" style="margin-top:0;">Department leaderboards</div>
+    <div id="leaderboardArea"><p class="empty-note">Loading…</p></div>
+
     <div class="sp-picker">
       <select id="staffSelect">
         <option value="">Select someone…</option>
@@ -263,6 +286,65 @@
     const stats = isNursingType(type) ? buildNursingProfile(name) : buildOdpProfile(name);
     return { type, ...stats };
   }
+
+  // Broad groups rather than one board per exact role — a department's
+  // Band 6 Nurses or AP/TAPs alone can be only a handful of people, and a
+  // "top 3" of 4 people isn't a leaderboard. This mirrors the two rotas
+  // the app already splits everyone into, just with anaesthetists and
+  // surgeons pulled out as their own boards since they're a clearly
+  // distinct group either way.
+  const LEADERBOARD_GROUPS = [
+    { label: "SODP", types: ["odp"] },
+    { label: "Anaesthetists", types: ["anaesthetist"] },
+    { label: "Nursing", types: ["nurse", "nurse_band5", "nurse_band6", "nurse_aptap", "hca"] },
+    { label: "Surgeons", types: ["surgeon"] }
+  ];
+
+  function buildLeaderboardHtml() {
+    const sections = LEADERBOARD_GROUPS.map(group => {
+      const members = staffList.filter(s => group.types.includes(s.type));
+      if (!members.length) return "";
+
+      const profiles = members.map(s => {
+        const name = shownName(s);
+        return { name, ...buildProfile(name, s.type) };
+      }).filter(p => p.sessionsWorked > 0 || p.onCallCount > 0 || p.supportCount > 0 || p.coordinatorCount > 0);
+
+      // Same rule the individual profile card grid uses: on-call and
+      // sessions apply to everyone, support/coordinator only to the
+      // roles that can actually be assigned those rota slots.
+      const showSupport = group.types.some(t => t !== "anaesthetist" && t !== "surgeon");
+      const showCoordinator = group.types.some(t => NURSE_LIKE_TYPES.includes(t));
+      const categories = [
+        { key: "sessionsWorked", label: "Theatre sessions" },
+        { key: "onCallCount", label: "On call" },
+        ...(showSupport ? [{ key: "supportCount", label: "Support duty" }] : []),
+        ...(showCoordinator ? [{ key: "coordinatorCount", label: "Coordinated" }] : [])
+      ];
+
+      const bodyHtml = !profiles.length
+        ? `<p class="lb-empty">No published history yet for this group.</p>`
+        : `<div class="lb-grid">${categories.map(cat => {
+            const ranked = profiles.filter(p => p[cat.key] > 0).sort((a, b) => b[cat.key] - a[cat.key]).slice(0, 3);
+            if (!ranked.length) return `<div class="lb-card"><div class="lb-cat">${cat.label}</div><p class="lb-empty" style="padding:0;">No data yet</p></div>`;
+            return `<div class="lb-card">
+              <div class="lb-cat">${cat.label}</div>
+              <ol class="lb-list">
+                ${ranked.map((p, i) => `<li class="lb-row"><span class="lb-rank">${i + 1}</span><span class="lb-name">${p.name}</span><span class="lb-value">${p[cat.key]}</span></li>`).join("")}
+              </ol>
+            </div>`;
+          }).join("")}</div>`;
+
+      return `<details class="lb-group" open>
+        <summary class="lb-group-title">${group.label}</summary>
+        ${bodyHtml}
+      </details>`;
+    }).filter(Boolean).join("");
+
+    return sections || `<p class="empty-note">No staff set up yet.</p>`;
+  }
+
+  document.getElementById("leaderboardArea").innerHTML = buildLeaderboardHtml();
 
   function render(name, type) {
     const el = document.getElementById("profileArea");
