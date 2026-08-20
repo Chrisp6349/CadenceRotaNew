@@ -126,13 +126,13 @@
   .cb-case-modal-close{background:none;border:none;font-size:22px;line-height:1;color:var(--ink-500);
     cursor:pointer;padding:4px;}
   .cb-case-modal-body{padding:16px 20px;overflow-y:auto;}
-  .cb-case-options{display:flex;flex-direction:column;gap:4px;}
-  .cb-case-option{display:flex;align-items:center;gap:12px;font-size:14.5px;color:var(--ink-900);
-    cursor:pointer;padding:9px 8px;border-radius:var(--r-sm);}
-  .cb-case-option:active{background:var(--ink-100);}
-  .cb-case-option input{width:19px;height:19px;flex-shrink:0;}
-  .cb-case-option input:disabled + span{color:var(--ink-300);}
-  .cb-case-limit-note{font-size:11.5px;color:var(--ink-500);margin:10px 0 0;}
+  .cb-case-slots{display:flex;flex-direction:column;gap:12px;}
+  .cb-case-slot{display:flex;flex-direction:column;gap:5px;}
+  .cb-case-slot-label{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-500);text-transform:uppercase;
+    letter-spacing:.05em;}
+  .cb-case-slot select{font-family:var(--font-body);font-size:14.5px;padding:10px 12px;border-radius:var(--r-sm);
+    border:1px solid var(--ink-150);background:var(--surface);color:var(--ink-900);width:100%;box-sizing:border-box;}
+  .cb-case-limit-note{font-size:11.5px;color:var(--ink-500);margin:12px 0 0;}
   .cb-case-modal-foot{display:flex;justify-content:space-between;gap:10px;padding:14px 20px;
     border-top:1px solid var(--ink-150);}
 
@@ -632,28 +632,26 @@
   const caseModalBody = document.getElementById("caseModalBody");
   const CASE_LIMIT = 3;
 
-  function updateCaseLimitState() {
-    const boxes = [...caseModalBody.querySelectorAll("input[type=checkbox]")];
-    const checkedCount = boxes.filter(b => b.checked).length;
-    boxes.forEach(b => { if (!b.checked) b.disabled = checkedCount >= CASE_LIMIT; });
-    const note = document.getElementById("caseLimitNote");
-    if (note) note.textContent = checkedCount >= CASE_LIMIT ? `Up to ${CASE_LIMIT} cases — remove one to add another.` : `Pick up to ${CASE_LIMIT} cases.`;
-  }
-
+  // Three fixed, ordered slots (a dropdown each) rather than a checklist —
+  // a checklist can't represent "CABG" twice since a case name can only
+  // be checked once, but a theatre's list can genuinely repeat (two CABGs
+  // back to back). A dropdown per slot allows any case, including the
+  // same one, in more than one slot.
   function openCaseModal(theatreId, theatreName) {
     const current = getSelectedCases(theatreId, localIso(new Date()));
     const options = dept.caseList || [];
     caseModalTitle.textContent = `${theatreName} — today's cases`;
     caseModalBody.innerHTML = options.length
-      ? `<div class="cb-case-options">${options.map(c => `
-          <label class="cb-case-option">
-            <input type="checkbox" value="${c}" ${current.includes(c) ? "checked" : ""}>
-            <span>${c}</span>
+      ? `<div class="cb-case-slots">${[0, 1, 2].map(i => `
+          <label class="cb-case-slot">
+            <span class="cb-case-slot-label">Case ${i + 1}</span>
+            <select data-slot="${i}">
+              <option value=""${current[i] ? "" : " selected"}>—</option>
+              ${options.map(c => `<option value="${c}"${current[i] === c ? " selected" : ""}>${c}</option>`).join("")}
+            </select>
           </label>`).join("")}</div>
-        <p class="cb-case-limit-note" id="caseLimitNote"></p>`
+        <p class="cb-case-limit-note">The same case can be picked more than once — e.g. two CABGs.</p>`
       : `<p class="empty-note">No cases set up yet — add some in Administration → Theatre case list.</p>`;
-    caseModalBody.querySelectorAll("input[type=checkbox]").forEach(b => b.addEventListener("change", updateCaseLimitState));
-    updateCaseLimitState();
     caseModalOverlay.dataset.theatreId = theatreId;
     caseModalOverlay.hidden = false;
   }
@@ -670,7 +668,7 @@
     renderBody();
   });
   document.getElementById("caseModalDoneBtn").addEventListener("click", () => {
-    const chosen = [...caseModalBody.querySelectorAll("input[type=checkbox]:checked")].map(b => b.value);
+    const chosen = [...caseModalBody.querySelectorAll("select")].map(s => s.value).filter(Boolean);
     setSelectedCases(caseModalOverlay.dataset.theatreId, localIso(new Date()), chosen);
     closeCaseModal();
     renderBody();
