@@ -124,6 +124,10 @@
     table.print-rota-table th,table.print-rota-table td{padding:14px 8px;text-align:center;vertical-align:middle;}
     table.print-rota-table th:first-child,table.print-rota-table td.daycell{width:92px;}
     table.print-rota-table td.daycell{font-size:12.5px;}
+    /* Every box (theatre/on-call/support cells) reads as bold throughout
+       — names, initials, and tags alike — not just the name line. The
+       day column keeps its normal weight; it's a row label, not a box. */
+    table.print-rota-table td:not(.daycell){font-weight:700;}
     .print-rota-table .pr-name{font-weight:700;}
     .print-rota-table .pr-init{font-size:12.5px;color:#000;margin-top:3px;}
     .print-rota-table .pr-extra{font-size:11px;margin-top:3px;}
