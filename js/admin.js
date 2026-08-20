@@ -125,6 +125,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
   // array/object each time something changes, same pattern as the rest
   // of this screen.
   let listOptions = (dept.listOptions && dept.listOptions.length) ? [...dept.listOptions] : [...DEFAULT_LIST_OPTIONS];
+  let caseList = dept.caseList ? [...dept.caseList] : [];
   let bankHolidays = { ...(dept.bankHolidays || {}) };
   // If the department has never had list types set, seed the defaults
   // into Firestore now so the rota page (which reads dept.listOptions
@@ -231,6 +232,22 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
           <button class="list-toggle-btn" id="listOptionsToggleBtn" style="display:none;">Show</button>
         </div>
         <div id="listOptionsList" class="admin-list"></div>
+      </section>
+
+      <section>
+        <h4 class="admin-h">Theatre case list</h4>
+        <p class="empty-note" style="margin:-6px 0 10px;">Available cases staff can pick from on the Theatre Board — tap a
+          theatre card there to note up to 3 of today's cases (currently Theatre 2, 4 and 5 only). That's a same-device,
+          same-day note only — it's never saved to the rota or published, just this list of options is shared from here.</p>
+        <form id="caseListForm" class="inline-form">
+          <input type="text" id="caseListValue" placeholder="e.g. CABG, AVR, TAVI" required>
+          <button class="btn btn-primary btn-sm" type="submit">Add case</button>
+        </form>
+        <div class="section-list-head">
+          <span class="count" id="caseListCount"></span>
+          <button class="list-toggle-btn" id="caseListToggleBtn" style="display:none;">Show</button>
+        </div>
+        <div id="caseListList" class="admin-list"></div>
       </section>
 
       <section>
@@ -511,6 +528,38 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
     await updateDepartment(deptId, { listOptions });
     input.value = "";
     refreshListOptions();
+  });
+
+  // ---- Theatre case list ------------------------------------------------
+  const caseListEl = container.querySelector("#caseListList");
+  const caseListCountEl = container.querySelector("#caseListCount");
+  const caseListToggleBtn = container.querySelector("#caseListToggleBtn");
+  function refreshCaseList() {
+    caseListEl.innerHTML = caseList.length ? "" :
+      emptyState("tag", "No cases yet", "Add CABG, AVR, TAVI, or your own values above.");
+    caseList.forEach(val => {
+      const row = document.createElement("div");
+      row.className = "admin-row";
+      row.innerHTML = `<span>${val}</span><button class="btn btn-ghost btn-sm">Remove</button>`;
+      row.querySelector("button").addEventListener("click", async () => {
+        caseList = caseList.filter(v => v !== val);
+        await updateDepartment(deptId, { caseList });
+        refreshCaseList();
+      });
+      caseListEl.appendChild(row);
+    });
+    applyListCollapse("caseList", caseListEl, caseListToggleBtn, caseListCountEl, caseList.length, "case");
+  }
+
+  container.querySelector("#caseListForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = container.querySelector("#caseListValue");
+    const val = input.value.trim();
+    if (!val || caseList.includes(val)) return;
+    caseList = [...caseList, val];
+    await updateDepartment(deptId, { caseList });
+    input.value = "";
+    refreshCaseList();
   });
 
   // ---- Copy a week's rota -------------------------------------------------
@@ -879,6 +928,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
   refreshTheatres();
   refreshAllStaff();
   refreshListOptions();
+  refreshCaseList();
   refreshBankHolidays();
   refreshUsers();
   refreshAuditLog();

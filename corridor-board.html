@@ -102,6 +102,40 @@
   .cb-list-tag{display:inline-block;font-family:var(--font-mono);font-size:9.5px;background:var(--ink-100);color:var(--ink-500);
     padding:2px 7px;border-radius:4px;margin-left:6px;vertical-align:middle;}
 
+  /* Today's cases (Theatre 2/4/5 only) — a tappable strip at the bottom
+     of the card that opens the picker modal. Local-only data, see the
+     script's CASE_ENABLED_THEATRE_NAMES comment for why. */
+  .cb-cases{margin-top:10px;padding-top:8px;border-top:1px solid var(--ink-100);cursor:pointer;border-radius:6px;}
+  .cb-cases:hover{background:var(--ink-100);}
+  .cb-cases:focus-visible{outline:2px solid var(--teal-500);outline-offset:2px;}
+  .cb-cases-label{font-family:var(--font-mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--ink-500);margin-bottom:4px;}
+  .cb-cases-pills{display:flex;flex-wrap:wrap;gap:6px;}
+  .cb-case-pill{background:var(--teal-100);color:var(--teal-700);font-size:12px;font-weight:600;
+    padding:4px 10px;border-radius:var(--r-pill);}
+  .cb-cases-empty{font-size:12.5px;color:var(--ink-300);font-style:italic;}
+
+  .cb-case-modal-overlay{position:fixed;inset:0;z-index:90;background:rgba(10,14,20,.55);
+    display:flex;align-items:center;justify-content:center;padding:20px;}
+  .cb-case-modal-overlay[hidden]{display:none;}
+  .cb-case-modal{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-md);
+    max-width:420px;width:100%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;}
+  .cb-case-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:16px 20px;border-bottom:1px solid var(--ink-150);}
+  .cb-case-modal-title{font-family:var(--font-display);font-weight:800;font-size:16px;}
+  .cb-case-modal-close{background:none;border:none;font-size:22px;line-height:1;color:var(--ink-500);
+    cursor:pointer;padding:4px;}
+  .cb-case-modal-body{padding:16px 20px;overflow-y:auto;}
+  .cb-case-options{display:flex;flex-direction:column;gap:4px;}
+  .cb-case-option{display:flex;align-items:center;gap:12px;font-size:14.5px;color:var(--ink-900);
+    cursor:pointer;padding:9px 8px;border-radius:var(--r-sm);}
+  .cb-case-option:active{background:var(--ink-100);}
+  .cb-case-option input{width:19px;height:19px;flex-shrink:0;}
+  .cb-case-option input:disabled + span{color:var(--ink-300);}
+  .cb-case-limit-note{font-size:11.5px;color:var(--ink-500);margin:10px 0 0;}
+  .cb-case-modal-foot{display:flex;justify-content:space-between;gap:10px;padding:14px 20px;
+    border-top:1px solid var(--ink-150);}
+
   .cb-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:20px;}
   .cb-strip .card{padding:14px 18px;}
   .cb-strip .card-label{font-size:11px;}
@@ -230,6 +264,20 @@
   <iframe id="slideshowFrame" class="cb-slideshow-frame" title="Educational slideshow" allow="autoplay; fullscreen" allowfullscreen></iframe>
 </div>
 
+<div id="caseModalOverlay" class="cb-case-modal-overlay" hidden>
+  <div class="cb-case-modal" role="dialog" aria-modal="true" aria-labelledby="caseModalTitle">
+    <div class="cb-case-modal-head">
+      <div class="cb-case-modal-title" id="caseModalTitle"></div>
+      <button type="button" class="cb-case-modal-close" id="caseModalCloseBtn" aria-label="Close">&times;</button>
+    </div>
+    <div class="cb-case-modal-body" id="caseModalBody"></div>
+    <div class="cb-case-modal-foot">
+      <button type="button" class="btn btn-ghost btn-sm" id="caseModalClearBtn">Clear</button>
+      <button type="button" class="btn btn-primary btn-sm" id="caseModalDoneBtn">Done</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/vendor/qrcode.min.js"></script>
 <script type="module">
   import { requireSession } from "./js/auth.js";
@@ -270,6 +318,27 @@
   }
   const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const todayIso = localIso(new Date());
+
+  // ---- Today's cases (Theatre 2/4/5 only, for now) ---------------------
+  // Deliberately NOT part of the rota data — never saved to Firestore,
+  // never published, never audited. Just a quick note of what's running
+  // in a theatre today, kept in this device's own localStorage only (so
+  // it doesn't sync to other screens showing the board), and naturally
+  // stale-proof since the key is scoped to today's date — tomorrow's
+  // render reads a key that was never written and just comes back empty.
+  const CASE_ENABLED_THEATRE_NAMES = ["Theatre 2", "Theatre 4", "Theatre 5"];
+  function caseStorageKey(theatreId, dateIso) {
+    return `cadence_cb_cases_${dateIso}_${theatreId}`;
+  }
+  function getSelectedCases(theatreId, dateIso) {
+    try {
+      const raw = localStorage.getItem(caseStorageKey(theatreId, dateIso));
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+  function setSelectedCases(theatreId, dateIso, cases) {
+    try { localStorage.setItem(caseStorageKey(theatreId, dateIso), JSON.stringify(cases)); } catch {}
+  }
 
   // ---- Schedule: when the board shows the on-call-only / weekend view --
   // Mon-Thu: daytime 06:30-19:00, then night (on-call only) 19:00 until
@@ -409,7 +478,7 @@
     return `${listType} List`;
   }
 
-  function theatreCardHtml(day, t) {
+  function theatreCardHtml(day, t, todayIsoNow) {
     const i = theatreInfo(day, t);
     const accent = `style="--card-accent:${STATUS_ACCENT[i.status]}"`;
 
@@ -418,7 +487,8 @@
     // department is in it) isn't running that day at all — showing a
     // full card of "Anaesthetist: —", "Surgeon: —", and two "No
     // allocation" blocks is just noise at that point. Show the list-type
-    // label on its own instead, nothing else.
+    // label on its own instead, nothing else (and no case picker — a
+    // closed theatre has no cases to note).
     if (i.status === "closed" && !i.hasAny) {
       const label = noStaffLabel(i.odpList || i.nursingList);
       return `<div class="cb-card" ${accent}>
@@ -434,6 +504,16 @@
 
     const nursingRows = [...i.nurses.map(n => `<div class="cb-person">${n}</div>`),
       ...i.hcas.map(n => `<div class="cb-person">${n}</div>`)].filter(Boolean).join("");
+
+    const caseEnabled = CASE_ENABLED_THEATRE_NAMES.includes(t.name);
+    const selectedCases = caseEnabled ? getSelectedCases(t.id, todayIsoNow) : [];
+    const casesHtml = caseEnabled ? `
+      <div class="cb-cases" data-case-theatre="${t.id}" data-case-theatre-name="${t.name}" role="button" tabindex="0">
+        <div class="cb-cases-label">Today's cases</div>
+        ${selectedCases.length
+          ? `<div class="cb-cases-pills">${selectedCases.map(c => `<span class="cb-case-pill">${c}</span>`).join("")}</div>`
+          : `<div class="cb-cases-empty">Tap to add cases</div>`}
+      </div>` : "";
 
     return `<div class="cb-card" ${accent}>
       <div class="cb-card-head">
@@ -454,6 +534,7 @@
           ${nursingRows || `<div class="cb-empty">No allocation</div>`}
         </div>
       </div>
+      ${casesHtml}
     </div>`;
   }
 
@@ -540,6 +621,73 @@
       frame.src = "about:blank";
     });
   }
+
+  // ---- Today's cases modal ----------------------------------------------
+  // #boardBody itself is only ever created once (see the skeleton block
+  // above); renderBody() replaces its children every 60s, so listening
+  // on the container itself (event delegation) means the click handler
+  // never needs re-attaching after a rebuild.
+  const caseModalOverlay = document.getElementById("caseModalOverlay");
+  const caseModalTitle = document.getElementById("caseModalTitle");
+  const caseModalBody = document.getElementById("caseModalBody");
+  const CASE_LIMIT = 3;
+
+  function updateCaseLimitState() {
+    const boxes = [...caseModalBody.querySelectorAll("input[type=checkbox]")];
+    const checkedCount = boxes.filter(b => b.checked).length;
+    boxes.forEach(b => { if (!b.checked) b.disabled = checkedCount >= CASE_LIMIT; });
+    const note = document.getElementById("caseLimitNote");
+    if (note) note.textContent = checkedCount >= CASE_LIMIT ? `Up to ${CASE_LIMIT} cases — remove one to add another.` : `Pick up to ${CASE_LIMIT} cases.`;
+  }
+
+  function openCaseModal(theatreId, theatreName) {
+    const current = getSelectedCases(theatreId, localIso(new Date()));
+    const options = dept.caseList || [];
+    caseModalTitle.textContent = `${theatreName} — today's cases`;
+    caseModalBody.innerHTML = options.length
+      ? `<div class="cb-case-options">${options.map(c => `
+          <label class="cb-case-option">
+            <input type="checkbox" value="${c}" ${current.includes(c) ? "checked" : ""}>
+            <span>${c}</span>
+          </label>`).join("")}</div>
+        <p class="cb-case-limit-note" id="caseLimitNote"></p>`
+      : `<p class="empty-note">No cases set up yet — add some in Administration → Theatre case list.</p>`;
+    caseModalBody.querySelectorAll("input[type=checkbox]").forEach(b => b.addEventListener("change", updateCaseLimitState));
+    updateCaseLimitState();
+    caseModalOverlay.dataset.theatreId = theatreId;
+    caseModalOverlay.hidden = false;
+  }
+
+  function closeCaseModal() { caseModalOverlay.hidden = true; }
+
+  document.getElementById("caseModalCloseBtn").addEventListener("click", closeCaseModal);
+  caseModalOverlay.addEventListener("click", (e) => { if (e.target === caseModalOverlay) closeCaseModal(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !caseModalOverlay.hidden) closeCaseModal(); });
+
+  document.getElementById("caseModalClearBtn").addEventListener("click", () => {
+    setSelectedCases(caseModalOverlay.dataset.theatreId, localIso(new Date()), []);
+    closeCaseModal();
+    renderBody();
+  });
+  document.getElementById("caseModalDoneBtn").addEventListener("click", () => {
+    const chosen = [...caseModalBody.querySelectorAll("input[type=checkbox]:checked")].map(b => b.value);
+    setSelectedCases(caseModalOverlay.dataset.theatreId, localIso(new Date()), chosen);
+    closeCaseModal();
+    renderBody();
+  });
+
+  const boardBodyEl = document.getElementById("boardBody");
+  boardBodyEl.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-case-theatre]");
+    if (el) openCaseModal(el.dataset.caseTheatre, el.dataset.caseTheatreName);
+  });
+  boardBodyEl.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const el = e.target.closest("[data-case-theatre]");
+    if (!el) return;
+    e.preventDefault();
+    openCaseModal(el.dataset.caseTheatre, el.dataset.caseTheatreName);
+  });
 
   function tickClock() {
     const now = new Date();
@@ -666,7 +814,7 @@
       return;
     }
 
-    const theatreCardsHtml = theatres.map(t => theatreCardHtml(day, t)).join("");
+    const theatreCardsHtml = theatres.map(t => theatreCardHtml(day, t, todayIsoNow)).join("");
 
     const supportOdps = [odpRota[`${day}_support1`], odpRota[`${day}_support2`], odpRota[`${day}_support3`]].filter(Boolean).join(", ") || "—";
     const odpOc = odpRota[`${day}_oncall_odp`] || "—";
