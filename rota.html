@@ -72,7 +72,19 @@
     @page{ size: A4 landscape; margin: 8mm; }
     #shellRoot .app-sidebar,#shellRoot .app-topbar,.rota-toolbar{display:none !important;}
     #shellRoot .app-main,#shellRoot .app-content{overflow:visible !important;height:auto !important;padding:0 !important;}
-    body{background:#fff;}
+    /* Text colour throughout the printout is normally inherited from
+       the app's theme (var(--ink-...)), which is exactly the point in
+       the app itself — but in dark mode those tokens turn very light
+       (near-white), which is invisible on white paper. A print is
+       always pure black-on-white regardless of which theme happens to
+       be active when someone hits print, so force it here rather than
+       relying on every element under this block to opt in individually.
+       !important because this whole @media print block sits BEFORE the
+       base (non-print) rules later in this file — a plain same-
+       specificity override here would lose the normal "later rule
+       wins" tiebreak to those base rules, which come after it in the
+       file regardless of which media context applies. */
+    body,body *{color:#000 !important;background:#fff !important;}
     .print-header{display:block !important;margin-bottom:14px;padding-bottom:10px;border-bottom-color:#000 !important;}
     .print-header .ph-title{font-size:21px;}
     .print-header .ph-sub,.print-header .ph-week{font-size:14px;}
