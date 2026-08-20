@@ -326,7 +326,7 @@
   // it doesn't sync to other screens showing the board), and naturally
   // stale-proof since the key is scoped to today's date — tomorrow's
   // render reads a key that was never written and just comes back empty.
-  const CASE_ENABLED_THEATRE_NAMES = ["Theatre 2", "Theatre 4", "Theatre 5"];
+  const CASE_ENABLED_THEATRE_NAMES = ["Theatre 1", "Theatre 2", "Theatre 4", "Theatre 5"];
   function caseStorageKey(theatreId, dateIso) {
     return `cadence_cb_cases_${dateIso}_${theatreId}`;
   }

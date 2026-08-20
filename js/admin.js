@@ -237,7 +237,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
       <section>
         <h4 class="admin-h">Theatre case list</h4>
         <p class="empty-note" style="margin:-6px 0 10px;">Available cases staff can pick from on the Theatre Board — tap a
-          theatre card there to note up to 3 of today's cases (currently Theatre 2, 4 and 5 only). That's a same-device,
+          theatre card there to note up to 3 of today's cases (currently Theatre 1, 2, 4 and 5 only). That's a same-device,
           same-day note only — it's never saved to the rota or published, just this list of options is shared from here.</p>
         <form id="caseListForm" class="inline-form">
           <input type="text" id="caseListValue" placeholder="e.g. CABG, AVR, TAVI" required>
