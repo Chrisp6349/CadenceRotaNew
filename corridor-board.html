@@ -110,9 +110,10 @@
   .cb-cases:focus-visible{outline:2px solid var(--teal-500);outline-offset:2px;}
   .cb-cases-label{font-family:var(--font-mono);font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;
     color:var(--ink-500);margin-bottom:4px;}
-  .cb-cases-pills{display:flex;flex-wrap:wrap;gap:6px;}
+  .cb-cases-pills{display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
   .cb-case-pill{background:var(--teal-600);color:#fff;font-size:12px;font-weight:600;
     padding:4px 10px;border-radius:var(--r-pill);}
+  .cb-case-pill .cb-case-num{font-family:var(--font-mono);opacity:.8;margin-right:4px;}
   .cb-cases-empty{font-size:12.5px;color:var(--ink-300);font-style:italic;}
 
   .cb-case-modal-overlay{position:fixed;inset:0;z-index:90;background:rgba(10,14,20,.55);
@@ -130,8 +131,9 @@
   .cb-case-slot{display:flex;flex-direction:column;gap:5px;}
   .cb-case-slot-label{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-500);text-transform:uppercase;
     letter-spacing:.05em;}
-  .cb-case-slot select{font-family:var(--font-body);font-size:14.5px;padding:10px 12px;border-radius:var(--r-sm);
+  .cb-case-slot select,.cb-case-slot input{font-family:var(--font-body);font-size:14.5px;padding:10px 12px;border-radius:var(--r-sm);
     border:1px solid var(--ink-150);background:var(--surface);color:var(--ink-900);width:100%;box-sizing:border-box;}
+  .cb-case-slot input{margin-top:5px;}
   .cb-case-limit-note{font-size:11.5px;color:var(--ink-500);margin:12px 0 0;}
   .cb-case-modal-foot{display:flex;justify-content:space-between;gap:10px;padding:14px 20px;
     border-top:1px solid var(--ink-150);}
@@ -511,7 +513,7 @@
       <div class="cb-cases" data-case-theatre="${t.id}" data-case-theatre-name="${t.name}" role="button" tabindex="0">
         <div class="cb-cases-label">Today's cases</div>
         ${selectedCases.length
-          ? `<div class="cb-cases-pills">${selectedCases.map(c => `<span class="cb-case-pill">${c}</span>`).join("")}</div>`
+          ? `<div class="cb-cases-pills">${selectedCases.map((c, i) => `<span class="cb-case-pill"><span class="cb-case-num">${i + 1}</span>${c}</span>`).join("")}</div>`
           : `<div class="cb-cases-empty">Tap to add cases</div>`}
       </div>` : "";
 
@@ -630,28 +632,44 @@
   const caseModalOverlay = document.getElementById("caseModalOverlay");
   const caseModalTitle = document.getElementById("caseModalTitle");
   const caseModalBody = document.getElementById("caseModalBody");
-  const CASE_LIMIT = 3;
+  const CUSTOM_CASE_VALUE = "__custom__";
 
   // Three fixed, ordered slots (a dropdown each) rather than a checklist —
   // a checklist can't represent "CABG" twice since a case name can only
   // be checked once, but a theatre's list can genuinely repeat (two CABGs
   // back to back). A dropdown per slot allows any case, including the
-  // same one, in more than one slot.
+  // same one, in more than one slot. Each slot also has a "Custom…"
+  // option for a case that isn't in the admin-managed list at all — its
+  // paired text input only shows once that option is picked.
   function openCaseModal(theatreId, theatreName) {
     const current = getSelectedCases(theatreId, localIso(new Date()));
     const options = [...(dept.caseList || [])].sort((a, b) => a.localeCompare(b));
     caseModalTitle.textContent = `${theatreName} — today's cases`;
     caseModalBody.innerHTML = options.length
-      ? `<div class="cb-case-slots">${[0, 1, 2].map(i => `
-          <label class="cb-case-slot">
+      ? `<div class="cb-case-slots">${[0, 1, 2].map(i => {
+          const val = current[i] || "";
+          const isCustom = val && !options.includes(val);
+          return `<label class="cb-case-slot">
             <span class="cb-case-slot-label">Case ${i + 1}</span>
             <select data-slot="${i}">
-              <option value=""${current[i] ? "" : " selected"}>—</option>
-              ${options.map(c => `<option value="${c}"${current[i] === c ? " selected" : ""}>${c}</option>`).join("")}
+              <option value=""${val ? "" : " selected"}>—</option>
+              ${options.map(c => `<option value="${c}"${val === c ? " selected" : ""}>${c}</option>`).join("")}
+              <option value="${CUSTOM_CASE_VALUE}"${isCustom ? " selected" : ""}>Custom…</option>
             </select>
-          </label>`).join("")}</div>
-        <p class="cb-case-limit-note">The same case can be picked more than once — e.g. two CABGs.</p>`
+            <input type="text" class="cb-case-custom-input" data-slot="${i}" placeholder="Type a case"
+              style="display:${isCustom ? "block" : "none"};" value="${isCustom ? val : ""}">
+          </label>`;
+        }).join("")}</div>
+        <p class="cb-case-limit-note">The same case can be picked more than once — e.g. two CABGs. Pick "Custom…" to type one that's not listed.</p>`
       : `<p class="empty-note">No cases set up yet — add some in Administration → Theatre case list.</p>`;
+    caseModalBody.querySelectorAll(".cb-case-slot select").forEach((sel) => {
+      sel.addEventListener("change", () => {
+        const input = caseModalBody.querySelector(`.cb-case-custom-input[data-slot="${sel.dataset.slot}"]`);
+        const showCustom = sel.value === CUSTOM_CASE_VALUE;
+        input.style.display = showCustom ? "block" : "none";
+        if (showCustom) input.focus();
+      });
+    });
     caseModalOverlay.dataset.theatreId = theatreId;
     caseModalOverlay.hidden = false;
   }
@@ -668,7 +686,11 @@
     renderBody();
   });
   document.getElementById("caseModalDoneBtn").addEventListener("click", () => {
-    const chosen = [...caseModalBody.querySelectorAll("select")].map(s => s.value).filter(Boolean);
+    const chosen = [...caseModalBody.querySelectorAll(".cb-case-slot select")].map((sel) => {
+      if (sel.value !== CUSTOM_CASE_VALUE) return sel.value;
+      const input = caseModalBody.querySelector(`.cb-case-custom-input[data-slot="${sel.dataset.slot}"]`);
+      return input.value.trim();
+    }).filter(Boolean);
     setSelectedCases(caseModalOverlay.dataset.theatreId, localIso(new Date()), chosen);
     closeCaseModal();
     renderBody();
