@@ -802,11 +802,33 @@
       const nurWlSurgeonRaw = nursingSrc[`${day}_wl_surgeon`] || "";
 
       const hasWeekendList = !!(odpWlOdpRaw || odpWlAnaesRaw || nurWlRaw.length || nurWlHcaRaw || nurWlSurgeonRaw);
+      // The weekend list always runs in Theatre 5 — showing it as that
+      // theatre's own card (same look as the weekday grid) rather than
+      // three generic "waiting list" stat cards makes that concrete,
+      // and puts the staff doing it in one place instead of split
+      // across three separate boxes.
+      const wlNursingRows = [...nurWlRaw.map(n => `<div class="cb-person">${n}</div>`),
+        ...(nurWlHcaRaw ? [`<div class="cb-person">${nurWlHcaRaw}</div>`] : [])].join("");
       const weekendListHtml = hasWeekendList
-        ? `<div class="cb-strip">
-            <div class="card"><div class="card-label">Waiting list</div><div class="card-value" style="font-size:16px;">SODP: ${odpWlOdpRaw || "—"}<br>Nurses: ${nurWlRaw.join(", ") || "—"}<br>HCA: ${nurWlHcaRaw || "—"}</div></div>
-            <div class="card"><div class="card-label">Waiting list anaesthetist</div><div class="card-value">${odpWlAnaesRaw || "—"}</div></div>
-            <div class="card"><div class="card-label">Waiting list surgeon</div><div class="card-value">${nurWlSurgeonRaw || "—"}</div></div>
+        ? `<div class="cb-card" style="--card-accent:${STATUS_ACCENT.inlist};max-width:340px;">
+            <div class="cb-card-head">
+              <span class="dot inlist"></span>
+              <span class="cb-theatre-name">Theatre 5</span>
+            </div>
+            <div class="cb-theatre-sub">
+              Anaesthetist: <b>${odpWlAnaesRaw || "—"}</b><br>
+              Surgeon: <b>${nurWlSurgeonRaw || "—"}</b>
+            </div>
+            <div class="cb-team">
+              <div class="cb-team-block">
+                <div class="cb-team-label">SODP</div>
+                ${odpWlOdpRaw ? `<div class="cb-person">${odpWlOdpRaw}</div>` : `<div class="cb-empty">No allocation</div>`}
+              </div>
+              <div class="cb-team-block">
+                <div class="cb-team-label">Nursing team</div>
+                ${wlNursingRows || `<div class="cb-empty">No allocation</div>`}
+              </div>
+            </div>
           </div>`
         : `<div class="card"><div class="card-value" style="font-size:16px;color:var(--ink-300);font-style:italic;">No list this weekend</div></div>`;
 
