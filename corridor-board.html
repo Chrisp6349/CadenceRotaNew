@@ -809,8 +809,20 @@
       // across three separate boxes.
       const wlNursingRows = [...nurWlRaw.map(n => `<div class="cb-person">${n}</div>`),
         ...(nurWlHcaRaw ? [`<div class="cb-person">${nurWlHcaRaw}</div>`] : [])].join("");
+      // Same case picker as the weekday grid — keyed by Theatre 5's own
+      // id and today's date, so it's literally the same stored picks
+      // whichever view (weekday or weekend) happens to be showing.
+      const t5 = theatres.find(th => th.name === "Theatre 5");
+      const wlSelectedCases = t5 ? getSelectedCases(t5.id, todayIsoNow) : [];
+      const wlCasesHtml = t5 ? `
+        <div class="cb-cases" data-case-theatre="${t5.id}" data-case-theatre-name="Theatre 5" role="button" tabindex="0">
+          <div class="cb-cases-label">Today's cases</div>
+          ${wlSelectedCases.length
+            ? `<div class="cb-cases-pills">${wlSelectedCases.map((c, i) => `<span class="cb-case-pill"><span class="cb-case-num">${i + 1}</span>${c}</span>`).join("")}</div>`
+            : `<div class="cb-cases-empty">Tap to add cases</div>`}
+        </div>` : "";
       const weekendListHtml = hasWeekendList
-        ? `<div class="cb-card" style="--card-accent:${STATUS_ACCENT.inlist};max-width:340px;">
+        ? `<div class="cb-card" style="--card-accent:${STATUS_ACCENT.inlist};max-width:340px;margin:0 auto;">
             <div class="cb-card-head">
               <span class="dot inlist"></span>
               <span class="cb-theatre-name">Theatre 5</span>
@@ -829,6 +841,7 @@
                 ${wlNursingRows || `<div class="cb-empty">No allocation</div>`}
               </div>
             </div>
+            ${wlCasesHtml}
           </div>`
         : `<div class="card"><div class="card-value" style="font-size:16px;color:var(--ink-300);font-style:italic;">No list this weekend</div></div>`;
 
