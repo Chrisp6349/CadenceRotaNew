@@ -13,9 +13,8 @@
 //
 // Same accuracy rules as the ODP version: only PUBLISHED weeks count,
 // nothing after the selected week, and only days up to today within the
-// current week. Weekend waiting-list placements aren't counted as
-// "worked" here either, matching the ODP side's exclusion of its own
-// weekend waiting list from the same stats.
+// current week. The weekend waiting list counts as a Theatre 5 session,
+// same as the ODP side's own wl_odp/wl_anaes — it always runs there.
 // -----------------------------------------------------------------------
 
 import { db, collection, getDocs, query, where } from "./firebase-init.js";
@@ -40,14 +39,16 @@ async function listPublishedNursingWeeks(deptId) {
 
 // Turns a "<theatreId>_nurse1..4" / "_hca1..2" / "_surgeon" / "coordinator"
 // etc. suffix into a structured type. Weekend waiting-list slots
-// (wl_nurse.../wl_hca/wl_surgeon) are deliberately excluded, same as the
-// ODP side's wl_odp/wl_anaes.
+// (wl_nurse.../wl_hca/wl_surgeon) resolve to Theatre 5 — that's always
+// where the list runs — same as the ODP side's wl_odp/wl_anaes.
+function theatre5(theatres) { return theatres.find(x => x.name === "Theatre 5"); }
+
 export function classify(suffix, theatres) {
   let m = suffix.match(/^(.+)_nurse([1-4])$/);
   if (m) {
     const key = m[1];
     if (key === "oncall") return { kind: "oncall_nurse" };
-    if (key === "wl") return null;
+    if (key === "wl") { const t5 = theatre5(theatres); return t5 ? { kind: "theatre_nurse", theatreId: t5.id, theatreName: t5.name } : null; }
     if (key === "support") return { kind: "support_nurse" };
     const t = theatres.find(x => x.id === key);
     return t ? { kind: "theatre_nurse", theatreId: t.id, theatreName: t.name } : null;
@@ -56,7 +57,7 @@ export function classify(suffix, theatres) {
   if (m) {
     const key = m[1];
     if (key === "oncall") return { kind: "oncall_hca" };
-    if (key === "wl") return null;
+    if (key === "wl") { const t5 = theatre5(theatres); return t5 ? { kind: "theatre_hca", theatreId: t5.id, theatreName: t5.name } : null; }
     if (key === "support") return { kind: "support_hca" };
     const t = theatres.find(x => x.id === key);
     return t ? { kind: "theatre_hca", theatreId: t.id, theatreName: t.name } : null;
@@ -66,7 +67,7 @@ export function classify(suffix, theatres) {
   if (m) {
     const key = m[1];
     if (key === "oncall") return { kind: "oncall_surgeon_cardiac" };
-    if (key === "wl") return null;
+    if (key === "wl") { const t5 = theatre5(theatres); return t5 ? { kind: "theatre_surgeon", theatreId: t5.id, theatreName: t5.name } : null; }
     const t = theatres.find(x => x.id === key);
     return t ? { kind: "theatre_surgeon", theatreId: t.id, theatreName: t.name } : null;
   }

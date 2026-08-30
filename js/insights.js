@@ -37,6 +37,16 @@ async function listPublishedWeeks(deptId) {
 // into a structured type instead of a display label. Exported because
 // staff.html (Staff Profiles) reuses this against the same entry shape.
 export function classify(suffix, theatres) {
+  // The weekend waiting list always runs in Theatre 5 (see
+  // corridor-board.html's own Theatre 5 card for the same list) — it
+  // counts as a real Theatre 5 session, same as any weekday allocation.
+  if (suffix === "wl_odp" || suffix === "wl_anaes") {
+    const t5 = theatres.find(x => x.name === "Theatre 5");
+    if (!t5) return null;
+    return suffix === "wl_odp"
+      ? { kind: "theatre_odp", theatreId: t5.id, theatreName: t5.name }
+      : { kind: "theatre_anaes", theatreId: t5.id, theatreName: t5.name };
+  }
   if (/_odp[12]$/.test(suffix)) {
     const theatreId = suffix.replace(/_odp[12]$/, "");
     const t = theatres.find(x => x.id === theatreId);
@@ -46,7 +56,6 @@ export function classify(suffix, theatres) {
   if (suffix.endsWith("_anaes")) {
     const theatreId = suffix.replace(/_anaes$/, "");
     if (theatreId === "oncall") return { kind: "oncall_anaes" };
-    if (theatreId === "wl") return null; // weekend waiting-list anaesthetist — not counted
     const t = theatres.find(x => x.id === theatreId);
     if (t) return { kind: "theatre_anaes", theatreId, theatreName: t.name };
     return null;
