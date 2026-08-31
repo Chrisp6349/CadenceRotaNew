@@ -871,6 +871,15 @@
 
     const theatreCardsHtml = theatres.map(t => theatreCardHtml(day, t, todayIsoNow)).join("");
 
+    // Never an operating list on a bank holiday — the theatre grid is
+    // just noise there, so it's replaced with a plain note instead.
+    // Support/on-call/coordinator stay as-is since bank-holiday cover
+    // for those is still a real, separate thing.
+    const isBankHoliday = !!(dept.bankHolidays && dept.bankHolidays[todayIsoNow]);
+    const theatresSectionHtml = isBankHoliday
+      ? `<div class="cb-noboard">Bank holiday — no theatre lists today.</div>`
+      : `<div class="cb-theatres">${theatreCardsHtml}</div>`;
+
     const supportOdps = [odpRota[`${day}_support1`], odpRota[`${day}_support2`], odpRota[`${day}_support3`]].filter(Boolean).join(", ") || "—";
     const odpOc = odpRota[`${day}_oncall_odp`] || "—";
     const odpOcAnaes = odpRota[`${day}_oncall_anaes`] || "—";
@@ -892,7 +901,7 @@
     `;
 
     body.innerHTML = `
-      <div class="cb-theatres">${theatreCardsHtml}</div>
+      ${theatresSectionHtml}
       <div class="cb-strip">
         <div class="card"><div class="card-label">SODP support</div><div class="card-value">${supportOdps}</div></div>
         <div class="card"><div class="card-label">Nursing support</div><div class="card-value">Nurses: ${supportNurses}<br>HCAs: ${supportHcas}</div></div>
