@@ -193,7 +193,7 @@ export function buildLeaderboardHtml(insights) {
     const bodyHtml = !profiles.length
       ? `<p class="lb-empty">No published history yet for this group.</p>`
       : `<div class="lb-grid">${categories.map(cat => {
-          const ranked = profiles.filter(p => p[cat.key] > 0).sort((a, b) => b[cat.key] - a[cat.key]).slice(0, 3);
+          const ranked = profiles.filter(p => p[cat.key] > 0).sort((a, b) => b[cat.key] - a[cat.key]).slice(0, 5);
           if (!ranked.length) return `<div class="lb-card"><div class="lb-cat">${cat.label}</div><p class="lb-empty" style="padding:0;">No data yet</p></div>`;
           return `<div class="lb-card">
             <div class="lb-cat">${cat.label}</div>
