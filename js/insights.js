@@ -49,6 +49,12 @@ export function classify(suffix, theatres) {
   }
   if (/_odp[12]$/.test(suffix)) {
     const theatreId = suffix.replace(/_odp[12]$/, "");
+    // Weekend on-call has two SODP slots (oncall_odp1/oncall_odp2),
+    // unlike the weekday single oncall_odp — same "_odp[12]" shape as a
+    // theatre slot, so it has to be special-cased here before falling
+    // through to the theatre lookup, or it silently resolves to a
+    // nonexistent "oncall" theatre and drops the shift entirely.
+    if (theatreId === "oncall") return { kind: "oncall_odp" };
     const t = theatres.find(x => x.id === theatreId);
     if (t) return { kind: "theatre_odp", theatreId, theatreName: t.name };
     return null;
@@ -61,7 +67,7 @@ export function classify(suffix, theatres) {
     return null;
   }
   if (/^support[123]$/.test(suffix)) return { kind: "support" };
-  if (suffix === "oncall_odp" || suffix === "oncall_odp1" || suffix === "oncall_odp2") return { kind: "oncall_odp" };
+  if (suffix === "oncall_odp") return { kind: "oncall_odp" };
   return null;
 }
 
