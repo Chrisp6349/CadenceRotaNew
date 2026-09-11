@@ -257,7 +257,7 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
           you download this file yourself, Cadence never logs into HealthRoster. Once saved, the SODP rota flags anyone marked on
           leave, off, or unavailable that day while you're allocating.</p>
         <form id="hrImportForm" class="inline-form">
-          <input type="file" id="hrImportFile" accept=".xlsx,.xls" required>
+          <input type="file" id="hrImportFile" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" required>
           <button class="btn btn-primary btn-sm" type="submit">Parse file</button>
         </form>
         <div id="hrImportMsg" class="empty-note" style="display:none;"></div>
