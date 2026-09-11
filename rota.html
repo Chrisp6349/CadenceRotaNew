@@ -172,7 +172,7 @@
 
   import { renderShell } from "./js/shell.js";
   import { getDepartment, listTheatres, listStaff, splitStaff, buildAnaesthetistInitialsMap } from "./js/department.js";
-  import { loadWeek, saveWeek, mondayOfCurrentWeek, renderGrid, renderPrintGrid, attachChangeHandlers, applyCadexAuto } from "./js/rota.js";
+  import { loadWeek, saveWeek, mondayOfCurrentWeek, renderGrid, renderPrintGrid, attachChangeHandlers, applyCadexAuto, applyAvailabilityAutoOnCall } from "./js/rota.js";
   import { loadAvailability } from "./js/healthroster-import.js";
   import { getCadexImports } from "./js/cadex.js";
   import { applyTheme } from "./js/theme.js";
@@ -317,6 +317,7 @@
     // no way to save, so mutating their in-memory copy would only be
     // misleading, never something they can act on.
     if (editable) applyCadexAuto(rota, cadexDays, theatres, anaesInitials);
+    if (editable) applyAvailabilityAutoOnCall(rota, availability);
 
     document.getElementById("printHeader").classList.toggle("force-show", previewMode);
     document.getElementById("editButtons").style.display = previewMode ? "none" : "";

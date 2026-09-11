@@ -203,7 +203,7 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     return { o, a };
   }
 
-  function field(day, key, list, type, restricted = true, placeholder, cadexTracked = false) {
+  function field(day, key, list, type, restricted = true, placeholder, cadexTracked = false, hrOnCallTracked = false) {
     const fkey = `${day}_${key}`;
     const current = rota[fkey] || "";
     if (!editable) {
@@ -213,9 +213,10 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     // The blank option shows the role name (e.g. "ODP", "Anaesthetist")
     // instead of being empty, so whoever's filling in the rota can tell
     // what each box is for before they've picked anyone.
-    // `data-cadex` marks fields applyCadexAuto()/attachChangeHandlers()
-    // manage — see applyCadexAuto() below for what that means.
-       let h = `<select data-key="${fkey}" class="${current ? "" : "is-placeholder"}"${cadexTracked ? ' data-cadex="1"' : ""}><option value="">${placeholder || ""}</option>`;
+    // `data-cadex`/`data-hravail` mark fields applyCadexAuto()/
+    // applyAvailabilityAutoOnCall()/attachChangeHandlers() manage — see
+    // those functions below for what that means.
+       let h = `<select data-key="${fkey}" class="${current ? "" : "is-placeholder"}"${cadexTracked ? ' data-cadex="1"' : ""}${hrOnCallTracked ? ' data-hravail="1"' : ""}><option value="">${placeholder || ""}</option>`;
 
     [...list].sort().forEach(n => {
       let hide = false, dupe = "";
@@ -314,7 +315,7 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
         ${field(d, "support3", staff.odps, "odp", true, "SODP")}
         <br>${field(d, "support_list", dept.listOptions || [], "list", false, "List type")}
       </td><td>
-        ${field(d, "oncall_odp", staff.odps, "odp", false, "SODP")}
+        ${field(d, "oncall_odp", staff.odps, "odp", false, "SODP", false, true)}
         ${homeCheckbox(d)}
         ${field(d, "oncall_extra", dept.extraOnCall || ["", "EXTRA O/C"], "list", false, "Extra on-call")}
         ${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true)}
@@ -329,8 +330,8 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     const onCallAnaesKey = `${d}_oncall_anaes`;
     const wlAnaesKey = `${d}_wl_anaes`;
     w += `<tr${isToday(i + 5) ? " class='today'" : ""}><td class="daycell">${dayLabel(i + 5)}</td>
-      <td>${field(d, "oncall_odp1", staff.odps, "odp", false, "SODP")}${field(d, "oncall_session1", ["ALL DAY","AM","PM"], "list", false, "Session")}<br>
-          ${field(d, "oncall_odp2", staff.odps, "odp", false, "SODP")}${field(d, "oncall_session2", ["ALL DAY","AM","PM"], "list", false, "Session")}</td>
+      <td>${field(d, "oncall_odp1", staff.odps, "odp", false, "SODP", false, true)}${field(d, "oncall_session1", ["ALL DAY","AM","PM"], "list", false, "Session")}<br>
+          ${field(d, "oncall_odp2", staff.odps, "odp", false, "SODP", false, true)}${field(d, "oncall_session2", ["ALL DAY","AM","PM"], "list", false, "Session")}</td>
       <td>${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true)}
         ${cadexBadge(onCallAnaesKey, dayCadex(d)["On Call"], rota[onCallAnaesKey], editable, anaesInitials)}
         ${cicuReadout(dayCadex(d)["CICU"], anaesInitials)}
@@ -464,6 +465,9 @@ export function attachChangeHandlers(container, rota, onChange) {
       // re-filling it again next time CADEX data refreshes; see that
       // function below for the full flag scheme.
       if (sel.dataset.cadex) rota[`_cadexApplied_${sel.dataset.key}`] = false;
+      // Same idea for an on-call SODP field applyAvailabilityAutoOnCall()
+      // manages — a manual pick sticks until someone picks something else.
+      if (sel.dataset.hravail) rota[`_hrOnCallApplied_${sel.dataset.key}`] = false;
       onChange && onChange();
     });
   });
@@ -528,6 +532,38 @@ export function applyCadexAuto(rota, cadex, theatres, anaesInitials) {
     const dayData = cadex[day.toLowerCase()] || {};
     tryApply(`${day}_oncall_anaes`, dayData["On Call"]);
     tryApply(`${day}_wl_anaes`, dayData["Waiting List"]);
+  });
+}
+
+// Same idea as applyCadexAuto() above, but for the on-call SODP
+// slot(s), sourced from a HealthRoster import instead of CADEX —
+// oncallSODPs (see js/healthroster-import.js's buildWeeklyDocs()) is
+// whoever's flagged OC/WEOC that day, in whatever order HealthRoster
+// listed them. Weekdays have one slot; weekends have two, so the
+// second name (if any) goes in the second slot. Flag scheme mirrors
+// CADEX's exactly: `_hrOnCallApplied_${fkey}` is true once applied,
+// false once a person's picked something else (never auto-filled
+// again), absent if nobody's touched it yet.
+export function applyAvailabilityAutoOnCall(rota, availability) {
+  if (!availability) return;
+
+  function tryApply(fkey, name) {
+    if (!name) return;
+    const flagKey = `_hrOnCallApplied_${fkey}`;
+    if (rota[flagKey] === false) return; // a person owns this field now
+    if (rota[fkey] === name) return;
+    rota[fkey] = name;
+    rota[flagKey] = true;
+  }
+
+  WEEKDAYS.forEach(day => {
+    const names = availability[day]?.oncallSODPs || [];
+    tryApply(`${day}_oncall_odp`, names[0]);
+  });
+  WEEKENDS.forEach(day => {
+    const names = availability[day]?.oncallSODPs || [];
+    tryApply(`${day}_oncall_odp1`, names[0]);
+    tryApply(`${day}_oncall_odp2`, names[1]);
   });
 }
 

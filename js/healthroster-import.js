@@ -168,6 +168,14 @@ export function suggestStaffMatch(person, staffList) {
 // simply has no record for them that day" (status "unknown"), and only
 // the former belongs in that list — "unknown" and the rare "other"
 // (an unrecognised token) are left out entirely rather than guessed at.
+// `oncallSODPs` (an array, stored alongside the per-name status entries
+// under a reserved key that could never collide with a real display
+// name) is who's flagged OC/WEOC that day, independent of the day's
+// overall status — someone can be on a normal shift AND on-call the
+// same day (status "available", OC just an extra note), and they still
+// belong in this list. On leave/unavailable overrides it either way:
+// a day marked A/L is never someone's on-call day regardless of what
+// else is stacked in the same cell.
 export function buildWeeklyDocs(parsed, nameByHrName) {
   const byWeek = {};
   parsed.dates.forEach(iso => {
@@ -175,12 +183,17 @@ export function buildWeeklyDocs(parsed, nameByHrName) {
     const day = weekdayName(iso);
     if (!byWeek[week]) byWeek[week] = {};
     if (!byWeek[week][day]) byWeek[week][day] = {};
+    const oncallSODPs = [];
     parsed.people.forEach(p => {
       const cadenceName = nameByHrName[p.hrName];
       if (!cadenceName) return;
-      const status = p.days[iso]?.status;
+      const dayInfo = p.days[iso];
+      const status = dayInfo?.status;
       if (status && status !== "unknown" && status !== "other") byWeek[week][day][cadenceName] = status;
+      const flaggedOnCall = dayInfo && (dayInfo.raw.includes("OC") || dayInfo.raw.includes("WEOC"));
+      if (flaggedOnCall && status !== "leave" && status !== "unavailable") oncallSODPs.push(cadenceName);
     });
+    if (oncallSODPs.length) byWeek[week][day].oncallSODPs = oncallSODPs;
   });
   return Object.entries(byWeek).map(([weekStart, data]) => ({ weekStart, data }));
 }
