@@ -12,6 +12,7 @@
 // -----------------------------------------------------------------------
 
 import { db, doc, getDoc, setDoc, collection, addDoc, serverTimestamp } from "./firebase-init.js";
+import { statusLabel } from "./healthroster-import.js";
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const WEEKENDS = ["Saturday", "Sunday"];
@@ -192,7 +193,7 @@ function cicuReadout(cicuVal, anaesInitials) {
 //            tried first but ended up showing on nearly every field
 //            any time the day had a reasonable amount of staffing, so
 //            it's a single page-level toggle instead.
-export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, onChange, showBooked, cadex, anaesInitials = {} }) {
+export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, onChange, showBooked, cadex, anaesInitials = {}, availability }) {
   function used(day) {
     let o = [], a = [];
     Object.entries(rota).forEach(([k, v]) => {
@@ -222,7 +223,15 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
         const usedElsewhere = (type === "odp" ? u.o.includes(n) : u.a.includes(n)) && n !== current;
         if (usedElsewhere) { if (showBooked) dupe = " — already booked today"; else hide = true; }
       }
-      if (!hide) h += `<option value="${n}" title="${n}" ${current === n ? "selected" : ""}>${n}${dupe}</option>`;
+      // Flagged from a HealthRoster import (Administration → Staff
+      // availability) — still selectable (the import could be stale or
+      // wrong), just visibly marked so it's not picked by accident.
+      let availTag = "";
+      if (type === "odp" || type === "anaes") {
+        const status = availability?.[day]?.[n];
+        if (status) availTag = ` — ${statusLabel(status)}`;
+      }
+      if (!hide) h += `<option value="${n}" title="${n}"${availTag ? ' style="color:var(--ink-300)"' : ""} ${current === n ? "selected" : ""}>${n}${dupe}${availTag}</option>`;
     });
     // A saved value that isn't in the department's own staff list — most
     // often a name just applied from a CADEX import (see cadexBadge()

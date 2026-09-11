@@ -14,6 +14,7 @@ import { listUsers, createUserAccount, updateUserRole, revokeUserAccess } from "
 import { loadWeek, saveWeek } from "./rota.js";
 import { loadNursingWeek, saveNursingWeek } from "./nursing-rota.js";
 import { getCadexConfig, saveCadexConfig, getCadexStatus, cadexManualSync, cadexTestConnection, generateApiKey } from "./cadex.js";
+import { parseWorkbook, suggestStaffMatch, buildWeeklyDocs, saveAvailabilityWeeks, statusLabel } from "./healthroster-import.js";
 
 const DEFAULT_LIST_OPTIONS = ["ROUTINE", "EMERGENCY", "URGENT"];
 
@@ -248,6 +249,27 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
           <button class="list-toggle-btn" id="caseListToggleBtn" style="display:none;">Show</button>
         </div>
         <div id="caseListList" class="admin-list"></div>
+      </section>
+
+      <section>
+        <h4 class="admin-h">Staff availability (HealthRoster import)</h4>
+        <p class="empty-note" style="margin:-6px 0 10px;">Upload the "Work Roster (4 weeks)" export from Loop/HealthRoster (.xlsx) —
+          you download this file yourself, Cadence never logs into HealthRoster. Once saved, the SODP rota flags anyone marked on
+          leave, off, or unavailable that day while you're allocating.</p>
+        <form id="hrImportForm" class="inline-form">
+          <input type="file" id="hrImportFile" accept=".xlsx,.xls" required>
+          <button class="btn btn-primary btn-sm" type="submit">Parse file</button>
+        </form>
+        <div id="hrImportMsg" class="empty-note" style="display:none;"></div>
+        <div id="hrImportReview" style="display:none;margin-top:14px;">
+          <p class="empty-note" style="margin:0 0 10px;">Check each match below before saving — HealthRoster's naming doesn't
+            always line up with Cadence's. Pick "don't import" to skip anyone.</p>
+          <div id="hrImportReviewList"></div>
+          <div style="margin-top:14px;display:flex;gap:8px;">
+            <button class="btn btn-primary btn-sm" type="button" id="hrImportSaveBtn">Save availability</button>
+            <button class="btn btn-ghost btn-sm" type="button" id="hrImportCancelBtn">Cancel</button>
+          </div>
+        </div>
       </section>
 
       <section>
@@ -560,6 +582,94 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
     await updateDepartment(deptId, { caseList });
     input.value = "";
     refreshCaseList();
+  });
+
+  // ---- Staff availability (HealthRoster import) --------------------------
+  // Never fetches anything from HealthRoster itself — the file is
+  // something the admin downloads and uploads by hand. Parsing happens
+  // entirely client-side; nothing is saved until "Save availability" is
+  // clicked, and every match is shown for review first since HealthRoster's
+  // "Last, First" naming won't always line up with what's in Cadence.
+  let hrParsed = null;
+  const hrReviewEl = container.querySelector("#hrImportReviewList");
+  const hrReviewBox = container.querySelector("#hrImportReview");
+  const hrMsgEl = container.querySelector("#hrImportMsg");
+
+  function hrShowMsg(text, isError) {
+    hrMsgEl.textContent = text;
+    hrMsgEl.style.display = "block";
+    hrMsgEl.style.color = isError ? "var(--status-oncall)" : "";
+  }
+
+  function hrExceptionsSummary(person) {
+    const counts = {};
+    Object.values(person.days).forEach(d => {
+      if (d.status === "leave" || d.status === "unavailable" || d.status === "off") {
+        counts[d.status] = (counts[d.status] || 0) + 1;
+      }
+    });
+    const parts = Object.entries(counts).map(([k, n]) => `${n} ${statusLabel(k)}`);
+    return parts.length ? parts.join(" · ") : "No leave/off days in this period";
+  }
+
+  container.querySelector("#hrImportForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const file = container.querySelector("#hrImportFile").files[0];
+    if (!file) return;
+    hrMsgEl.style.display = "none";
+    hrReviewBox.style.display = "none";
+    let wb;
+    try {
+      const buf = await file.arrayBuffer();
+      wb = window.XLSX.read(buf, { type: "array" });
+      hrParsed = parseWorkbook(wb);
+    } catch (err) {
+      hrShowMsg(err.message || "Couldn't read that file — is it the HealthRoster \"Work Roster (4 weeks)\" export?", true);
+      return;
+    }
+    const allStaff = (await getAllStaff()).filter(s => STAFF_TYPES.some(st => st.type === s.type));
+    const sortedStaff = [...allStaff].sort((a, b) => (a.rotaName || a.name).localeCompare(b.rotaName || b.name));
+    hrReviewEl.innerHTML = hrParsed.people.map(p => {
+      const match = suggestStaffMatch(p, allStaff);
+      const options = sortedStaff.map(s => {
+        const shown = s.rotaName || s.name;
+        const label = STAFF_TYPES.find(st => st.type === s.type)?.singular || s.type;
+        return `<option value="${shown}"${match === s ? " selected" : ""}>${shown} (${label})</option>`;
+      }).join("");
+      return `<div class="admin-row" style="flex-direction:column;align-items:stretch;gap:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span>${p.hrName}</span>
+          <select data-hr-name="${p.hrName}" class="hr-match-select" style="min-width:220px;">
+            <option value="">— don't import —</option>
+            ${options}
+          </select>
+        </div>
+        <div class="empty-note" style="margin:0;">${hrExceptionsSummary(p)}</div>
+      </div>`;
+    }).join("");
+    hrReviewBox.style.display = "block";
+    hrShowMsg(`Parsed ${hrParsed.people.length} people, ${hrParsed.startDate} to ${hrParsed.endDate}. Check the matches below, then save.`, false);
+  });
+
+  container.querySelector("#hrImportCancelBtn").addEventListener("click", () => {
+    hrParsed = null;
+    hrReviewBox.style.display = "none";
+    hrMsgEl.style.display = "none";
+    container.querySelector("#hrImportFile").value = "";
+  });
+
+  container.querySelector("#hrImportSaveBtn").addEventListener("click", async () => {
+    if (!hrParsed) return;
+    const nameByHrName = {};
+    hrReviewEl.querySelectorAll(".hr-match-select").forEach(sel => {
+      if (sel.value) nameByHrName[sel.dataset.hrName] = sel.value;
+    });
+    const weeklyDocs = buildWeeklyDocs(hrParsed, nameByHrName);
+    await saveAvailabilityWeeks(deptId, weeklyDocs, myDisplayName);
+    hrShowMsg(`Saved availability for ${Object.keys(nameByHrName).length} people across ${weeklyDocs.length} week${weeklyDocs.length === 1 ? "" : "s"}.`, false);
+    hrReviewBox.style.display = "none";
+    hrParsed = null;
+    container.querySelector("#hrImportFile").value = "";
   });
 
   // ---- Copy a week's rota -------------------------------------------------

@@ -168,6 +168,7 @@
   import { renderShell } from "./js/shell.js";
   import { getDepartment, listTheatres, listStaff, splitStaff, buildAnaesthetistInitialsMap } from "./js/department.js";
   import { loadWeek, saveWeek, mondayOfCurrentWeek, renderGrid, renderPrintGrid, attachChangeHandlers, applyCadexAuto } from "./js/rota.js";
+  import { loadAvailability } from "./js/healthroster-import.js";
   import { getCadexImports } from "./js/cadex.js";
   import { applyTheme } from "./js/theme.js";
   applyTheme();
@@ -268,6 +269,7 @@
   let rota = {};
   let showBooked = false; // "Show staff already booked elsewhere today" toggle — see rota.js's field()
   let cadexDays = null; // this week's imported CADEX data, keyed by lowercase day — see js/cadex.js
+  let availability = {}; // this week's HealthRoster import, keyed by day then Cadence display name — see js/healthroster-import.js
   let previewMode = false; // Full week view: read-only, print-styled, on screen
 
   function toast(msg, isError) {
@@ -328,7 +330,7 @@
     }
 
     const { weekdayHtml, weekendHtml } = renderGrid({
-      weekStart: weekInput.value, dept, theatres, staff, rota, editable: showEditable, showBooked, cadex: cadexDays, anaesInitials
+      weekStart: weekInput.value, dept, theatres, staff, rota, editable: showEditable, showBooked, cadex: cadexDays, anaesInitials, availability
     });
     document.getElementById("weekdayGrid").innerHTML = weekdayHtml;
     document.getElementById("weekendGrid").innerHTML = weekendHtml;
@@ -350,14 +352,16 @@
   }
 
   async function loadAndRender() {
-    const [week, imports] = await Promise.all([
+    const [week, imports, avail] = await Promise.all([
       loadWeek(profile.departmentId, weekInput.value),
-      getCadexImports(profile.departmentId, weekInput.value)
+      getCadexImports(profile.departmentId, weekInput.value),
+      loadAvailability(profile.departmentId, weekInput.value)
     ]);
     rota = week.data || {};
     showBooked = false;
     if (editable) document.getElementById("showBookedToggle").checked = false;
     cadexDays = imports?.days || null;
+    availability = avail || {};
     renderOnly();
   }
 
