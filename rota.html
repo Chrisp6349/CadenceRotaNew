@@ -355,7 +355,11 @@
     const [week, imports, avail] = await Promise.all([
       loadWeek(profile.departmentId, weekInput.value),
       getCadexImports(profile.departmentId, weekInput.value),
-      loadAvailability(profile.departmentId, weekInput.value)
+      // Never let a HealthRoster-availability problem (missing rules,
+      // a bad doc, anything) take the whole rota down with it — the
+      // flagging is a nice-to-have on top of the rota, not a
+      // precondition for it to load.
+      loadAvailability(profile.departmentId, weekInput.value).catch(() => ({}))
     ]);
     rota = week.data || {};
     showBooked = false;

@@ -76,6 +76,15 @@ service cloud.firestore {
         allow write: if isEditorOrAdmin(deptId);
       }
 
+      // HealthRoster availability import (see js/healthroster-import.js)
+      // — read by anyone filling in the rota (editor/admin, same as the
+      // rota itself), written only via the upload/review screen in
+      // Administration, which is admin-only.
+      match /availability/{weekId} {
+        allow read: if inMyDept(deptId);
+        allow write: if isAdmin(deptId);
+      }
+
       match /auditLog/{docId} {
         allow read: if inMyDept(deptId);
         allow write: if isEditorOrAdmin(deptId);
