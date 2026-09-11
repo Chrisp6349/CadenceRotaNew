@@ -163,7 +163,7 @@ const cadex = onRequest(async (req, res) => {
 // ahead is well within what it can serve. A week Atrium hasn't
 // published yet just comes back as empty per-day objects (see §4.2 of
 // the contract) — harmless, and picked up automatically once published.
-const SYNC_WEEKS_AHEAD = 4;
+const SYNC_WEEKS_AHEAD = 8;
 
 function addWeeks(weekId, weeks) {
   const d = new Date(weekId + "T00:00:00Z");
