@@ -12,7 +12,7 @@
 // -----------------------------------------------------------------------
 
 import { db, doc, getDoc, setDoc, collection, addDoc, serverTimestamp } from "./firebase-init.js";
-import { statusLabel } from "./healthroster-import.js";
+import { statusLabel, FLAGGED_STATUSES } from "./healthroster-import.js";
 
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const WEEKENDS = ["Saturday", "Sunday"];
@@ -229,7 +229,7 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
       let availTag = "";
       if (type === "odp" || type === "anaes") {
         const status = availability?.[day]?.[n];
-        if (status) availTag = ` — ${statusLabel(status)}`;
+        if (FLAGGED_STATUSES.includes(status)) availTag = ` — ${statusLabel(status)}`;
       }
       if (!hide) h += `<option value="${n}" title="${n}"${availTag ? ' style="color:var(--ink-300)"' : ""} ${current === n ? "selected" : ""}>${n}${dupe}${availTag}</option>`;
     });
@@ -262,8 +262,12 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
   // isn't a real fact, just an absence of data.
   function availableSodpsHtml(day) {
     if (!availability || !(day in availability)) return "";
-    const unavailable = new Set(Object.keys(availability[day]));
-    const names = [...staff.odps].filter(n => !unavailable.has(n)).sort();
+    // A positive match only — someone HealthRoster has no record for
+    // that day ("unknown") isn't the same as confirmed working, so
+    // they're left off this list even though field() still lets you
+    // pick them (absence of data isn't a reason to block a choice).
+    const dayData = availability[day];
+    const names = [...staff.odps].filter(n => dayData[n] === "available").sort();
     return `<div class="day-available">
       <div class="day-available-label">Available SODPs</div>
       ${names.length ? names.join(", ") : `<span class="day-available-empty">None</span>`}

@@ -154,6 +154,13 @@ export function suggestStaffMatch(person, staffList) {
 // HealthRoster name) — nameByHrName: { hrName: cadenceDisplayName }.
 // A person mapped to "" (skipped in the review step) is left out
 // entirely rather than saved under their HealthRoster name.
+//
+// Every recognised status is stored, including "available" — not just
+// the flagged ones. The rota's "Available SODPs" list under each day
+// needs to tell "confirmed working that day" apart from "HealthRoster
+// simply has no record for them that day" (status "unknown"), and only
+// the former belongs in that list — "unknown" and the rare "other"
+// (an unrecognised token) are left out entirely rather than guessed at.
 export function buildWeeklyDocs(parsed, nameByHrName) {
   const byWeek = {};
   parsed.dates.forEach(iso => {
@@ -165,7 +172,7 @@ export function buildWeeklyDocs(parsed, nameByHrName) {
       const cadenceName = nameByHrName[p.hrName];
       if (!cadenceName) return;
       const status = p.days[iso]?.status;
-      if (FLAGGED_STATUSES.includes(status)) byWeek[week][day][cadenceName] = status;
+      if (status && status !== "unknown" && status !== "other") byWeek[week][day][cadenceName] = status;
     });
   });
   return Object.entries(byWeek).map(([weekStart, data]) => ({ weekStart, data }));

@@ -17,7 +17,7 @@
 // this shouldn't need a manual "clear site data" to take effect.
 // -----------------------------------------------------------------------
 
-const CACHE_VERSION = "v89";
+const CACHE_VERSION = "v90";
 const CACHE_NAME = `cadence-shell-${CACHE_VERSION}`;
 
 const SHELL_FILES = [
