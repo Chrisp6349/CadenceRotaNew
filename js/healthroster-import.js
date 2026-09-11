@@ -56,10 +56,17 @@ function classifyDay(values) {
   if (values.includes("A/L")) return "leave";
   if (values.includes("Unavailable")) return "unavailable";
   const shiftRe = /^\d{1,2}:?\d{2}\s*-\s*\d{1,2}:?\d{2}$/;
+  // A real shift time wins regardless of what else is stacked in the
+  // same cell — e.g. a normal working day that's also flagged OC is
+  // still a normal working day.
   if (values.some(v => shiftRe.test(v))) return "available";
-  // WEOC = weekend on-call — they're working, not off, so this must
-  // never be flagged the same way A/L/Unavailable are.
-  if (values.includes("OC") || values.includes("WEOC")) return "available";
+  // OC/WEOC with no separate shift time means they're on standby, not
+  // necessarily in the building — not the same as a confirmed working
+  // day, so this must never count as "available" for the SODP list.
+  // It's also not "leave" or "unavailable" — they're not off, so this
+  // stays unflagged in the rota's dropdowns too, just excluded from
+  // the positive "who's actually in today" list.
+  if (values.includes("OC") || values.includes("WEOC")) return "oncall";
   if (values.length) return "other"; // an unrecognised token — surfaced, never silently dropped
   return "unknown";
 }
