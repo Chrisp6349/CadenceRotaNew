@@ -253,6 +253,23 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     return txt;
   }
 
+  // Who's NOT flagged (on leave/unavailable) from the HealthRoster
+  // import counts as available — same "no reason not to pick them"
+  // rule field() already uses for the dropdown flags. Only shown for a
+  // day that was actually covered by an import (a day key present in
+  // `availability`, even if nobody happened to be flagged that day) —
+  // otherwise every SODP would show as "available" by default, which
+  // isn't a real fact, just an absence of data.
+  function availableSodpsHtml(day) {
+    if (!availability || !(day in availability)) return "";
+    const unavailable = new Set(Object.keys(availability[day]));
+    const names = [...staff.odps].filter(n => !unavailable.has(n)).sort();
+    return `<div class="day-available">
+      <div class="day-available-label">Available SODPs</div>
+      ${names.length ? names.join(", ") : `<span class="day-available-empty">None</span>`}
+    </div>`;
+  }
+
   function isToday(i) {
     return isoPlusDays(weekStart, i) === new Date().toISOString().split("T")[0];
   }
@@ -287,7 +304,7 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
   WEEKDAYS.forEach((d, i) => {
     const cells = theatres.map(t => `<td>${theatreCell(d, t.id, t.name)}</td>`).join("");
     const onCallAnaesKey = `${d}_oncall_anaes`;
-    h += `<tr${isToday(i) ? " class='today'" : ""}><td class="daycell">${dayLabel(i)}</td>${cells}<td>
+    h += `<tr${isToday(i) ? " class='today'" : ""}><td class="daycell">${dayLabel(i)}${availableSodpsHtml(d)}</td>${cells}<td>
         ${field(d, "support1", staff.odps, "odp", true, "SODP")}
         ${field(d, "support2", staff.odps, "odp", true, "SODP")}
         ${field(d, "support3", staff.odps, "odp", true, "SODP")}
