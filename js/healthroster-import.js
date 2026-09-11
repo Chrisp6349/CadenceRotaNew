@@ -15,7 +15,7 @@
 
 import { db, doc, getDoc, setDoc } from "./firebase-init.js";
 
-const STATUS_LABELS = { leave: "A/L", unavailable: "Unavailable", off: "Off" };
+const STATUS_LABELS = { leave: "A/L", unavailable: "Unavailable" };
 // Only these statuses are worth flagging in the rota — "available" and
 // "unknown" (a blank cell — HealthRoster simply has nothing recorded)
 // both mean "no reason not to pick them".
@@ -55,10 +55,11 @@ function colLetter(n) {
 function classifyDay(values) {
   if (values.includes("A/L")) return "leave";
   if (values.includes("Unavailable")) return "unavailable";
-  if (values.includes("WEOC")) return "off";
   const shiftRe = /^\d{1,2}:?\d{2}\s*-\s*\d{1,2}:?\d{2}$/;
   if (values.some(v => shiftRe.test(v))) return "available";
-  if (values.includes("OC")) return "available";
+  // WEOC = weekend on-call — they're working, not off, so this must
+  // never be flagged the same way A/L/Unavailable are.
+  if (values.includes("OC") || values.includes("WEOC")) return "available";
   if (values.length) return "other"; // an unrecognised token — surfaced, never silently dropped
   return "unknown";
 }

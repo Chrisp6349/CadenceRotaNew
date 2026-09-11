@@ -14,7 +14,7 @@ import { listUsers, createUserAccount, updateUserRole, revokeUserAccess } from "
 import { loadWeek, saveWeek } from "./rota.js";
 import { loadNursingWeek, saveNursingWeek } from "./nursing-rota.js";
 import { getCadexConfig, saveCadexConfig, getCadexStatus, cadexManualSync, cadexTestConnection, generateApiKey } from "./cadex.js";
-import { parseWorkbook, suggestStaffMatch, buildWeeklyDocs, saveAvailabilityWeeks, statusLabel } from "./healthroster-import.js";
+import { parseWorkbook, suggestStaffMatch, buildWeeklyDocs, saveAvailabilityWeeks, statusLabel, FLAGGED_STATUSES } from "./healthroster-import.js";
 
 const DEFAULT_LIST_OPTIONS = ["ROUTINE", "EMERGENCY", "URGENT"];
 
@@ -604,12 +604,10 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
   function hrExceptionsSummary(person) {
     const counts = {};
     Object.values(person.days).forEach(d => {
-      if (d.status === "leave" || d.status === "unavailable" || d.status === "off") {
-        counts[d.status] = (counts[d.status] || 0) + 1;
-      }
+      if (FLAGGED_STATUSES.includes(d.status)) counts[d.status] = (counts[d.status] || 0) + 1;
     });
     const parts = Object.entries(counts).map(([k, n]) => `${n} ${statusLabel(k)}`);
-    return parts.length ? parts.join(" · ") : "No leave/off days in this period";
+    return parts.length ? parts.join(" · ") : "No leave/unavailable days in this period";
   }
 
   container.querySelector("#hrImportForm").addEventListener("submit", async (e) => {
