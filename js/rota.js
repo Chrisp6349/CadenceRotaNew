@@ -46,7 +46,9 @@ export async function loadWeek(deptId, weekStart) {
 // covering every field (list types, sessions, from-home) since all of
 // them matter for an audit trail, not just person placements.
 function describeField(day, suffix, theatres) {
-  let m = suffix.match(/^(.+)_odp([12])$/);
+  let m = suffix.match(/^(.+)_note$/);
+  if (m) return `${describeField(day, m[1], theatres)} note`;
+  m = suffix.match(/^(.+)_odp([12])$/);
   if (m) {
     const t = theatres.find(x => x.id === m[1]);
     if (t) return `${day} ${t.name} SODP${m[2]}`;
@@ -78,6 +80,15 @@ function formatVal(v) {
   if (v === true) return "Yes";
   if (!v) return "";
   return String(v);
+}
+
+// Notes are free text someone types in the moment (see field()'s
+// `notable` option below) rather than a name picked from a controlled
+// staff list, so unlike every other value in this file they need
+// escaping before going into innerHTML — otherwise a stray `<` or `"`
+// in a note would break the markup instead of just printing oddly.
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 // Diffs the previous saved version against the new one, field by field,
@@ -197,17 +208,24 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
   function used(day) {
     let o = [], a = [];
     Object.entries(rota).forEach(([k, v]) => {
-      if (!k.startsWith(day + "_") || !v || k.includes("oncall") || k.includes("_list")) return;
+      if (!k.startsWith(day + "_") || !v || k.includes("oncall") || k.includes("_list") || k.endsWith("_note")) return;
       k.includes("_anaes") ? a.push(v) : o.push(v);
     });
     return { o, a };
   }
 
-  function field(day, key, list, type, restricted = true, placeholder, cadexTracked = false, hrOnCallTracked = false) {
+  // `notable` adds an optional free-text note under the field (e.g.
+  // "A/L AM" on someone working a half-day) — stored as its own
+  // `${fkey}_note` key so it never touches the actual selected value.
+  // Shown as an editable box while editing, or a small badge under the
+  // name for a viewer/printout — same "nothing to show, show nothing"
+  // rule as the CADEX badges above.
+  function field(day, key, list, type, restricted = true, placeholder, cadexTracked = false, hrOnCallTracked = false, notable = false) {
     const fkey = `${day}_${key}`;
     const current = rota[fkey] || "";
+    const noteVal = notable ? (rota[`${fkey}_note`] || "") : "";
     if (!editable) {
-      return `<span class="ro-field">${current}</span>`;
+      return `<span class="ro-field">${current}</span>${noteVal ? `<div class="slot-note-badge">${escapeHtml(noteVal)}</div>` : ""}`;
     }
     const u = used(day);
     // The blank option shows the role name (e.g. "ODP", "Anaesthetist")
@@ -243,6 +261,9 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
       h += `<option title="${current}" selected>${current}</option>`;
     }
     h += "</select>";
+    if (notable) {
+      h += `<input type="text" class="slot-note" data-key="${fkey}_note" data-kind="text" value="${escapeHtml(noteVal)}" placeholder="Note (optional)">`;
+    }
     return h;
   }
 
@@ -296,9 +317,9 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     const anaesKey = `${theatreId}_anaes`;
     const fkey = `${day}_${anaesKey}`;
     const imported = dayCadex(day)[theatreName];
-    return field(day, `${theatreId}_odp1`, staff.odps, "odp", true, "SODP")
-      + field(day, `${theatreId}_odp2`, staff.odps, "odp", true, "SODP")
-      + field(day, anaesKey, staff.anaesthetists, "anaes", true, "Anaesthetist", true)
+    return field(day, `${theatreId}_odp1`, staff.odps, "odp", true, "SODP", false, false, true)
+      + field(day, `${theatreId}_odp2`, staff.odps, "odp", true, "SODP", false, false, true)
+      + field(day, anaesKey, staff.anaesthetists, "anaes", true, "Anaesthetist", true, false, true)
       + cadexBadge(fkey, imported, rota[fkey], editable, anaesInitials)
       + field(day, `${theatreId}_list`, dept.listOptions || [], "list", false, "List type");
   }
@@ -310,15 +331,15 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     const cells = theatres.map(t => `<td>${theatreCell(d, t.id, t.name)}</td>`).join("");
     const onCallAnaesKey = `${d}_oncall_anaes`;
     h += `<tr${isToday(i) ? " class='today'" : ""}><td class="daycell">${dayLabel(i)}${availableSodpsHtml(d)}</td>${cells}<td>
-        ${field(d, "support1", staff.odps, "odp", true, "SODP")}
-        ${field(d, "support2", staff.odps, "odp", true, "SODP")}
-        ${field(d, "support3", staff.odps, "odp", true, "SODP")}
+        ${field(d, "support1", staff.odps, "odp", true, "SODP", false, false, true)}
+        ${field(d, "support2", staff.odps, "odp", true, "SODP", false, false, true)}
+        ${field(d, "support3", staff.odps, "odp", true, "SODP", false, false, true)}
         <br>${field(d, "support_list", dept.listOptions || [], "list", false, "List type")}
       </td><td>
-        ${field(d, "oncall_odp", staff.odps, "odp", false, "SODP", false, true)}
+        ${field(d, "oncall_odp", staff.odps, "odp", false, "SODP", false, true, true)}
         ${homeCheckbox(d)}
         ${field(d, "oncall_extra", dept.extraOnCall || ["", "EXTRA O/C"], "list", false, "Extra on-call")}
-        ${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true)}
+        ${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true, false, true)}
         ${cadexBadge(onCallAnaesKey, dayCadex(d)["On Call"], rota[onCallAnaesKey], editable, anaesInitials)}
         ${cicuReadout(dayCadex(d)["CICU"], anaesInitials)}
       </td></tr>`;
@@ -330,13 +351,13 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     const onCallAnaesKey = `${d}_oncall_anaes`;
     const wlAnaesKey = `${d}_wl_anaes`;
     w += `<tr${isToday(i + 5) ? " class='today'" : ""}><td class="daycell">${dayLabel(i + 5)}</td>
-      <td>${field(d, "oncall_odp1", staff.odps, "odp", false, "SODP", false, true)}${field(d, "oncall_session1", ["ALL DAY","AM","PM"], "list", false, "Session")}<br>
-          ${field(d, "oncall_odp2", staff.odps, "odp", false, "SODP", false, true)}${field(d, "oncall_session2", ["ALL DAY","AM","PM"], "list", false, "Session")}</td>
-      <td>${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true)}
+      <td>${field(d, "oncall_odp1", staff.odps, "odp", false, "SODP", false, true, true)}${field(d, "oncall_session1", ["ALL DAY","AM","PM"], "list", false, "Session")}<br>
+          ${field(d, "oncall_odp2", staff.odps, "odp", false, "SODP", false, true, true)}${field(d, "oncall_session2", ["ALL DAY","AM","PM"], "list", false, "Session")}</td>
+      <td>${field(d, "oncall_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true, false, true)}
         ${cadexBadge(onCallAnaesKey, dayCadex(d)["On Call"], rota[onCallAnaesKey], editable, anaesInitials)}
         ${cicuReadout(dayCadex(d)["CICU"], anaesInitials)}
       </td>
-      <td>${field(d, "wl_odp", staff.odps, "odp", false, "SODP")}${field(d, "wl_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true)}
+      <td>${field(d, "wl_odp", staff.odps, "odp", false, "SODP", false, false, true)}${field(d, "wl_anaes", staff.anaesthetists, "anaes", false, "Anaesthetist", true, false, true)}
         ${cadexBadge(wlAnaesKey, dayCadex(d)["Waiting List"], rota[wlAnaesKey], editable, anaesInitials)}
       </td>
     </tr>`;
@@ -371,6 +392,11 @@ export function renderPrintGrid({ weekStart, dept, theatres, staff, staffList, r
     return name ? (initialsByName[name] || name) : "";
   }
 
+  function notePrint(fkey) {
+    const v = rota[`${fkey}_note`];
+    return v ? `<div class="pr-note">${escapeHtml(v)}</div>` : "";
+  }
+
   function dayLabel(i) {
     const ds = isoPlusDays(weekStart, i);
     const d = new Date(ds);
@@ -383,31 +409,40 @@ export function renderPrintGrid({ weekStart, dept, theatres, staff, staffList, r
   // occasions it is, that's worth flagging alongside the names, not
   // just standing in for them on an otherwise-empty theatre.
   function theatrePrintCell(day, theatreId) {
-    const odps = [rota[`${day}_${theatreId}_odp1`], rota[`${day}_${theatreId}_odp2`]].filter(Boolean);
-    const anaes = rota[`${day}_${theatreId}_anaes`];
+    const anaesKey = `${day}_${theatreId}_anaes`;
+    const anaes = rota[anaesKey];
     const list = rota[`${day}_${theatreId}_list`] || "";
-    let h = odps.map(n => `<div class="pr-name">${n}</div>`).join("");
-    if (anaes) h += `<div class="pr-init">${anaesInitials(anaes)}</div>`;
+    let h = "";
+    [1, 2].forEach(n => {
+      const key = `${day}_${theatreId}_odp${n}`;
+      if (rota[key]) h += `<div class="pr-name">${rota[key]}</div>${notePrint(key)}`;
+    });
+    if (anaes) h += `<div class="pr-init">${anaesInitials(anaes)}</div>${notePrint(anaesKey)}`;
     if (list) h += `<div class="pr-list">${list}</div>`;
     return h;
   }
 
   function supportPrintCell(day) {
-    const names = [1, 2, 3].map(n => rota[`${day}_support${n}`]).filter(Boolean);
     const list = rota[`${day}_support_list`] || "";
-    let h = names.map(n => `<div class="pr-name">${n}</div>`).join("");
+    let h = "";
+    [1, 2, 3].forEach(n => {
+      const key = `${day}_support${n}`;
+      if (rota[key]) h += `<div class="pr-name">${rota[key]}</div>${notePrint(key)}`;
+    });
     if (list) h += `<div class="pr-list">${list}</div>`;
     return h;
   }
 
   function oncallPrintCell(day) {
-    const odp = rota[`${day}_oncall_odp`] || "";
+    const odpKey = `${day}_oncall_odp`;
+    const anaesKey = `${day}_oncall_anaes`;
+    const odp = rota[odpKey] || "";
     const home = !!rota[`${day}_oncall_home`];
     const extra = rota[`${day}_oncall_extra`] || "";
-    const anaes = rota[`${day}_oncall_anaes`] || "";
-    let h = odp ? `<div class="pr-name">${odp}${home ? ` <span class="pr-home">HOME</span>` : ""}</div>` : "";
+    const anaes = rota[anaesKey] || "";
+    let h = odp ? `<div class="pr-name">${odp}${home ? ` <span class="pr-home">HOME</span>` : ""}</div>${notePrint(odpKey)}` : "";
     if (extra) h += `<div class="pr-extra">${extra}</div>`;
-    if (anaes) h += `<div class="pr-init">${anaesInitials(anaes)}</div>`;
+    if (anaes) h += `<div class="pr-init">${anaesInitials(anaes)}</div>${notePrint(anaesKey)}`;
     return h;
   }
 
@@ -426,26 +461,30 @@ export function renderPrintGrid({ weekStart, dept, theatres, staff, staffList, r
   // print a redundant "ALL DAY" label.
   function weekendOncallOdp(day) {
     const rows = [1, 2].map(n => {
-      const name = rota[`${day}_oncall_odp${n}`];
+      const key = `${day}_oncall_odp${n}`;
+      const name = rota[key];
       if (!name) return "";
       const session = rota[`${day}_oncall_session${n}`] || "";
-      return `<div class="pr-name">${name}${session && session !== "ALL DAY" ? ` <span class="pr-extra">${session}</span>` : ""}</div>`;
+      return `<div class="pr-name">${name}${session && session !== "ALL DAY" ? ` <span class="pr-extra">${session}</span>` : ""}</div>${notePrint(key)}`;
     }).filter(Boolean);
     return rows.join("");
   }
 
   function weekendWaitingListCell(day) {
-    const odp = rota[`${day}_wl_odp`] || "";
-    const anaes = rota[`${day}_wl_anaes`] || "";
-    return `${odp ? `<div class="pr-name">${odp}</div>` : ""}${anaes ? `<div class="pr-init">${anaesInitials(anaes)}</div>` : ""}`;
+    const odpKey = `${day}_wl_odp`;
+    const anaesKey = `${day}_wl_anaes`;
+    const odp = rota[odpKey] || "";
+    const anaes = rota[anaesKey] || "";
+    return `${odp ? `<div class="pr-name">${odp}</div>${notePrint(odpKey)}` : ""}${anaes ? `<div class="pr-init">${anaesInitials(anaes)}</div>${notePrint(anaesKey)}` : ""}`;
   }
 
   let w = `<table class="rota-table print-rota-table weekend-table"><tr><th>Day</th><th>On Call SODP</th><th>On Call Anaesthetist</th><th>Waiting List</th></tr>`;
   WEEKENDS.forEach((d, i) => {
-    const anaes = rota[`${d}_oncall_anaes`] || "";
+    const anaesKey = `${d}_oncall_anaes`;
+    const anaes = rota[anaesKey] || "";
     w += `<tr><td class="daycell">${dayLabel(i + 5)}</td>
       <td>${weekendOncallOdp(d)}</td>
-      <td>${anaes ? `<div class="pr-init">${anaesInitials(anaes)}</div>` : ""}</td>
+      <td>${anaes ? `<div class="pr-init">${anaesInitials(anaes)}</div>${notePrint(anaesKey)}` : ""}</td>
       <td>${weekendWaitingListCell(d)}</td>
     </tr>`;
   });
@@ -474,6 +513,15 @@ export function attachChangeHandlers(container, rota, onChange) {
   container.querySelectorAll("input[type=checkbox][data-key]").forEach(cb => {
     cb.addEventListener("change", () => {
       rota[cb.dataset.key] = cb.checked;
+      onChange && onChange();
+    });
+  });
+  // "change" (fires on blur/Enter), not "input" — an on-every-keystroke
+  // re-render would rebuild the grid's HTML mid-type and drop focus out
+  // of the box, same reasoning as the select/checkbox handlers above.
+  container.querySelectorAll("input[type=text][data-key]").forEach(inp => {
+    inp.addEventListener("change", () => {
+      rota[inp.dataset.key] = inp.value.trim();
       onChange && onChange();
     });
   });
