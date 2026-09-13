@@ -788,6 +788,15 @@
     }
 
     if (state.mode === "weekend") {
+      // The list itself only ever runs during the day — "weekend" mode
+      // spans a full 24 hours (07:00 Saturday straight through to 06:30
+      // Monday) so the on-call section has somewhere to live overnight,
+      // but the waiting list card shouldn't still be up at 2am. Gated on
+      // the real clock, not `day`/`dataDay` (which can be showing
+      // Saturday's data well into Sunday morning via the carryover
+      // logic above) — what matters is whether it's currently daytime,
+      // regardless of whose data is on screen.
+      const isDaytime = now >= atTime(now, 6, 30) && now < atTime(now, 19, 0);
       const odpOc = [odpSrc[`${day}_oncall_odp1`], odpSrc[`${day}_oncall_odp2`]].filter(Boolean).join(", ") || "—";
       const odpOcAnaes = odpSrc[`${day}_oncall_anaes`] || "—";
       const odpWlOdpRaw = odpSrc[`${day}_wl_odp`] || "";
@@ -845,11 +854,14 @@
           </div>`
         : `<div class="card"><div class="card-value" style="font-size:16px;color:var(--ink-300);font-style:italic;">No list this weekend</div></div>`;
 
-      body.innerHTML = `
+      const weekendListSectionHtml = isDaytime ? `
         <div class="wk-section">
           <div class="wk-label">Weekend waiting list</div>
           ${weekendListHtml}
-        </div>
+        </div>` : "";
+
+      body.innerHTML = `
+        ${weekendListSectionHtml}
         <div class="wk-section">
           <div class="wk-label">On call</div>
           <div class="cb-strip">
