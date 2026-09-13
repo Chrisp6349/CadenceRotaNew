@@ -214,12 +214,15 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     return { o, a };
   }
 
-  // `notable` adds an optional free-text note under the field (e.g.
-  // "A/L AM" on someone working a half-day) — stored as its own
-  // `${fkey}_note` key so it never touches the actual selected value.
-  // Shown as an editable box while editing, or a small badge under the
-  // name for a viewer/printout — same "nothing to show, show nothing"
-  // rule as the CADEX badges above.
+  // `notable` adds an optional free-text note (e.g. "A/L AM" on someone
+  // working a half-day) — stored as its own `${fkey}_note` key so it
+  // never touches the actual selected value. Deliberately NOT a
+  // permanently-visible input on every field (an early version tried
+  // that and the grid became a wall of boxes) — instead a small icon
+  // that's easy to ignore when there's nothing to say, and a one-click
+  // prompt() to set/clear it, so adding a note is a single action
+  // rather than a box you have to click into, type, then click away
+  // from. A viewer/printout just gets the badge, never the icon.
   function field(day, key, list, type, restricted = true, placeholder, cadexTracked = false, hrOnCallTracked = false, notable = false) {
     const fkey = `${day}_${key}`;
     const current = rota[fkey] || "";
@@ -262,7 +265,12 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     }
     h += "</select>";
     if (notable) {
-      h += `<input type="text" class="slot-note" data-key="${fkey}_note" data-kind="text" value="${escapeHtml(noteVal)}" placeholder="Note (optional)">`;
+      const noteKey = `${fkey}_note`;
+      h += noteVal
+        ? `<button type="button" class="slot-note-badge slot-note-btn" data-note-key="${noteKey}" title="Click to edit or remove this note">${escapeHtml(noteVal)}</button>`
+        : `<button type="button" class="slot-note-add" data-note-key="${noteKey}" title="Add a note">
+             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+           </button>`;
     }
     return h;
   }
@@ -516,12 +524,14 @@ export function attachChangeHandlers(container, rota, onChange) {
       onChange && onChange();
     });
   });
-  // "change" (fires on blur/Enter), not "input" — an on-every-keystroke
-  // re-render would rebuild the grid's HTML mid-type and drop focus out
-  // of the box, same reasoning as the select/checkbox handlers above.
-  container.querySelectorAll("input[type=text][data-key]").forEach(inp => {
-    inp.addEventListener("change", () => {
-      rota[inp.dataset.key] = inp.value.trim();
+  // One click, one prompt, done — see field()'s `notable` comment above
+  // for why this isn't a permanent input box instead.
+  container.querySelectorAll("button[data-note-key]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.noteKey;
+      const next = window.prompt("Note for this slot (leave blank to remove):", rota[key] || "");
+      if (next === null) return; // cancelled — leave it as it was
+      rota[key] = next.trim();
       onChange && onChange();
     });
   });
