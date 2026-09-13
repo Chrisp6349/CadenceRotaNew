@@ -51,14 +51,21 @@
     border:1px solid var(--ink-150);border-radius:4px;background:var(--surface);color:var(--ink-900);}
   table.rota-table select.is-placeholder{color:var(--ink-300);}
   .slot-note-badge{display:inline-block;font-family:var(--font-mono);font-size:10px;color:var(--status-turnover);
-    background:var(--status-turnover-bg);padding:2px 6px;border-radius:4px;margin-top:2px;}
+    background:var(--status-turnover-bg);padding:2px 6px;border-radius:4px;flex-shrink:0;}
+  /* Sits the note icon/badge beside its dropdown instead of on its own
+     line underneath — the select shrinks to make room (min-width:0
+     lets a flex item shrink past its content's natural width, which a
+     <select> otherwise refuses to do). */
+  .field-row{display:flex;align-items:center;gap:4px;margin-bottom:2px;}
+  .field-row select{width:auto;flex:1 1 0;min-width:0;margin-bottom:0;}
+  .field-row .ro-field{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   /* The clickable (editable-grid) forms of the note affordance — a
      near-invisible icon when there's nothing to say yet, so an empty
      slot doesn't look any busier than before; the badge above becomes
      a real button once a note exists, since clicking it is how you
      edit or clear it. */
-  .slot-note-add,button.slot-note-badge.slot-note-btn{border:none;background:transparent;padding:0;margin-top:2px;
-    cursor:pointer;font:inherit;}
+  .slot-note-add,button.slot-note-badge.slot-note-btn{border:none;background:transparent;padding:0;
+    cursor:pointer;font:inherit;flex-shrink:0;}
   .slot-note-add{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
     color:var(--ink-300);border-radius:4px;}
   .slot-note-add:hover{color:var(--teal-600);background:var(--teal-50);}

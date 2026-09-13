@@ -228,7 +228,8 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     const current = rota[fkey] || "";
     const noteVal = notable ? (rota[`${fkey}_note`] || "") : "";
     if (!editable) {
-      return `<span class="ro-field">${current}</span>${noteVal ? `<div class="slot-note-badge">${escapeHtml(noteVal)}</div>` : ""}`;
+      const ro = `<span class="ro-field">${current}</span>`;
+      return noteVal ? `<div class="field-row">${ro}<span class="slot-note-badge">${escapeHtml(noteVal)}</span></div>` : ro;
     }
     const u = used(day);
     // The blank option shows the role name (e.g. "ODP", "Anaesthetist")
@@ -266,11 +267,12 @@ export function renderGrid({ weekStart, dept, theatres, staff, rota, editable, o
     h += "</select>";
     if (notable) {
       const noteKey = `${fkey}_note`;
-      h += noteVal
+      const btn = noteVal
         ? `<button type="button" class="slot-note-badge slot-note-btn" data-note-key="${noteKey}" title="Click to edit or remove this note">${escapeHtml(noteVal)}</button>`
         : `<button type="button" class="slot-note-add" data-note-key="${noteKey}" title="Add a note">
              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
            </button>`;
+      return `<div class="field-row">${h}${btn}</div>`;
     }
     return h;
   }
