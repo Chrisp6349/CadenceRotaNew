@@ -33,6 +33,25 @@
   .jt-stat-card .st-flag{margin-top:9px;display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);
     font-size:10.5px;color:var(--status-oncall);background:var(--status-oncall-bg);border-radius:999px;padding:3px 9px;}
 
+  .jt-lb-section{margin-bottom:18px;}
+  .jt-lb-title{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--ink-500);margin-bottom:10px;}
+  .jt-lb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  @media (max-width:760px){.jt-lb-grid{grid-template-columns:1fr;}}
+  .lb-card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);padding:14px 16px;
+    box-shadow:var(--shadow-sm);}
+  .lb-cat{font-family:var(--font-display);font-weight:700;font-size:13px;color:var(--ink-900);margin-bottom:10px;}
+  .lb-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .lb-row{display:flex;align-items:center;gap:10px;}
+  .lb-rank{font-family:var(--font-mono);font-weight:700;font-size:11px;width:22px;height:22px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--ink-100);color:var(--ink-500);}
+  .lb-row:first-child .lb-rank{background:var(--teal-100);color:var(--teal-700);}
+  .lb-name{font-size:12.5px;font-weight:600;color:var(--ink-900);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lb-sub{display:block;font-size:10.5px;font-weight:400;color:var(--ink-500);}
+  .lb-value{font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--teal-700);flex-shrink:0;
+    font-variant-numeric:tabular-nums;}
+  .lb-empty{color:var(--ink-300);font-size:12px;font-style:italic;}
+
   .jt-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--ink-150);
     border-radius:var(--r-md);padding:10px 14px;box-shadow:var(--shadow-sm);margin-bottom:18px;}
   .jt-controls .grp-label{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;
@@ -183,6 +202,10 @@
 
     root.innerHTML = `
       <div class="jt-stats" id="jtStats"></div>
+      <div class="jt-lb-section">
+        <div class="jt-lb-title">Quickest this week</div>
+        <div class="jt-lb-grid" id="jtLeaderboard"></div>
+      </div>
       <div class="jt-controls">
         <span class="grp-label">Day</span>
         <span id="jtDayChips"></span>
@@ -218,6 +241,32 @@
         <div class="st-value">${s.mean ?? "—"}<span class="unit">min avg</span></div>
         <div class="st-sub">Median ${s.median ?? "—"} · Range ${s.min ?? "—"}–${s.max ?? "—"} · n=${s.n}</div>
         ${flag}
+      </div>`;
+    }).join("");
+
+    // Quickest 3 completed cases per metric, for the whole week — not
+    // affected by the day-filter chips or the cancelled-cases toggle
+    // below (those only narrow the table), since this is meant to read
+    // as that week's own record, not a filtered view of it. Cancelled
+    // cases have no duration to rank, and an "out of order" anomaly
+    // (see durCell() below) isn't a real fast time, just a bad
+    // timestamp, so both are left out here the same way they're left
+    // out of the averages above.
+    document.getElementById("jtLeaderboard").innerHTML = METRICS.map(m => {
+      const top3 = DATA.cases
+        .filter(c => !c.cancelled && c[m.key] != null && c[m.key] >= 0)
+        .slice()
+        .sort((a, b) => a[m.key] - b[m.key])
+        .slice(0, 3);
+      const rows = top3.map((c, i) => `
+        <li class="lb-row">
+          <span class="lb-rank">${i + 1}</span>
+          <span class="lb-name">${c.theatre} · ${c.patient}<span class="lb-sub">${c.day} · ${c.surg || "—"} / ${c.anaes || "—"}</span></span>
+          <span class="lb-value">${c[m.key]}m</span>
+        </li>`).join("");
+      return `<div class="lb-card">
+        <div class="lb-cat">${m.label}</div>
+        ${top3.length ? `<ul class="lb-list">${rows}</ul>` : `<p class="lb-empty">No completed cases yet</p>`}
       </div>`;
     }).join("");
 
