@@ -67,6 +67,10 @@ export function parseWorkbook(wb) {
     const theatre = cellVal(ws, r, 0);
     const patient = cellVal(ws, r, 1);
     if (!theatre || !patient || !currentDay) continue;
+    // TAVI cases are excluded from this report entirely, on request —
+    // filtered out here at parse time (not just hidden in the UI) so
+    // they never reach the averages or leaderboards either.
+    if (/^tavi\b/i.test(String(theatre).trim())) continue;
 
     const raw = {
       sent: cellVal(ws, r, 2), arrived: cellVal(ws, r, 3), started: cellVal(ws, r, 4),
