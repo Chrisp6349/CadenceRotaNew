@@ -85,6 +85,20 @@ service cloud.firestore {
         allow write: if isAdmin(deptId);
       }
 
+      // Theatre journey times (see js/journey-times.js) — unlike every
+      // other collection here, read access isn't role-based: it's
+      // restricted to specific named people via each user's own
+      // canViewJourneyTimes flag (set in Administration → User
+      // accounts), because this report is scoped to particular
+      // individuals rather than a whole role. Admins always pass too,
+      // since they're the only ones who can upload it. me() (defined
+      // above) already fetches the requesting user's own /users/{uid}
+      // doc, so reading their flag here is just one field off it.
+      match /journeyTimes/{weekId} {
+        allow read: if isAdmin(deptId) || (inMyDept(deptId) && me().canViewJourneyTimes == true);
+        allow write: if isAdmin(deptId);
+      }
+
       match /auditLog/{docId} {
         allow read: if inMyDept(deptId);
         allow write: if isEditorOrAdmin(deptId);

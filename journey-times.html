@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadence — Journey Times</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/cadence.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0B6E64">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cadence">
+
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  .jt-toolbar{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap;}
+  .jt-toolbar input[type=date]{font-family:var(--font-body);padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--ink-150);}
+  .jt-toolbar .spacer{flex:1;}
+
+  .jt-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+  @media (max-width:760px){.jt-stats{grid-template-columns:1fr;}}
+  .jt-stat-card{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);padding:16px 18px;
+    box-shadow:var(--shadow-sm);border-left:3px solid var(--teal-600);}
+  .jt-stat-card .st-label{font-family:var(--font-mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--ink-300);margin-bottom:8px;}
+  .jt-stat-card .st-value{font-family:var(--font-display);font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;
+    display:flex;align-items:baseline;gap:6px;}
+  .jt-stat-card .st-value .unit{font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--ink-500);}
+  .jt-stat-card .st-sub{font-size:12px;color:var(--ink-500);margin-top:6px;font-variant-numeric:tabular-nums;}
+  .jt-stat-card .st-flag{margin-top:9px;display:inline-flex;align-items:center;gap:5px;font-family:var(--font-mono);
+    font-size:10.5px;color:var(--status-oncall);background:var(--status-oncall-bg);border-radius:999px;padding:3px 9px;}
+
+  .jt-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--ink-150);
+    border-radius:var(--r-md);padding:10px 14px;box-shadow:var(--shadow-sm);margin-bottom:18px;}
+  .jt-controls .grp-label{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--ink-300);margin-right:2px;}
+  .jt-chip{font-family:var(--font-body);font-size:12.5px;font-weight:600;padding:5px 11px;border-radius:999px;
+    border:1px solid var(--ink-150);background:var(--canvas);color:var(--ink-500);cursor:pointer;user-select:none;}
+  .jt-chip.on{background:var(--teal-600);border-color:var(--teal-600);color:#fff;}
+  .jt-toggle{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-500);cursor:pointer;user-select:none;}
+
+  .jt-table-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);
+    box-shadow:var(--shadow-sm);}
+  table.jt-table{border-collapse:collapse;width:100%;min-width:920px;font-size:12.5px;}
+  table.jt-table thead th{position:sticky;top:0;background:var(--teal-50);font-family:var(--font-mono);font-size:10px;
+    text-transform:uppercase;letter-spacing:.04em;color:var(--ink-500);text-align:left;padding:9px 10px;
+    border-bottom:1px solid var(--ink-150);white-space:nowrap;cursor:pointer;}
+  table.jt-table thead th:hover{color:var(--teal-700);}
+  table.jt-table thead th .arrow{opacity:.4;font-size:9px;margin-left:3px;}
+  table.jt-table thead th.sorted .arrow{opacity:1;color:var(--teal-600);}
+  table.jt-table tbody td{padding:7px 10px;border-bottom:1px solid var(--ink-100);vertical-align:middle;}
+  table.jt-table tbody tr:hover td{background:var(--ink-100);}
+  table.jt-table tbody tr.is-cancelled td{color:var(--ink-300);}
+  table.jt-table tbody tr.is-cancelled .dur-cell{opacity:.55;}
+  table.jt-table td.daycell{font-weight:600;white-space:nowrap;}
+  table.jt-table td.reason-cell{max-width:260px;font-size:11.5px;color:var(--ink-500);
+    overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;}
+  .jt-cancelled-badge{display:inline-block;font-family:var(--font-mono);font-size:10px;color:var(--status-closed);
+    background:var(--status-closed-bg);padding:2px 7px;border-radius:4px;}
+
+  .dur-cell{display:flex;align-items:center;gap:7px;min-width:120px;}
+  .dur-bar-track{flex:1;height:7px;border-radius:4px;background:var(--ink-100);overflow:hidden;}
+  .dur-bar-fill{height:100%;border-radius:4px;background:var(--status-inlist);}
+  .dur-bar-fill.high{background:var(--status-turnover);}
+  .dur-num{font-family:var(--font-mono);font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;
+    width:38px;text-align:right;flex-shrink:0;}
+  .dur-num.high{color:var(--status-turnover);}
+  .dur-missing{color:var(--ink-300);font-size:12px;}
+  .dur-anomaly{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:10.5px;
+    color:var(--status-oncall);background:var(--status-oncall-bg);border-radius:4px;padding:2px 6px;cursor:help;}
+
+  .jt-foot-note{font-size:12px;color:var(--ink-500);line-height:1.6;background:var(--teal-50);border:1px solid var(--teal-100);
+    border-radius:var(--r-md);padding:12px 14px;margin-top:18px;}
+  .jt-foot-note b{color:var(--ink-900);}
+</style>
+</head>
+<body>
+<div id="shellRoot"></div>
+
+<script type="module">
+  import { requireSession, blockBoardOnly } from "./js/auth.js";
+  import { renderShell } from "./js/shell.js";
+  import { loadJourneyWeek } from "./js/journey-times.js";
+  import { applyTheme } from "./js/theme.js";
+  applyTheme();
+
+  const { user, profile } = await requireSession();
+  await blockBoardOnly(profile);
+
+  const content = renderShell({ profile, activePage: "journeyTimes", title: "Journey Times" });
+
+  // Restricted to specific named people (see js/users.js's
+  // updateJourneyTimesAccess()) rather than by role — shell.js already
+  // hides the nav link for anyone without access, but the link isn't
+  // what keeps someone out; this check plus the matching Firestore rule
+  // (firestore.rules' journeyTimes match) are what actually do, since a
+  // direct URL visit skips the nav entirely.
+  if (!(profile.role === "admin" || profile.canViewJourneyTimes === true)) {
+    content.innerHTML = `<p style="color:var(--ink-500);">This report is only available to people who've been given access to it — ask your admin.</p>`;
+  } else {
+    await renderPage();
+  }
+
+  function mondayOf(dateStr) {
+    const d = new Date(dateStr + "T00:00:00");
+    const day = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - day);
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), dd = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dd}`;
+  }
+  function isoPlusDays(iso, n) {
+    const d = new Date(iso + "T00:00:00");
+    d.setDate(d.getDate() + n);
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), dd = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dd}`;
+  }
+  // These reports are typically uploaded once a week's already finished
+  // — defaulting to THIS week (like the rota does) would almost always
+  // land on an empty page, so default one week back instead.
+  function defaultWeekStart() {
+    const d = new Date();
+    const day = (d.getDay() + 6) % 7;
+    d.setDate(d.getDate() - day - 7);
+    const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), dd = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${dd}`;
+  }
+
+  async function renderPage() {
+    content.innerHTML = `
+      <div class="jt-toolbar">
+        <button class="btn btn-secondary btn-sm" id="prevWeekBtn">‹ Previous week</button>
+        <input type="date" id="weekDate">
+        <button class="btn btn-secondary btn-sm" id="nextWeekBtn">Next week ›</button>
+        <div class="spacer"></div>
+      </div>
+      <div id="jtBody"></div>
+    `;
+    const weekInput = document.getElementById("weekDate");
+    weekInput.value = defaultWeekStart();
+
+    document.getElementById("prevWeekBtn").addEventListener("click", () => {
+      weekInput.value = mondayOf(isoPlusDays(weekInput.value, -7));
+      loadAndRenderWeek();
+    });
+    document.getElementById("nextWeekBtn").addEventListener("click", () => {
+      weekInput.value = mondayOf(isoPlusDays(weekInput.value, 7));
+      loadAndRenderWeek();
+    });
+    weekInput.addEventListener("change", () => {
+      weekInput.value = mondayOf(weekInput.value);
+      loadAndRenderWeek();
+    });
+
+    await loadAndRenderWeek();
+
+    async function loadAndRenderWeek() {
+      const body = document.getElementById("jtBody");
+      body.innerHTML = `<p style="color:var(--ink-500);">Loading…</p>`;
+      const data = await loadJourneyWeek(profile.departmentId, weekInput.value);
+      if (!data) {
+        body.innerHTML = `<div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+          <div class="es-title">No journey times uploaded for this week</div>
+          <div class="es-sub">${profile.role === "admin" ? "Upload the week's spreadsheet in Administration." : "Ask your admin to upload it."}</div>
+        </div>`;
+        return;
+      }
+      renderDashboard(body, data);
+    }
+  }
+
+  function renderDashboard(root, DATA) {
+    const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
+    const METRICS = [
+      { key: "d_sa", label: "Sent → Arrived", stat: "sent_arrived", scaleMax: null },
+      { key: "d_si", label: "Started → Into theatre", stat: "started_into", scaleMax: null },
+      { key: "d_ik", label: "Into theatre → Knife to skin", stat: "into_knife", scaleMax: null }
+    ];
+    METRICS.forEach(m => { m.scaleMax = Math.max(10, DATA.summary[m.stat].max || 10); });
+
+    root.innerHTML = `
+      <div class="jt-stats" id="jtStats"></div>
+      <div class="jt-controls">
+        <span class="grp-label">Day</span>
+        <span id="jtDayChips"></span>
+        <div class="spacer"></div>
+        <label class="jt-toggle"><input type="checkbox" id="jtShowCancelled" checked> Show cancelled cases</label>
+      </div>
+      <div class="jt-table-wrap">
+        <table class="jt-table">
+          <thead><tr>
+            <th data-sort="day">Day <span class="arrow">▾</span></th>
+            <th data-sort="theatre">Theatre <span class="arrow">▾</span></th>
+            <th data-sort="patient">Patient <span class="arrow">▾</span></th>
+            <th data-sort="surg">Surgeon <span class="arrow">▾</span></th>
+            <th data-sort="anaes">Anaes <span class="arrow">▾</span></th>
+            <th data-sort="d_sa">Sent → Arrived <span class="arrow">▾</span></th>
+            <th data-sort="d_si">Started → Into theatre <span class="arrow">▾</span></th>
+            <th data-sort="d_ik">Into theatre → Knife <span class="arrow">▾</span></th>
+            <th>Reason</th>
+          </tr></thead>
+          <tbody id="jtTbody"></tbody>
+        </table>
+      </div>
+      <div class="jt-foot-note" id="jtFootNote"></div>
+    `;
+
+    document.getElementById("jtStats").innerHTML = METRICS.map(m => {
+      const s = DATA.summary[m.stat];
+      const flag = s.anomaly_count > 0
+        ? `<div class="st-flag" title="Into theatre recorded before Started on these cases — likely a timestamp entry issue, excluded from the average so it isn't skewed by an impossible negative duration.">${s.anomaly_count} case${s.anomaly_count === 1 ? "" : "s"} flagged — check timestamps</div>`
+        : "";
+      return `<div class="jt-stat-card">
+        <div class="st-label">${m.label}</div>
+        <div class="st-value">${s.mean ?? "—"}<span class="unit">min avg</span></div>
+        <div class="st-sub">Median ${s.median ?? "—"} · Range ${s.min ?? "—"}–${s.max ?? "—"} · n=${s.n}</div>
+        ${flag}
+      </div>`;
+    }).join("");
+
+    const activeDays = new Set(DAYS);
+    const dayChips = document.getElementById("jtDayChips");
+    function renderChips() {
+      dayChips.innerHTML = DAYS.map(d =>
+        `<button type="button" class="jt-chip ${activeDays.has(d) ? "on" : ""}" data-day="${d}">${d.slice(0,3)}</button>`
+      ).join("");
+    }
+    dayChips.addEventListener("click", e => {
+      const btn = e.target.closest("button[data-day]");
+      if (!btn) return;
+      const d = btn.dataset.day;
+      if (activeDays.has(d)) activeDays.delete(d); else activeDays.add(d);
+      renderChips();
+      renderTable();
+    });
+    renderChips();
+
+    const showCancelledEl = document.getElementById("jtShowCancelled");
+    showCancelledEl.addEventListener("change", renderTable);
+
+    let sortKey = null, sortDir = 1;
+    document.querySelectorAll("table.jt-table thead th[data-sort]").forEach(th => {
+      th.addEventListener("click", () => {
+        const key = th.dataset.sort;
+        if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
+        document.querySelectorAll("table.jt-table thead th").forEach(t => t.classList.remove("sorted"));
+        th.classList.add("sorted");
+        th.querySelector(".arrow").textContent = sortDir === 1 ? "▾" : "▴";
+        renderTable();
+      });
+    });
+
+    function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+    function durCell(c, m) {
+      const v = c[m.key];
+      if (c.cancelled) return `<span class="dur-missing">—</span>`;
+      if (v == null) return `<span class="dur-missing">not recorded</span>`;
+      if (v < 0) {
+        return `<span class="dur-anomaly" title="Recorded ${Math.abs(v)} min out of order — the later step's timestamp came before the earlier one's. Excluded from the average above.">⚑ out of order</span>`;
+      }
+      const s = DATA.summary[m.stat];
+      const high = s.p75 != null && v >= s.p75;
+      const pct = Math.min(100, Math.round((v / m.scaleMax) * 100));
+      return `<div class="dur-cell">
+        <div class="dur-bar-track"><div class="dur-bar-fill ${high ? "high" : ""}" style="width:${pct}%"></div></div>
+        <div class="dur-num ${high ? "high" : ""}">${v}m</div>
+      </div>`;
+    }
+
+    function renderTable() {
+      const showCancelled = showCancelledEl.checked;
+      let rows = DATA.cases.filter(c => activeDays.has(c.day) && (showCancelled || !c.cancelled));
+      if (sortKey) {
+        rows = rows.slice().sort((a, b) => {
+          let av = a[sortKey], bv = b[sortKey];
+          if (av == null && bv == null) return 0;
+          if (av == null) return 1;
+          if (bv == null) return -1;
+          if (typeof av === "string") return av.localeCompare(bv) * sortDir;
+          return (av - bv) * sortDir;
+        });
+      }
+      document.getElementById("jtTbody").innerHTML = rows.map(c => `
+        <tr class="${c.cancelled ? "is-cancelled" : ""}">
+          <td class="daycell">${c.day}</td>
+          <td>${c.theatre}</td>
+          <td>${c.patient}</td>
+          <td>${c.surg || "—"}</td>
+          <td>${c.anaes || "—"}</td>
+          <td>${durCell(c, METRICS[0])}</td>
+          <td>${durCell(c, METRICS[1])}</td>
+          <td>${durCell(c, METRICS[2])}</td>
+          <td class="reason-cell" title="${esc(c.reason || "")}">${c.cancelled ? `<span class="jt-cancelled-badge">CANCELLED</span> ` : ""}${c.reason || ""}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="9" style="text-align:center;color:var(--ink-300);padding:24px;">No cases match the current filters.</td></tr>`;
+    }
+    renderTable();
+
+    document.getElementById("jtFootNote").innerHTML =
+      `<b>Reading this:</b> bars are scaled per column, not against one shared axis, so each metric's own spread is visible. Amber marks a case at or above that column's 75th percentile (the slower quarter). Cancelled cases are shown greyed out with their logged reason, and don't count toward the averages above. Click a column header to sort; click a day chip to filter it out.`;
+  }
+</script>
+</body>
+</html>

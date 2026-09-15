@@ -26,7 +26,8 @@ const ICONS = {
   plus: `<path d="M12 5v14M5 12h14"/>`,
   menu: `<path d="M4 6h16M4 12h16M4 18h16"/>`,
   key: `<circle cx="8" cy="15" r="4"/><path d="M10.5 12.5L20 3M17 6l3 3M14 9l2.5 2.5"/>`,
-  help: `<path d="M4 4h11l5 5v11a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5"/><path d="M8 13h6M8 16h4"/>`
+  help: `<path d="M4 4h11l5 5v11a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/><path d="M15 4v5h5"/><path d="M8 13h6M8 16h4"/>`,
+  clock: `<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>`
 };
 
 function iconSvg(key){
@@ -47,6 +48,14 @@ const NAV = [
   { section: "Staff" },
   { key: "staff", label: "Staff Profiles", href: "staff.html", icon: "staff", roles: ["viewer","editor","admin"] },
   { key: "staffLeaderboard", label: "Staff Leaderboard", href: "staff-leaderboard.html", icon: "trophy", roles: ["viewer","editor","admin"] },
+  { section: "Reports" },
+  // Restricted to specific named people, not a whole role — admins
+  // always see it (they're the only ones who can upload it anyway),
+  // everyone else needs the canViewJourneyTimes flag Administration
+  // sets on their account. See js/users.js's updateJourneyTimesAccess()
+  // and journey-times.html's own access check.
+  { key: "journeyTimes", label: "Journey Times", href: "journey-times.html", icon: "clock", roles: ["viewer","editor","admin"],
+    visible: (profile) => profile.role === "admin" || profile.canViewJourneyTimes === true },
   { section: "System" },
   { key: "admin", label: "Administration", href: "admin.html", icon: "admin", roles: ["admin"] },
 ];
@@ -60,6 +69,7 @@ export function renderShell({ profile, activePage, title }) {
   NAV.forEach(item => {
     if (item.section) { navHtml += `<div class="nav-section-label">${item.section}</div>`; return; }
     if (!item.roles.includes(profile.role)) return;
+    if (item.visible && !item.visible(profile)) return;
     navHtml += `<a class="nav-item ${item.key === activePage ? "active" : ""}" href="${item.href}">
       ${iconSvg(item.icon)}<span class="nav-label">${item.label}</span></a>`;
   });

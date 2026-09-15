@@ -10,11 +10,12 @@ import {
   listStaff, saveStaff, deleteStaff,
   updateDepartment, listRecentAuditLog
 } from "./department.js";
-import { listUsers, createUserAccount, updateUserRole, revokeUserAccess } from "./users.js";
+import { listUsers, createUserAccount, updateUserRole, revokeUserAccess, updateJourneyTimesAccess } from "./users.js";
 import { loadWeek, saveWeek } from "./rota.js";
 import { loadNursingWeek, saveNursingWeek } from "./nursing-rota.js";
 import { getCadexConfig, saveCadexConfig, getCadexStatus, cadexManualSync, cadexTestConnection, generateApiKey } from "./cadex.js";
 import { parseWorkbook, suggestStaffMatch, buildWeeklyDocs, saveAvailabilityWeeks, statusLabel, FLAGGED_STATUSES } from "./healthroster-import.js";
+import { parseWorkbook as parseJourneyWorkbook, buildWeekPayload, saveJourneyWeek, weekStartFromHeader } from "./journey-times.js";
 
 const DEFAULT_LIST_OPTIONS = ["ROUTINE", "EMERGENCY", "URGENT"];
 
@@ -270,6 +271,18 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
             <button class="btn btn-ghost btn-sm" type="button" id="hrImportCancelBtn">Cancel</button>
           </div>
         </div>
+      </section>
+
+      <section>
+        <h4 class="admin-h">Theatre journey times (weekly upload)</h4>
+        <p class="empty-note" style="margin:-6px 0 10px;">Upload the weekly "Send and Start times" spreadsheet — Sent, Arrived,
+          Started, Into Theatre and Knife to skin times for every case that week. Feeds the Journey Times report, which is only
+          visible to people given access below under User accounts.</p>
+        <form id="jtImportForm" class="inline-form">
+          <input type="file" id="jtImportFile" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" required>
+          <button class="btn btn-primary btn-sm" type="submit">Upload</button>
+        </form>
+        <div id="jtImportMsg" class="empty-note" style="display:none;"></div>
       </section>
 
       <section>
@@ -670,6 +683,35 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
     container.querySelector("#hrImportFile").value = "";
   });
 
+  // ---- Theatre journey times (weekly upload) -------------------------------
+  // No review/matching step needed here, unlike the HealthRoster import
+  // above — this data is displayed as-is (raw times and surgeon/
+  // anaesthetist initials from the sheet), not matched against Cadence's
+  // own staff list, so it's a straight parse-then-save.
+  container.querySelector("#jtImportForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const file = container.querySelector("#jtImportFile").files[0];
+    if (!file) return;
+    const msgEl = container.querySelector("#jtImportMsg");
+    msgEl.style.display = "block";
+    msgEl.style.color = "";
+    msgEl.textContent = "Reading file…";
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = window.XLSX.read(buf, { type: "array" });
+      const parsed = parseJourneyWorkbook(wb);
+      const weekStart = weekStartFromHeader(parsed.week);
+      if (!weekStart) throw new Error(`Couldn't work out which week this belongs to from "${parsed.week}".`);
+      const payload = buildWeekPayload(parsed);
+      await saveJourneyWeek(deptId, weekStart, payload, myDisplayName);
+      msgEl.textContent = `Saved ${payload.totals.total} cases (${payload.totals.completed} completed, ${payload.totals.cancelled} cancelled) for the week commencing ${weekStart}.`;
+      container.querySelector("#jtImportFile").value = "";
+    } catch (err) {
+      msgEl.textContent = err.message || "Couldn't read that file — is it the \"Send and Start times\" export?";
+      msgEl.style.color = "var(--status-oncall)";
+    }
+  });
+
   // ---- Copy a week's rota -------------------------------------------------
   // Fixes "I filled in the wrong week" without hand-retyping every box.
   // Reuses the exact same load/save functions the rota pages themselves
@@ -810,10 +852,18 @@ export function renderAdmin(container, deptId, dept, myUid, myDisplayName = "") 
             ${Object.entries(ROLE_LABELS).map(([val, label]) =>
               `<option value="${val}" ${u.role === val ? "selected" : ""}>${label}</option>`).join("")}
           </select>
+          <label style="display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--ink-500);white-space:nowrap;"
+            title="Journey Times is restricted to named people rather than by role — check this to give them access to that report.">
+            <input type="checkbox" data-jt-for="${u.uid}" ${u.canViewJourneyTimes ? "checked" : ""} ${u.role === "admin" ? "disabled title=\"Admins always have access\"" : ""}>
+            Journey Times
+          </label>
           <button class="btn btn-ghost btn-sm" data-revoke-for="${u.uid}" ${isMe ? "disabled title=\"You can't revoke your own access\"" : ""}>Revoke access</button>
         </span>`;
       row.querySelector("select").addEventListener("change", async (e) => {
         await updateUserRole(u.uid, e.target.value);
+      });
+      row.querySelector("input[data-jt-for]").addEventListener("change", async (e) => {
+        await updateJourneyTimesAccess(u.uid, e.target.checked);
       });
       const revokeBtn = row.querySelector("button[data-revoke-for]");
       revokeBtn.addEventListener("click", async () => {

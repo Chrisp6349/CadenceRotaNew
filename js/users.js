@@ -48,6 +48,15 @@ export async function updateUserRole(uid, role) {
   await updateDoc(doc(db, "users", uid), { role });
 }
 
+// Journey Times is the one report restricted to specific named people
+// rather than by role (see js/journey-times.js) — this flag is that
+// allowlist, one boolean per user, independent of viewer/editor/admin.
+// Admins always see it regardless of this flag (see shell.js's NAV
+// entry and journey-times.html's own access check).
+export async function updateJourneyTimesAccess(uid, allowed) {
+  await updateDoc(doc(db, "users", uid), { canViewJourneyTimes: allowed });
+}
+
 // Revokes access to this department by removing their /users/{uid}
 // profile doc. Their Firebase Auth login itself still exists (deleting
 // another person's Auth account isn't possible from the client SDK —
