@@ -33,6 +33,89 @@ function localIso(d) {
   return `${y}-${m}-${day}`;
 }
 
+// ---- Monthly Reports (staff-leaderboard.html / staff.html) --------------
+// A week straddles two calendar months more often than not, so this
+// buckets by each entry/session's own weekday date (weekStart + day
+// offset) rather than by which week it was published in — same
+// {weekStart, day, ...} shape entries and session groups already carry,
+// just resolved to "YYYY-MM" instead of grouped by week.
+const ALL_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+function monthKeyOf(weekStart, day) {
+  const d = new Date(weekStart + "T00:00:00");
+  d.setDate(d.getDate() + ALL_DAYS.indexOf(day));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+export function currentMonthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+export function shiftMonthKey(monthKey, delta) {
+  const [y, m] = monthKey.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+export function monthLabel(monthKey) {
+  const [y, m] = monthKey.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+}
+
+// Department-wide, for Staff Leaderboard's Monthly Reports section.
+// `theatreCounts` is SODP/anaesthetist sessions only (the department's
+// primary theatre-utilisation view); `mix` combines both rotas' slot-
+// fills by kind — a count of assignments, not physical cases, since the
+// same case can carry both an SODP-side and a nursing-side entry;
+// `sodpOnCall` is scoped to SODP on-call specifically (not
+// anaesthetist/nursing/surgeon on-call, which run on their own separate
+// rotas and cadence, so mixing them into one fairness chart would
+// compare unlike things).
+export function buildDeptMonthlyReport(insights, monthKey) {
+  const { odpSessionGroups, odpEntries, nurSessionGroups, nurEntries, theatres } = insights;
+  const inMonth = g => monthKeyOf(g.weekStart, g.day) === monthKey;
+
+  const theatreCounts = {};
+  odpSessionGroups.filter(inMonth).forEach(g => { theatreCounts[g.theatreName] = (theatreCounts[g.theatreName] || 0) + 1; });
+
+  const monthOdpEntries = odpEntries.filter(e => monthKeyOf(e.weekStart, e.day) === monthKey);
+  const monthNurEntries = nurEntries.filter(e => monthKeyOf(e.weekStart, e.day) === monthKey);
+
+  let sessions = odpSessionGroups.filter(inMonth).length + nurSessionGroups.filter(inMonth).length;
+  let onCall = 0, support = 0, coordinated = 0;
+  const sodpOnCall = {};
+  monthOdpEntries.forEach(({ suffix, value }) => {
+    const c = classifyOdp(suffix, theatres);
+    if (c?.kind === "oncall_odp" || c?.kind === "oncall_anaes") onCall++;
+    else if (c?.kind === "support") support++;
+    if (c?.kind === "oncall_odp") sodpOnCall[value] = (sodpOnCall[value] || 0) + 1;
+  });
+  monthNurEntries.forEach(({ suffix }) => {
+    const c = classifyNursing(suffix, theatres);
+    if (!c) return;
+    if (c.kind.startsWith("oncall_")) onCall++;
+    else if (c.kind.startsWith("support_")) support++;
+    else if (c.kind === "coordinator") coordinated++;
+  });
+
+  return { theatreCounts, mix: { sessions, onCall, support, coordinated }, sodpOnCall };
+}
+
+// Per-person, for the new "This Month" section on Staff Profiles —
+// same theatre/day counts buildProfile() already computes across all
+// history, just scoped to one calendar month.
+export function buildPersonMonthlyReport(name, type, insights, monthKey) {
+  const groups = isNursingType(type) ? insights.nurSessionGroups : insights.odpSessionGroups;
+  const theatreCounts = {};
+  const dayCounts = {};
+  groups.filter(g => monthKeyOf(g.weekStart, g.day) === monthKey).forEach(g => {
+    const involved = isNursingType(type)
+      ? (g.nurses.includes(name) || g.hcas.includes(name) || g.surgeons.includes(name))
+      : (g.odps.includes(name) || g.anaes === name);
+    if (!involved) return;
+    theatreCounts[g.theatreName] = (theatreCounts[g.theatreName] || 0) + 1;
+    dayCounts[g.day] = (dayCounts[g.day] || 0) + 1;
+  });
+  return { theatreCounts, dayCounts };
+}
+
 // One-stop load: department, theatres, staff list, and both rotas'
 // published history, flattened into session groups. Everything else in
 // this module (and both pages) works off this bundle.

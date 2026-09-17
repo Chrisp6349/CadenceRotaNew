@@ -37,6 +37,37 @@
   .lb-name{font-size:13px;font-weight:600;color:var(--ink-900);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .lb-value{font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--ink-700);flex-shrink:0;}
   .lb-empty{color:var(--ink-500);font-size:12.5px;margin:0;padding:0 18px 18px;}
+
+  /* ---- Monthly Reports ---- */
+  .mr-section{border:1px solid var(--ink-150);border-radius:var(--r-lg);background:var(--surface);
+    box-shadow:var(--shadow-sm);margin-bottom:20px;overflow:hidden;}
+  .mr-head{padding:14px 18px;border-bottom:1px solid var(--ink-150);display:flex;align-items:center;
+    justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .mr-title{font-family:var(--font-display);font-weight:800;font-size:14px;}
+  .mr-month-nav{display:flex;align-items:center;gap:10px;}
+  .mr-month-nav button{font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--ink-500);
+    background:var(--canvas);border:1px solid var(--ink-150);border-radius:var(--r-sm);padding:5px 10px;cursor:pointer;}
+  .mr-month-nav button:hover{background:var(--ink-100);}
+  .mr-month-cur{font-family:var(--font-mono);font-weight:600;font-size:12.5px;color:var(--ink-900);min-width:120px;text-align:center;}
+  .mr-body{padding:18px;display:grid;grid-template-columns:1.3fr 1fr;gap:16px;}
+  @media (max-width:680px){.mr-body{grid-template-columns:1fr;}}
+  .mr-body.mr-full{grid-template-columns:1fr;}
+  .mr-card{background:var(--canvas);border:1px solid var(--ink-150);border-radius:var(--r-md);padding:16px;}
+  .mr-card h4{font-family:var(--font-display);font-weight:700;font-size:13px;margin:0 0 3px;}
+  .mr-card .mr-sub{font-size:11px;color:var(--ink-500);margin-bottom:12px;}
+  .mr-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;}
+  .mr-bar-label{width:88px;flex-shrink:0;font-size:11.5px;font-weight:600;color:var(--ink-700);text-align:right;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mr-bar-track{flex:1;height:15px;background:var(--ink-100);border-radius:4px;overflow:hidden;}
+  .mr-bar-fill{height:100%;border-radius:4px;}
+  .mr-bar-val{width:22px;flex-shrink:0;font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--ink-700);
+    font-variant-numeric:tabular-nums;}
+  .mr-donut-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;}
+  .mr-legend{display:flex;flex-direction:column;gap:6px;font-size:11.5px;}
+  .mr-legend-row{display:flex;align-items:center;gap:6px;}
+  .mr-legend-swatch{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+  .mr-legend-name{color:var(--ink-700);font-weight:600;}
+  .mr-legend-val{color:var(--ink-500);font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
 </style>
 </head>
 <body>
@@ -46,7 +77,10 @@
   import { requireSession, blockBoardOnly } from "./js/auth.js";
   import { renderShell } from "./js/shell.js";
   import { applyTheme } from "./js/theme.js";
-  import { loadStaffInsights, buildLeaderboardHtml } from "./js/staff-insights.js";
+  import {
+    loadStaffInsights, buildLeaderboardHtml, buildDeptMonthlyReport,
+    currentMonthKey, shiftMonthKey, monthLabel
+  } from "./js/staff-insights.js";
   applyTheme();
 
   const { user, profile } = await requireSession();
@@ -57,8 +91,106 @@
 
   const content = renderShell({ profile, activePage: "staffLeaderboard", title: "Staff Leaderboard" });
 
-  content.innerHTML = `<div id="leaderboardArea"></div>`;
+  content.innerHTML = `
+    <div class="mr-section">
+      <div class="mr-head">
+        <div class="mr-title">Monthly Reports</div>
+        <div class="mr-month-nav">
+          <button type="button" id="mrPrev">‹</button>
+          <span class="mr-month-cur" id="mrMonthLabel"></span>
+          <button type="button" id="mrNext">›</button>
+        </div>
+      </div>
+      <div class="mr-body" id="mrBody"></div>
+    </div>
+    <div id="leaderboardArea"></div>
+  `;
   document.getElementById("leaderboardArea").innerHTML = buildLeaderboardHtml(insights);
+
+  const CATS = ["#0B6E64", "#2F6FED", "#D55E00", "#7C4FC2", "#B07F12", "#B5568C"];
+
+  function mrBars(rows, emptyMsg) {
+    if (!rows.length) return `<p class="lb-empty" style="padding:0;">${emptyMsg}</p>`;
+    const max = Math.max(...rows.map(r => r.v));
+    return rows.map((r, i) => `
+      <div class="mr-bar-row">
+        <span class="mr-bar-label" title="${r.k}">${r.k}</span>
+        <div class="mr-bar-track"><div class="mr-bar-fill" style="width:${(r.v / max * 100).toFixed(0)}%;background:${r.c || CATS[i % CATS.length]}"></div></div>
+        <span class="mr-bar-val">${r.v}</span>
+      </div>`).join("");
+  }
+
+  function mrDonut(rows) {
+    const total = rows.reduce((a, r) => a + r.v, 0);
+    if (!total) return { svg: "", legend: `<p class="lb-empty" style="padding:0;">No data this month</p>` };
+    const cx = 60, cy = 60, rOuter = 52, rInner = 30;
+    let angle = -90, paths = "";
+    rows.forEach(r => {
+      if (!r.v) return;
+      const frac = r.v / total, start = angle, end = angle + frac * 360;
+      angle = end;
+      const toRad = a => (a * Math.PI) / 180;
+      const x1 = cx + rOuter * Math.cos(toRad(start)), y1 = cy + rOuter * Math.sin(toRad(start));
+      const x2 = cx + rOuter * Math.cos(toRad(end)), y2 = cy + rOuter * Math.sin(toRad(end));
+      const x1i = cx + rInner * Math.cos(toRad(end)), y1i = cy + rInner * Math.sin(toRad(end));
+      const x2i = cx + rInner * Math.cos(toRad(start)), y2i = cy + rInner * Math.sin(toRad(start));
+      const large = end - start > 180 ? 1 : 0;
+      paths += `<path d="M ${x1} ${y1} A ${rOuter} ${rOuter} 0 ${large} 1 ${x2} ${y2} L ${x1i} ${y1i} A ${rInner} ${rInner} 0 ${large} 0 ${x2i} ${y2i} Z" fill="${r.c}"></path>`;
+    });
+    const legend = rows.map(r =>
+      `<div class="mr-legend-row"><span class="mr-legend-swatch" style="background:${r.c}"></span><span class="mr-legend-name">${r.k}</span><span class="mr-legend-val">${r.v}</span></div>`
+    ).join("");
+    return { svg: paths, legend };
+  }
+
+  let mrMonth = currentMonthKey();
+
+  function renderMonthlyReport() {
+    document.getElementById("mrMonthLabel").textContent = monthLabel(mrMonth);
+    const r = buildDeptMonthlyReport(insights, mrMonth);
+
+    // Raw SVG fill attributes can't read CSS custom properties reliably,
+    // so resolve the app's own on-call/turnover tokens to concrete
+    // colors once here rather than hardcoding a second copy of them.
+    const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const oncallColor = cssVar("--status-oncall"), turnoverColor = cssVar("--status-turnover");
+
+    const theatreRows = Object.entries(r.theatreCounts).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ k, v }));
+    const mixRows = [
+      { k: "Sessions", v: r.mix.sessions, c: "#0B6E64" },
+      { k: "On call", v: r.mix.onCall, c: oncallColor },
+      { k: "Support", v: r.mix.support, c: turnoverColor },
+      { k: "Coordinated", v: r.mix.coordinated, c: "#2F6FED" }
+    ];
+    const oncallRows = Object.entries(r.sodpOnCall).sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(([k, v]) => ({ k, v, c: oncallColor }));
+
+    const donut = mrDonut(mixRows);
+
+    document.getElementById("mrBody").innerHTML = `
+      <div class="mr-card">
+        <h4>Theatre sessions this month</h4>
+        <div class="mr-sub">Department-wide — every SODP/anaesthetist session, by theatre</div>
+        ${mrBars(theatreRows, "No sessions recorded this month")}
+      </div>
+      <div class="mr-card">
+        <h4>Activity mix</h4>
+        <div class="mr-sub">All rota assignments this month, by kind</div>
+        <div class="mr-donut-wrap">
+          <svg width="120" height="120" viewBox="0 0 120 120">${donut.svg}</svg>
+          <div class="mr-legend">${donut.legend}</div>
+        </div>
+      </div>
+      <div class="mr-card" style="grid-column:1 / -1;">
+        <h4>SODP on-call shifts this month</h4>
+        <div class="mr-sub">Everyone with at least one SODP on-call shift this month — a skewed chart is worth a look</div>
+        ${mrBars(oncallRows, "No SODP on-call shifts recorded this month")}
+      </div>
+    `;
+  }
+  document.getElementById("mrPrev").addEventListener("click", () => { mrMonth = shiftMonthKey(mrMonth, -1); renderMonthlyReport(); });
+  document.getElementById("mrNext").addEventListener("click", () => { mrMonth = shiftMonthKey(mrMonth, 1); renderMonthlyReport(); });
+  renderMonthlyReport();
 </script>
 </body>
 </html>
