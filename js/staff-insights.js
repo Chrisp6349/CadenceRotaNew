@@ -273,11 +273,16 @@ export const LEADERBOARD_GROUPS = [
   { label: "Surgeons", types: ["surgeon"] }
 ];
 
-export function buildLeaderboardHtml(insights) {
+// All-time top-5 rankings for every group/category on the leaderboard —
+// the same computation buildLeaderboardHtml() renders as HTML, pulled
+// out here so the Highlights slideshow can draw on the exact same
+// standings instead of recomputing (and potentially disagreeing with)
+// them. Returns [{ label, categories: [{ label, key, ranked: [{name, value}, ...] }] }].
+export function buildLeaderboardRankings(insights) {
   const { staffList } = insights;
-  const sections = LEADERBOARD_GROUPS.map(group => {
+  return LEADERBOARD_GROUPS.map(group => {
     const members = staffList.filter(s => group.types.includes(s.type));
-    if (!members.length) return "";
+    if (!members.length) return null;
 
     const profiles = members.map(s => {
       const name = shownName(s);
@@ -296,15 +301,27 @@ export function buildLeaderboardHtml(insights) {
       ...(showCoordinator ? [{ key: "coordinatorCount", label: "Coordinated" }] : [])
     ];
 
-    const bodyHtml = !profiles.length
+    return {
+      label: group.label, hasProfiles: profiles.length > 0,
+      categories: categories.map(cat => ({
+        label: cat.label, key: cat.key,
+        ranked: profiles.filter(p => p[cat.key] > 0).sort((a, b) => b[cat.key] - a[cat.key]).slice(0, 5).map(p => ({ name: p.name, value: p[cat.key] }))
+      }))
+    };
+  }).filter(Boolean);
+}
+
+export function buildLeaderboardHtml(insights) {
+  const rankings = buildLeaderboardRankings(insights);
+  const sections = rankings.map(group => {
+    const bodyHtml = !group.hasProfiles
       ? `<p class="lb-empty">No published history yet for this group.</p>`
-      : `<div class="lb-grid">${categories.map(cat => {
-          const ranked = profiles.filter(p => p[cat.key] > 0).sort((a, b) => b[cat.key] - a[cat.key]).slice(0, 5);
-          if (!ranked.length) return `<div class="lb-card"><div class="lb-cat">${cat.label}</div><p class="lb-empty" style="padding:0;">No data yet</p></div>`;
+      : `<div class="lb-grid">${group.categories.map(cat => {
+          if (!cat.ranked.length) return `<div class="lb-card"><div class="lb-cat">${cat.label}</div><p class="lb-empty" style="padding:0;">No data yet</p></div>`;
           return `<div class="lb-card">
             <div class="lb-cat">${cat.label}</div>
             <ol class="lb-list">
-              ${ranked.map((p, i) => `<li class="lb-row"><span class="lb-rank">${i + 1}</span><span class="lb-name">${p.name}</span><span class="lb-value">${p[cat.key]}</span></li>`).join("")}
+              ${cat.ranked.map((p, i) => `<li class="lb-row"><span class="lb-rank">${i + 1}</span><span class="lb-name">${p.name}</span><span class="lb-value">${p.value}</span></li>`).join("")}
             </ol>
           </div>`;
         }).join("")}</div>`;
@@ -313,7 +330,7 @@ export function buildLeaderboardHtml(insights) {
       <summary class="lb-group-title">${group.label}</summary>
       ${bodyHtml}
     </details>`;
-  }).filter(Boolean).join("");
+  }).join("");
 
   return sections || `<p class="empty-note">No staff set up yet.</p>`;
 }

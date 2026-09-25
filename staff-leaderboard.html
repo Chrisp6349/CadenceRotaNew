@@ -82,6 +82,15 @@
     display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px;
     flex-shrink:0;}
   .hl-person span{color:#fff;font-weight:700;font-size:14.5px;}
+  .hl-list{margin-top:18px;display:flex;flex-direction:column;gap:8px;width:100%;max-width:340px;}
+  .hl-list-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:6px 16px 6px 6px;}
+  .hl-list-row .hl-rank{font-family:var(--font-mono);font-weight:700;font-size:11px;width:24px;height:24px;
+    border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    background:rgba(255,255,255,.9);color:var(--teal-700);}
+  .hl-list-name{flex:1;text-align:left;color:#fff;font-weight:600;font-size:13.5px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;}
+  .hl-list-val{font-family:var(--font-mono);font-weight:700;color:#fff;font-size:13.5px;flex-shrink:0;}
   .hl-controls{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:16px;}
   .hl-ctrl-btn{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.25);
     background:rgba(255,255,255,.1);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;}
@@ -123,7 +132,7 @@
   import { applyTheme } from "./js/theme.js";
   import {
     loadStaffInsights, buildLeaderboardHtml, buildDeptMonthlyReport,
-    currentMonthKey, shiftMonthKey, monthLabel, pickBadgeHighlights
+    currentMonthKey, shiftMonthKey, monthLabel, pickBadgeHighlights, buildLeaderboardRankings
   } from "./js/staff-insights.js";
   import { loadTheatreIntelligence } from "./js/insights.js";
   import { loadNursingTheatreIntelligence } from "./js/nursing-insights.js";
@@ -284,6 +293,10 @@
   }
   function hlInitials(name) { return name.split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase(); }
 
+  // Pulls as much genuinely-distinct content as the department's own
+  // history actually supports, rather than a fixed handful — every
+  // published week adds more, so this naturally grows over time instead
+  // of replaying the same ~10 slides on every watch.
   async function buildHighlightSlides() {
     const slides = [];
     const nowKey = currentMonthKey();
@@ -292,26 +305,51 @@
     if (r.mix.sessions > 0) {
       slides.push({ icon: "chart", kicker: "This month", headline: `<span class="num">${r.mix.sessions}</span>theatre sessions recorded department-wide` });
     }
-    const busiestTheatre = Object.entries(r.theatreCounts).sort((a, b) => b[1] - a[1])[0];
-    if (busiestTheatre) {
-      slides.push({ icon: "theatre", kicker: "Busiest theatre", headline: `${busiestTheatre[0]} has been the busiest theatre this month`, sub: `${busiestTheatre[1]} session${busiestTheatre[1] === 1 ? "" : "s"} — more than any other theatre` });
+    const theatreEntries = Object.entries(r.theatreCounts).sort((a, b) => b[1] - a[1]);
+    if (theatreEntries.length) {
+      const [name, count] = theatreEntries[0];
+      slides.push({ icon: "theatre", kicker: "Busiest theatre this month", headline: `${name} has been the busiest theatre this month`, sub: `${count} session${count === 1 ? "" : "s"} — more than any other theatre` });
     }
-    const topOnCall = Object.entries(r.sodpOnCall).sort((a, b) => b[1] - a[1])[0];
-    if (topOnCall) {
-      slides.push({ icon: "trophy", kicker: "Leaderboard — SODP on call", headline: "Most SODP on-call shifts this month", person: topOnCall[0], personSub: `${topOnCall[1]} shift${topOnCall[1] === 1 ? "" : "s"}` });
+    if (theatreEntries.length > 1) {
+      const [name, count] = theatreEntries[theatreEntries.length - 1];
+      slides.push({ icon: "theatre", kicker: "Quietest theatre this month", headline: `${name} has had the fewest sessions this month`, sub: `Just ${count} session${count === 1 ? "" : "s"} so far` });
+    }
+    const onCallEntries = Object.entries(r.sodpOnCall).sort((a, b) => b[1] - a[1]);
+    if (onCallEntries.length) {
+      const [name, count] = onCallEntries[0];
+      slides.push({ icon: "trophy", kicker: "Leaderboard — SODP on call", headline: "Most SODP on-call shifts this month", person: name, personSub: `${count} shift${count === 1 ? "" : "s"}` });
     }
 
+    // All-time standings — every group/category the Leaderboard itself
+    // shows, one slide per category, not just the SODP-on-call slice
+    // above (which is deliberately scoped to this month only).
+    buildLeaderboardRankings(insights).forEach(group => {
+      group.categories.forEach(cat => {
+        if (!cat.ranked.length) return;
+        slides.push({
+          icon: "trophy", kicker: `Leaderboard — ${group.label} · ${cat.label}`,
+          headline: `Top ${Math.min(3, cat.ranked.length)} of all time`,
+          list: cat.ranked.slice(0, 3)
+        });
+      });
+    });
+
+    // Theatre Intelligence's full fact pool (not just a handful) — the
+    // same shuffle-and-pick Theatre Intelligence's own "Shuffle" button
+    // uses, just requesting far more of the pool than the small card on
+    // the Dashboard has room for.
     const todayIsoNow = new Date().toISOString().split("T")[0];
     const [odpTI, nurTI] = await Promise.all([
       loadTheatreIntelligence(profile.departmentId, insights.theatres, mondayOfCurrentWeek(), todayIsoNow),
       loadNursingTheatreIntelligence(profile.departmentId, insights.theatres, mondayOfCurrentWeek(), todayIsoNow)
     ]);
-    const facts = [];
-    if (odpTI.hasData) facts.push(...odpTI.pickFacts(3));
-    if (nurTI.hasData) facts.push(...nurTI.pickFacts(2));
-    hlShuffle(facts).slice(0, 4).forEach(f => slides.push({ icon: "chart", kicker: "Did you know", headline: f }));
+    if (odpTI.hasData) odpTI.pickFacts(20).forEach(f => slides.push({ icon: "chart", kicker: "Did you know — SODP", headline: f }));
+    if (nurTI.hasData) nurTI.pickFacts(20).forEach(f => slides.push({ icon: "chart", kicker: "Did you know — Nursing", headline: f }));
 
-    pickBadgeHighlights(insights, 3).forEach(b => {
+    // Every badge anyone currently holds, not a fixed handful — each
+    // person contributes at most one (picked at random when they hold
+    // several) so one prolific SODP can't fill the whole reel.
+    pickBadgeHighlights(insights, insights.staffList.length).forEach(b => {
       slides.push({ icon: "badge", kicker: "Badge", headline: b.badge, person: b.name });
     });
 
@@ -327,11 +365,17 @@
     const personHtml = s.person
       ? `<div class="hl-person"><span class="hl-avatar">${hlInitials(s.person)}</span><span>${s.person}${s.personSub ? ` — ${s.personSub}` : ""}</span></div>`
       : "";
+    const listHtml = s.list
+      ? `<div class="hl-list">${s.list.map((p, r) => `
+          <div class="hl-list-row"><span class="hl-rank">${r + 1}</span><span class="hl-list-name">${p.name}</span><span class="hl-list-val">${p.value}</span></div>
+        `).join("")}</div>`
+      : "";
     return `<div class="hl-slide" id="hlSlide-${i}" style="--sc1:${c1};--sc2:${c2};">
       <div class="hl-kicker">${hlIcon(s.icon)}${s.kicker}</div>
       <div class="hl-headline">${s.headline}</div>
       ${s.sub ? `<div class="hl-sub">${s.sub}</div>` : ""}
       ${personHtml}
+      ${listHtml}
     </div>`;
   }
 
