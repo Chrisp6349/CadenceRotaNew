@@ -237,6 +237,29 @@ export function buildProfile(name, type, insights) {
   return { type, ...stats };
 }
 
+function shuffleArr(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// A handful of (person, badge) pairs for the Highlights slideshow — one
+// badge per person at most, so the same busy SODP doesn't dominate every
+// badge slide. Shuffled fresh each call, same "different every time you
+// watch it" spirit as Theatre Intelligence's own Shuffle button.
+export function pickBadgeHighlights(insights, count = 3) {
+  const { staffList } = insights;
+  const withBadges = shuffleArr(staffList).map(s => {
+    const name = shownName(s);
+    const p = buildProfile(name, s.type, insights);
+    return p.badges.length ? { name, type: s.type, badge: p.badges[Math.floor(Math.random() * p.badges.length)] } : null;
+  }).filter(Boolean);
+  return withBadges.slice(0, count);
+}
+
 // Broad groups rather than one board per exact role — a department's
 // Band 6 Nurses or AP/TAPs alone can be only a handful of people, and a
 // "top 3" of 4 people isn't a leaderboard. This mirrors the two rotas

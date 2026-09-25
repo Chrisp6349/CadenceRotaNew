@@ -43,7 +43,51 @@
     box-shadow:var(--shadow-sm);margin-bottom:20px;overflow:hidden;}
   .mr-head{padding:14px 18px;border-bottom:1px solid var(--ink-150);display:flex;align-items:center;
     justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .mr-head-left{display:flex;align-items:center;gap:12px;}
   .mr-title{font-family:var(--font-display);font-weight:800;font-size:14px;}
+  .hl-launch{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-body);font-size:12.5px;
+    font-weight:700;color:#fff;background:var(--teal-600);border:none;border-radius:999px;padding:7px 14px;cursor:pointer;}
+  .hl-launch:hover{background:var(--teal-700);}
+  .hl-launch svg{width:13px;height:13px;}
+
+  /* ---- Highlights slideshow (full-screen overlay) ---- */
+  .hl-overlay{position:fixed;inset:0;z-index:200;background:#0B1A18;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:24px;}
+  .hl-overlay[hidden]{display:none;}
+  .hl-stage{position:relative;width:100%;max-width:1000px;aspect-ratio:16/9;border-radius:20px;overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);}
+  .hl-progress-row{position:absolute;top:16px;left:16px;right:16px;display:flex;gap:5px;z-index:5;}
+  .hl-progress-seg{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.22);overflow:hidden;}
+  .hl-progress-seg .fill{height:100%;width:0%;background:#fff;border-radius:2px;}
+  .hl-progress-seg.done .fill{width:100%;}
+  @keyframes hlFillbar{from{width:0%;}to{width:100%;}}
+  .hl-exit{position:absolute;top:14px;right:14px;z-index:6;background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.25);color:#fff;font-family:var(--font-body);font-size:12px;font-weight:600;
+    padding:6px 12px;border-radius:999px;cursor:pointer;}
+  .hl-exit:hover{background:rgba(255,255,255,.22);}
+  .hl-slide{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:60px 48px;opacity:0;transform:translateX(40px);transition:opacity .5s ease,transform .5s ease;
+    background:linear-gradient(135deg, var(--sc1), var(--sc2));pointer-events:none;}
+  .hl-slide.active{opacity:1;transform:translateX(0);pointer-events:auto;}
+  .hl-kicker{font-family:var(--font-mono);font-size:12px;text-transform:uppercase;letter-spacing:.14em;
+    color:rgba(255,255,255,.75);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+  .hl-kicker svg{width:15px;height:15px;stroke:rgba(255,255,255,.85);}
+  .hl-headline{font-family:var(--font-display);font-weight:800;color:#fff;line-height:1.1;text-wrap:balance;
+    font-size:clamp(24px,3.6vw,42px);}
+  .hl-headline .num{font-size:clamp(44px,8vw,84px);display:block;font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
+  .hl-sub{margin-top:14px;font-size:clamp(13px,1.6vw,16px);color:rgba(255,255,255,.82);max-width:52ch;line-height:1.5;}
+  .hl-person{margin-top:18px;display:inline-flex;align-items:center;gap:10px;background:rgba(255,255,255,.14);
+    border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:8px 18px 8px 8px;}
+  .hl-avatar{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.9);color:var(--teal-700);
+    display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:800;font-size:12px;
+    flex-shrink:0;}
+  .hl-person span{color:#fff;font-weight:700;font-size:14.5px;}
+  .hl-controls{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:16px;}
+  .hl-ctrl-btn{width:36px;height:36px;border-radius:50%;border:1px solid rgba(255,255,255,.25);
+    background:rgba(255,255,255,.1);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .hl-ctrl-btn:hover{background:rgba(255,255,255,.2);}
+  .hl-ctrl-btn svg{width:15px;height:15px;}
+  .hl-empty{color:#fff;font-family:var(--font-body);font-size:15px;text-align:center;max-width:40ch;}
   .mr-month-nav{display:flex;align-items:center;gap:10px;}
   .mr-month-nav button{font-family:var(--font-body);font-size:12px;font-weight:600;color:var(--ink-500);
     background:var(--canvas);border:1px solid var(--ink-150);border-radius:var(--r-sm);padding:5px 10px;cursor:pointer;}
@@ -79,8 +123,11 @@
   import { applyTheme } from "./js/theme.js";
   import {
     loadStaffInsights, buildLeaderboardHtml, buildDeptMonthlyReport,
-    currentMonthKey, shiftMonthKey, monthLabel
+    currentMonthKey, shiftMonthKey, monthLabel, pickBadgeHighlights
   } from "./js/staff-insights.js";
+  import { loadTheatreIntelligence } from "./js/insights.js";
+  import { loadNursingTheatreIntelligence } from "./js/nursing-insights.js";
+  import { mondayOfCurrentWeek } from "./js/rota.js";
   applyTheme();
 
   const { user, profile } = await requireSession();
@@ -94,7 +141,13 @@
   content.innerHTML = `
     <div class="mr-section">
       <div class="mr-head">
-        <div class="mr-title">Monthly Reports</div>
+        <div class="mr-head-left">
+          <div class="mr-title">Monthly Reports</div>
+          <button type="button" class="hl-launch" id="hlLaunchBtn">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l12 7-12 7z"/></svg>
+            Play Highlights
+          </button>
+        </div>
         <div class="mr-month-nav">
           <button type="button" id="mrPrev">‹</button>
           <span class="mr-month-cur" id="mrMonthLabel"></span>
@@ -104,6 +157,25 @@
       <div class="mr-body" id="mrBody"></div>
     </div>
     <div id="leaderboardArea"></div>
+
+    <div class="hl-overlay" id="hlOverlay" hidden>
+      <div class="hl-stage" id="hlStage">
+        <div class="hl-progress-row" id="hlProgressRow"></div>
+        <button type="button" class="hl-exit" id="hlExitBtn">✕ Exit</button>
+        <div id="hlSlides"></div>
+      </div>
+      <div class="hl-controls">
+        <button type="button" class="hl-ctrl-btn" id="hlPrevBtn" title="Previous" aria-label="Previous slide">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button type="button" class="hl-ctrl-btn" id="hlPlayBtn" title="Pause" aria-label="Pause">
+          <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        </button>
+        <button type="button" class="hl-ctrl-btn" id="hlNextBtn" title="Next" aria-label="Next slide">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+    </div>
   `;
   document.getElementById("leaderboardArea").innerHTML = buildLeaderboardHtml(insights);
 
@@ -191,6 +263,132 @@
   document.getElementById("mrPrev").addEventListener("click", () => { mrMonth = shiftMonthKey(mrMonth, -1); renderMonthlyReport(); });
   document.getElementById("mrNext").addEventListener("click", () => { mrMonth = shiftMonthKey(mrMonth, 1); renderMonthlyReport(); });
   renderMonthlyReport();
+
+  // ---- Play Highlights slideshow --------------------------------------
+  // Always built from the ACTUAL current month, independent of whatever
+  // month the Monthly Reports panel above happens to be scrolled to —
+  // this is a "what's happening right now" showcase, not tied to that
+  // panel's own navigation state.
+  const HL_ICONS = {
+    theatre: `<path d="M4 4h16v13H4z"/><path d="M9 21h6M12 17v4"/>`,
+    trophy: `<path d="M8 4h8v5a4 4 0 01-8 0V4z"/><path d="M8 5H5a3 3 0 003 3M16 5h3a3 3 0 01-3 3"/><path d="M12 13v3"/>`,
+    badge: `<circle cx="12" cy="9" r="6"/><path d="M9 14.5L7 22l5-3 5 3-2-7.5"/>`,
+    chart: `<path d="M4 20V10M12 20V4M20 20v-7"/>`
+  };
+  const HL_COLORS = [["#0B6E64", "#0E8F72"], ["#0B6E64", "#08514D"], ["#2F6FED", "#1E4FB8"], ["#7C4FC2", "#5B2FA0"], ["#B07F12", "#8A6209"]];
+  const hlIcon = k => `<svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${HL_ICONS[k] || HL_ICONS.chart}</svg>`;
+  function hlShuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+  function hlInitials(name) { return name.split(" ").map(s => s[0]).slice(0, 2).join("").toUpperCase(); }
+
+  async function buildHighlightSlides() {
+    const slides = [];
+    const nowKey = currentMonthKey();
+    const r = buildDeptMonthlyReport(insights, nowKey);
+
+    if (r.mix.sessions > 0) {
+      slides.push({ icon: "chart", kicker: "This month", headline: `<span class="num">${r.mix.sessions}</span>theatre sessions recorded department-wide` });
+    }
+    const busiestTheatre = Object.entries(r.theatreCounts).sort((a, b) => b[1] - a[1])[0];
+    if (busiestTheatre) {
+      slides.push({ icon: "theatre", kicker: "Busiest theatre", headline: `${busiestTheatre[0]} has been the busiest theatre this month`, sub: `${busiestTheatre[1]} session${busiestTheatre[1] === 1 ? "" : "s"} — more than any other theatre` });
+    }
+    const topOnCall = Object.entries(r.sodpOnCall).sort((a, b) => b[1] - a[1])[0];
+    if (topOnCall) {
+      slides.push({ icon: "trophy", kicker: "Leaderboard — SODP on call", headline: "Most SODP on-call shifts this month", person: topOnCall[0], personSub: `${topOnCall[1]} shift${topOnCall[1] === 1 ? "" : "s"}` });
+    }
+
+    const todayIsoNow = new Date().toISOString().split("T")[0];
+    const [odpTI, nurTI] = await Promise.all([
+      loadTheatreIntelligence(profile.departmentId, insights.theatres, mondayOfCurrentWeek(), todayIsoNow),
+      loadNursingTheatreIntelligence(profile.departmentId, insights.theatres, mondayOfCurrentWeek(), todayIsoNow)
+    ]);
+    const facts = [];
+    if (odpTI.hasData) facts.push(...odpTI.pickFacts(3));
+    if (nurTI.hasData) facts.push(...nurTI.pickFacts(2));
+    hlShuffle(facts).slice(0, 4).forEach(f => slides.push({ icon: "chart", kicker: "Did you know", headline: f }));
+
+    pickBadgeHighlights(insights, 3).forEach(b => {
+      slides.push({ icon: "badge", kicker: "Badge", headline: b.badge, person: b.name });
+    });
+
+    return hlShuffle(slides);
+  }
+
+  const hlOverlay = document.getElementById("hlOverlay");
+  let hlSlides = [], hlCur = 0, hlPlaying = true, hlTimer = null;
+  const HL_DURATION = 5000;
+
+  function hlSlideHtml(s, i) {
+    const [c1, c2] = HL_COLORS[i % HL_COLORS.length];
+    const personHtml = s.person
+      ? `<div class="hl-person"><span class="hl-avatar">${hlInitials(s.person)}</span><span>${s.person}${s.personSub ? ` — ${s.personSub}` : ""}</span></div>`
+      : "";
+    return `<div class="hl-slide" id="hlSlide-${i}" style="--sc1:${c1};--sc2:${c2};">
+      <div class="hl-kicker">${hlIcon(s.icon)}${s.kicker}</div>
+      <div class="hl-headline">${s.headline}</div>
+      ${s.sub ? `<div class="hl-sub">${s.sub}</div>` : ""}
+      ${personHtml}
+    </div>`;
+  }
+
+  function hlRender() {
+    hlSlides.forEach((_, i) => document.getElementById(`hlSlide-${i}`).classList.toggle("active", i === hlCur));
+    hlSlides.forEach((_, i) => {
+      const seg = document.getElementById(`hlSeg-${i}`);
+      seg.classList.toggle("done", i < hlCur);
+      const fill = seg.querySelector(".fill");
+      if (i === hlCur && hlPlaying) { fill.style.animation = "none"; void fill.offsetWidth; fill.style.animation = `hlFillbar ${HL_DURATION}ms linear forwards`; }
+      else if (i !== hlCur) { fill.style.animation = "none"; }
+    });
+  }
+  function hlGoTo(i) { hlCur = (i + hlSlides.length) % hlSlides.length; hlRender(); hlRestart(); }
+  function hlNext() { hlGoTo(hlCur + 1); }
+  function hlPrev() { hlGoTo(hlCur - 1); }
+  function hlRestart() { clearTimeout(hlTimer); if (hlPlaying) hlTimer = setTimeout(hlNext, HL_DURATION); }
+
+  async function hlOpen() {
+    hlOverlay.hidden = false;
+    document.getElementById("hlSlides").innerHTML = `<div class="hl-slide active" style="--sc1:#0B6E64;--sc2:#08514D;"><div class="hl-empty">Loading…</div></div>`;
+    hlSlides = await buildHighlightSlides();
+    if (!hlSlides.length) {
+      document.getElementById("hlSlides").innerHTML = `<div class="hl-slide active" style="--sc1:#0B6E64;--sc2:#08514D;"><div class="hl-empty">Not enough published rota history yet for highlights — check back once a few weeks are published.</div></div>`;
+      document.getElementById("hlProgressRow").innerHTML = "";
+      return;
+    }
+    document.getElementById("hlSlides").innerHTML = hlSlides.map(hlSlideHtml).join("");
+    document.getElementById("hlProgressRow").innerHTML = hlSlides.map((_, i) => `<div class="hl-progress-seg" id="hlSeg-${i}"><div class="fill"></div></div>`).join("");
+    hlCur = 0; hlPlaying = true;
+    document.getElementById("hlPlayBtn").innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`;
+    hlRender();
+    hlRestart();
+  }
+  function hlClose() {
+    hlOverlay.hidden = true;
+    clearTimeout(hlTimer);
+  }
+
+  document.getElementById("hlLaunchBtn").addEventListener("click", hlOpen);
+  document.getElementById("hlExitBtn").addEventListener("click", hlClose);
+  document.getElementById("hlNextBtn").addEventListener("click", hlNext);
+  document.getElementById("hlPrevBtn").addEventListener("click", hlPrev);
+  document.getElementById("hlPlayBtn").addEventListener("click", (e) => {
+    hlPlaying = !hlPlaying;
+    e.currentTarget.innerHTML = hlPlaying
+      ? `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>`
+      : `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5l12 7-12 7z"/></svg>`;
+    hlRender();
+    hlRestart();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (hlOverlay.hidden) return;
+    if (e.key === "Escape") hlClose();
+    else if (e.key === "ArrowRight") hlNext();
+    else if (e.key === "ArrowLeft") hlPrev();
+  });
 </script>
 </body>
 </html>
