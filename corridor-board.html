@@ -56,6 +56,23 @@
 
   .cb-updated{font-size:11px;color:var(--ink-300);margin-top:2px;}
 
+  /* A quiet, glanceable strip — not a full takeover like the CME
+     slideshow above — cycling short facts pulled from the same data
+     Theatre Intelligence and the Staff Leaderboard's Highlights already
+     compute, so this board earns some personality without ever
+     covering up the staffing info people actually come here to check.
+     Hidden until the first batch of facts loads, rather than flashing
+     an empty bar on first paint. */
+  .cb-ticker{display:flex;align-items:center;gap:10px;padding:9px 18px;margin-bottom:22px;
+    background:var(--teal-50);border:1px solid var(--teal-100);border-radius:var(--r-md);overflow:hidden;}
+  .cb-ticker[hidden]{display:none;}
+  .cb-ticker-label{font-family:var(--font-mono);font-size:10px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.08em;color:var(--teal-700);flex-shrink:0;display:flex;align-items:center;gap:6px;}
+  .cb-ticker-label svg{width:13px;height:13px;stroke:var(--teal-700);}
+  .cb-ticker-text{flex:1;font-size:14.5px;font-weight:500;color:var(--ink-900);white-space:nowrap;overflow:hidden;
+    text-overflow:ellipsis;opacity:1;transition:opacity .5s ease;}
+  .cb-ticker-text.cb-ticker-fade{opacity:0;}
+
   .cb-head-coord{display:flex;justify-content:center;}
   .cb-coord-card{padding:10px 28px;text-align:center;min-width:220px;}
   .cb-coord-label{font-family:var(--font-mono);font-size:10.5px;color:rgba(255,255,255,.7);text-transform:uppercase;
@@ -291,6 +308,9 @@
   import { applyTheme } from "./js/theme.js";
   import { registerServiceWorker } from "./js/pwa.js";
   import { todaysHistoryEntry } from "./js/theatre-history.js";
+  import { loadTheatreIntelligence } from "./js/insights.js";
+  import { loadNursingTheatreIntelligence } from "./js/nursing-insights.js";
+  import { loadStaffInsights, buildDeptMonthlyReport, currentMonthKey, pickBadgeHighlights } from "./js/staff-insights.js";
   applyTheme();
   registerServiceWorker();
 
@@ -576,6 +596,13 @@
       </div>
     </div>
     <div id="boardBody"></div>
+    <div class="cb-ticker" id="cbTicker" hidden>
+      <span class="cb-ticker-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+        Did you know
+      </span>
+      <span class="cb-ticker-text" id="cbTickerText"></span>
+    </div>
     <div class="cb-tb-row">
       <div class="cb-card cb-tb-card" id="teamBoardCard"></div>
       <div class="cb-card cb-qr-card">
@@ -1102,6 +1129,64 @@
   renderTeamBoard();
   await loadBoth();
   renderBody();
+
+  // ---- Ticker: short facts pulled from the same sources Theatre
+  // Intelligence and the Staff Leaderboard's Highlights slideshow use —
+  // never blocks the board's main content, and refreshes on a much
+  // slower cadence than the rota itself since this data barely moves
+  // minute to minute.
+  let tickerFacts = [];
+  function tickerShuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  }
+  async function loadTickerFacts() {
+    try {
+      const [odpTI, nurTI, insights] = await Promise.all([
+        loadTheatreIntelligence(profile.departmentId, theatres, mondayOfCurrentWeek(), todayIso),
+        loadNursingTheatreIntelligence(profile.departmentId, theatres, mondayOfCurrentWeek(), todayIso),
+        loadStaffInsights(profile.departmentId)
+      ]);
+      const facts = [];
+      if (odpTI.hasData) facts.push(...odpTI.pickFacts(6));
+      if (nurTI.hasData) facts.push(...nurTI.pickFacts(6));
+
+      const r = buildDeptMonthlyReport(insights, currentMonthKey());
+      if (r.mix.sessions > 0) facts.push(`${r.mix.sessions} theatre sessions recorded department-wide this month.`);
+      const busiest = Object.entries(r.theatreCounts).sort((a, b) => b[1] - a[1])[0];
+      if (busiest) facts.push(`${busiest[0]} has been the busiest theatre this month, with ${busiest[1]} sessions.`);
+      const topOnCall = Object.entries(r.sodpOnCall).sort((a, b) => b[1] - a[1])[0];
+      if (topOnCall) facts.push(`${topOnCall[0]} has covered the most SODP on-call shifts this month — ${topOnCall[1]} so far.`);
+
+      pickBadgeHighlights(insights, 5).forEach(b => facts.push(`${b.name} — ${b.badge}.`));
+
+      tickerFacts = tickerShuffle(facts);
+    } catch (err) {
+      // Purely ambient — a failure here should never affect the actual
+      // staffing board underneath it.
+      tickerFacts = [];
+    }
+  }
+
+  let tickerIdx = 0;
+  function showNextTickerFact() {
+    const ticker = document.getElementById("cbTicker");
+    const textEl = document.getElementById("cbTickerText");
+    if (!tickerFacts.length) { ticker.hidden = true; return; }
+    ticker.hidden = false;
+    textEl.classList.add("cb-ticker-fade");
+    setTimeout(() => {
+      textEl.textContent = tickerFacts[tickerIdx % tickerFacts.length];
+      tickerIdx++;
+      textEl.classList.remove("cb-ticker-fade");
+    }, 500);
+  }
+
+  await loadTickerFacts();
+  showNextTickerFact();
+  setInterval(showNextTickerFact, 9000);
+  setInterval(loadTickerFacts, 15 * 60 * 1000);
 
   // Clock ticks every second (cheap — two textContent writes, never
   // touches the Team Board). renderBody() itself is also cheap — it
