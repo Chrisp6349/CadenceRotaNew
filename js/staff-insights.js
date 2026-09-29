@@ -102,16 +102,28 @@ export function buildDeptMonthlyReport(insights, monthKey) {
 // same theatre/day counts buildProfile() already computes across all
 // history, just scoped to one calendar month.
 export function buildPersonMonthlyReport(name, type, insights, monthKey) {
-  const groups = isNursingType(type) ? insights.nurSessionGroups : insights.odpSessionGroups;
+  const nursing = isNursingType(type);
+  const groups = nursing ? insights.nurSessionGroups : insights.odpSessionGroups;
   const theatreCounts = {};
   const dayCounts = {};
   groups.filter(g => monthKeyOf(g.weekStart, g.day) === monthKey).forEach(g => {
-    const involved = isNursingType(type)
+    const involved = nursing
       ? (g.nurses.includes(name) || g.hcas.includes(name) || g.surgeons.includes(name))
       : (g.odps.includes(name) || g.anaes === name);
     if (!involved) return;
     theatreCounts[g.theatreName] = (theatreCounts[g.theatreName] || 0) + 1;
     dayCounts[g.day] = (dayCounts[g.day] || 0) + 1;
+  });
+  // Support duty has no theatre to add to theatreCounts, but it's still
+  // a day worked — same "counts toward sessions everywhere except the
+  // per-theatre breakdown" rule buildProfile() applies for all-time.
+  const entries = nursing ? insights.nurEntries : insights.odpEntries;
+  const classify = nursing ? classifyNursing : classifyOdp;
+  entries.forEach(({ suffix, value, day, weekStart }) => {
+    if (value !== name || monthKeyOf(weekStart, day) !== monthKey) return;
+    const c = classify(suffix, insights.theatres);
+    const isSupport = nursing ? c?.kind?.startsWith("support_") : c?.kind === "support";
+    if (isSupport) dayCounts[day] = (dayCounts[day] || 0) + 1;
   });
   return { theatreCounts, dayCounts };
 }
@@ -168,24 +180,34 @@ function buildOdpProfile(name, insights) {
     }
   });
 
+  // Support duty counts toward "Theatre sessions" (the total, the
+  // weekly trend, and the day-of-week pattern) even though it isn't a
+  // theatre_odp/theatre_anaes session group — it has no theatre of its
+  // own, so it can't be attributed to a specific theatre's count, but
+  // it's still a real shift worked. It also keeps counting separately
+  // as its own supportCount below, so nothing stops showing Support
+  // duty on its own too.
   let onCallCount = 0, supportCount = 0;
-  odpEntries.forEach(({ suffix, value }) => {
+  const mySupportEntries = [];
+  odpEntries.forEach((e) => {
+    const { suffix, value, day, weekStart } = e;
     if (value !== name) return;
     const c = classifyOdp(suffix, theatres);
     if (c?.kind === "oncall_odp" || c?.kind === "oncall_anaes") onCallCount++;
-    else if (c?.kind === "support") supportCount++;
+    else if (c?.kind === "support") { supportCount++; mySupportEntries.push({ day, weekStart }); dayCounts[day] = (dayCounts[day] || 0) + 1; }
   });
 
   const favouriteTheatre = Object.entries(theatreCounts).sort((a, b) => b[1] - a[1])[0] || null;
   const topPartner = Object.entries(partnerCounts).sort((a, b) => b[1] - a[1])[0] || null;
+  const sessionsWorked = mySessions.length + supportCount;
 
   const badges = [];
-  if (mySessions.length >= 20) badges.push("Regular — 20+ sessions");
+  if (sessionsWorked >= 20) badges.push("Regular — 20+ sessions");
   if (onCallCount >= 10) badges.push("On-call veteran — 10+ shifts");
   if (Object.keys(partnerCounts).length >= 5) badges.push("Team player — worked with 5+ colleagues");
   if (favouriteTheatre && favouriteTheatre[1] >= 10) badges.push(`${favouriteTheatre[0]} regular`);
 
-  return { sessionsWorked: mySessions.length, theatreCounts, dayCounts, onCallCount, supportCount, coordinatorCount: 0, favouriteTheatre, topPartner, badges, weeklyTrend: buildWeeklyTrend(mySessions, ALL_ODP_WEEKS) };
+  return { sessionsWorked, theatreCounts, dayCounts, onCallCount, supportCount, coordinatorCount: 0, favouriteTheatre, topPartner, badges, weeklyTrend: buildWeeklyTrend([...mySessions, ...mySupportEntries], ALL_ODP_WEEKS) };
 }
 
 // Nursing sessions don't pair an ODP with an anaesthetist — they pair a
@@ -209,27 +231,31 @@ function buildNursingProfile(name, insights) {
     }
   });
 
+  // Same "Support duty counts toward Theatre sessions too" treatment as
+  // the ODP side — see buildOdpProfile()'s comment above.
   let onCallCount = 0, supportCount = 0, coordinatorCount = 0;
-  nurEntries.forEach(({ suffix, value }) => {
+  const mySupportEntries = [];
+  nurEntries.forEach(({ suffix, value, day, weekStart }) => {
     if (value !== name) return;
     const c = classifyNursing(suffix, theatres);
     if (!c) return;
     if (c.kind.startsWith("oncall_")) onCallCount++;
-    else if (c.kind.startsWith("support_")) supportCount++;
+    else if (c.kind.startsWith("support_")) { supportCount++; mySupportEntries.push({ day, weekStart }); dayCounts[day] = (dayCounts[day] || 0) + 1; }
     else if (c.kind === "coordinator") coordinatorCount++;
   });
 
   const favouriteTheatre = Object.entries(theatreCounts).sort((a, b) => b[1] - a[1])[0] || null;
   const topPartner = Object.entries(partnerCounts).sort((a, b) => b[1] - a[1])[0] || null;
+  const sessionsWorked = mySessions.length + supportCount;
 
   const badges = [];
-  if (mySessions.length >= 20) badges.push("Regular — 20+ sessions");
+  if (sessionsWorked >= 20) badges.push("Regular — 20+ sessions");
   if (onCallCount >= 10) badges.push("On-call veteran — 10+ shifts");
   if (coordinatorCount >= 10) badges.push("Coordination veteran — 10+ shifts");
   if (Object.keys(partnerCounts).length >= 5) badges.push("Team player — worked with 5+ colleagues");
   if (favouriteTheatre && favouriteTheatre[1] >= 10) badges.push(`${favouriteTheatre[0]} regular`);
 
-  return { sessionsWorked: mySessions.length, theatreCounts, dayCounts, onCallCount, supportCount, coordinatorCount, favouriteTheatre, topPartner, badges, weeklyTrend: buildWeeklyTrend(mySessions, ALL_NUR_WEEKS) };
+  return { sessionsWorked, theatreCounts, dayCounts, onCallCount, supportCount, coordinatorCount, favouriteTheatre, topPartner, badges, weeklyTrend: buildWeeklyTrend([...mySessions, ...mySupportEntries], ALL_NUR_WEEKS) };
 }
 
 export function buildProfile(name, type, insights) {
