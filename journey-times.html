@@ -96,6 +96,26 @@
   .jt-foot-note{font-size:12px;color:var(--ink-500);line-height:1.6;background:var(--teal-50);border:1px solid var(--teal-100);
     border-radius:var(--r-md);padding:12px 14px;margin-top:18px;}
   .jt-foot-note b{color:var(--ink-900);}
+
+  .jt-reasons{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);
+    box-shadow:var(--shadow-sm);margin-bottom:18px;overflow:hidden;}
+  .jt-reasons-head{padding:14px 18px;border-bottom:1px solid var(--ink-150);}
+  .jt-reasons-head h3{font-family:var(--font-display);font-weight:800;font-size:14px;margin:0 0 2px;}
+  .jt-reasons-head .jt-reasons-sub{font-size:12px;color:var(--ink-500);}
+  .jt-reasons-body{padding:16px 18px;display:flex;flex-direction:column;gap:10px;}
+  .jt-reason-row{display:flex;align-items:flex-start;gap:12px;}
+  .jt-reason-rank{font-family:var(--font-mono);font-weight:700;font-size:12px;width:24px;height:24px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--ink-100);color:var(--ink-500);
+    margin-top:2px;}
+  .jt-reason-row:first-child .jt-reason-rank{background:var(--status-oncall-bg);color:var(--status-oncall);}
+  .jt-reason-main{flex:1;min-width:0;}
+  .jt-reason-top{display:flex;align-items:center;gap:10px;}
+  .jt-reason-label{font-weight:700;font-size:13.5px;color:var(--ink-900);}
+  .jt-reason-bar-track{flex:1;height:8px;background:var(--ink-100);border-radius:4px;overflow:hidden;}
+  .jt-reason-bar-fill{height:100%;border-radius:4px;background:var(--status-oncall);}
+  .jt-reason-count{font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--ink-700);flex-shrink:0;
+    width:20px;text-align:right;}
+  .jt-reason-examples{font-size:11.5px;color:var(--ink-500);margin-top:4px;font-style:italic;}
 </style>
 </head>
 <body>
@@ -104,7 +124,7 @@
 <script type="module">
   import { requireSession, blockBoardOnly } from "./js/auth.js";
   import { renderShell } from "./js/shell.js";
-  import { loadJourneyWeek } from "./js/journey-times.js";
+  import { loadJourneyWeek, loadAllJourneyWeeks, buildCancellationReasonStats } from "./js/journey-times.js";
   import { applyTheme } from "./js/theme.js";
   applyTheme();
 
@@ -149,8 +169,49 @@
     return `${y}-${m}-${dd}`;
   }
 
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+  // Spans every uploaded week, not just the one the toolbar below is
+  // showing — a single week rarely has enough cancellations for a
+  // reason to repeat, so this needs the full upload history to say
+  // anything meaningful about which blockers keep coming back.
+  async function renderCancellationReasons() {
+    const el = document.getElementById("jtReasons");
+    const weeks = await loadAllJourneyWeeks(profile.departmentId);
+    const stats = buildCancellationReasonStats(weeks);
+    if (!stats.length) {
+      el.innerHTML = `<div class="jt-reasons-head"><h3>Cancellation reasons</h3>
+        <div class="jt-reasons-sub">No cancelled cases recorded yet across ${weeks.length} uploaded week${weeks.length === 1 ? "" : "s"}.</div></div>`;
+      return;
+    }
+    const totalCancelled = stats.reduce((a, s) => a + s.count, 0);
+    const max = stats[0].count;
+    el.innerHTML = `
+      <div class="jt-reasons-head">
+        <h3>Cancellation reasons</h3>
+        <div class="jt-reasons-sub">${totalCancelled} cancelled case${totalCancelled === 1 ? "" : "s"} across ${weeks.length} uploaded week${weeks.length === 1 ? "" : "s"} — grouped by likely cause, since the same reason gets typed differently week to week</div>
+      </div>
+      <div class="jt-reasons-body">
+        ${stats.map((s, i) => `
+          <div class="jt-reason-row">
+            <span class="jt-reason-rank">${i + 1}</span>
+            <div class="jt-reason-main">
+              <div class="jt-reason-top">
+                <span class="jt-reason-label">${esc(s.label)}</span>
+                <div class="jt-reason-bar-track"><div class="jt-reason-bar-fill" style="width:${Math.round((s.count / max) * 100)}%"></div></div>
+                <span class="jt-reason-count">${s.count}</span>
+              </div>
+              <div class="jt-reason-examples">e.g. ${s.examples.map(e => `"${esc(e)}"`).join(" · ")}</div>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
   async function renderPage() {
     content.innerHTML = `
+      <div class="jt-reasons" id="jtReasons"></div>
       <div class="jt-toolbar">
         <button class="btn btn-secondary btn-sm" id="prevWeekBtn">‹ Previous week</button>
         <input type="date" id="weekDate">
@@ -159,6 +220,7 @@
       </div>
       <div id="jtBody"></div>
     `;
+    renderCancellationReasons();
     const weekInput = document.getElementById("weekDate");
     weekInput.value = defaultWeekStart();
 

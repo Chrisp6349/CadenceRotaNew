@@ -14,7 +14,7 @@
 // free-text reasons column used for delays and cancellations.
 // -----------------------------------------------------------------------
 
-import { db, doc, getDoc, setDoc } from "./firebase-init.js";
+import { db, doc, getDoc, setDoc, collection, getDocs } from "./firebase-init.js";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_SET = new Set(DAY_NAMES.map(d => d.toLowerCase()));
@@ -156,6 +156,60 @@ export async function saveJourneyWeek(deptId, weekStart, payload, uploadedBy) {
 export async function loadJourneyWeek(deptId, weekStart) {
   const snap = await getDoc(doc(db, "departments", deptId, "journeyTimes", weekStart));
   return snap.exists() ? snap.data() : null;
+}
+
+// Every uploaded week's data, for the Cancellation Reasons leaderboard
+// below — that needs to look across the department's whole upload
+// history, not just whichever week the report's own week picker is on.
+export async function loadAllJourneyWeeks(deptId) {
+  const snap = await getDocs(collection(db, "departments", deptId, "journeyTimes"));
+  return snap.docs.map(d => d.data());
+}
+
+// The Reasons column is free text someone typed in the moment, so the
+// same underlying blocker shows up worded differently every time
+// ("No General ICU bed available", "no CICU beds", "Cancelled as no
+// CICU bed") — matching those as distinct strings would turn one real,
+// recurring problem into a dozen one-off entries. These are keyword
+// rules, checked in order (most specific first), grouping reasons into
+// a handful of categories that are actually worth tracking over time.
+// Anything that matches nothing stays in "Other" rather than being
+// force-fit somewhere wrong — see buildCancellationReasonStats() for
+// how "Other" still keeps its own text visible rather than hiding it.
+const CANCEL_CATEGORIES = [
+  { label: "No CICU / ITU bed", test: /\b(cicu|icu|itu)\b.*\bbed|\bbed\b.*\b(cicu|icu|itu)\b|\bno\s+beds?\b/i },
+  { label: "No anaesthetist available", test: /no\s+anaes/i },
+  { label: "Equipment unavailable", test: /\b(toe\s*machine|equipment)\b/i },
+  { label: "Previous case overran", test: /overran|back on bypass|ran (over|late)/i },
+  { label: "Staff fatigue / unavailable", test: /all night|staff (not )?avail/i },
+  { label: "Awaiting a decision", test: /final decision|awaiting.*decision|change of order/i }
+];
+
+export function classifyCancelReason(text) {
+  const t = (text || "").trim();
+  if (!t) return "No reason given";
+  const hit = CANCEL_CATEGORIES.find(c => c.test.test(t));
+  return hit ? hit.label : "Other";
+}
+
+// One count + a couple of real example reasons per category, across
+// every uploaded week — the examples are what make "Other" (or any
+// category, really) checkable at a glance instead of a bare number you
+// have to take on faith.
+export function buildCancellationReasonStats(weeks) {
+  const byCategory = {};
+  weeks.forEach(week => {
+    (week.cases || []).forEach(c => {
+      if (!c.cancelled || !c.reason) return;
+      const label = classifyCancelReason(c.reason);
+      if (!byCategory[label]) byCategory[label] = { label, count: 0, examples: [] };
+      byCategory[label].count++;
+      if (byCategory[label].examples.length < 3 && !byCategory[label].examples.includes(c.reason)) {
+        byCategory[label].examples.push(c.reason);
+      }
+    });
+  });
+  return Object.values(byCategory).sort((a, b) => b.count - a.count);
 }
 
 // "W/C 07/09/2026" -> "2026-09-01" (that date's own Monday, in case the
