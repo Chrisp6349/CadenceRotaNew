@@ -118,6 +118,32 @@
     width:20px;text-align:right;}
   .jt-reason-examples{font-size:11.5px;color:var(--ink-500);margin-top:4px;font-style:italic;}
 
+  .jt-trend{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);
+    box-shadow:var(--shadow-sm);margin-bottom:18px;padding:16px 18px;}
+  .jt-trend-head h3{font-family:var(--font-display);font-weight:800;font-size:14px;margin:0 0 2px;}
+  .jt-trend-sub{font-size:12px;color:var(--ink-500);margin-bottom:12px;}
+  .jt-trend-legend{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;}
+  .jt-trend-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-700);}
+  .jt-trend-swatch{width:14px;height:2px;border-radius:1px;flex-shrink:0;}
+  .jt-trend-charts{position:relative;}
+  .jt-trend-charts svg{display:block;width:100%;}
+  .jt-trend-chart-label{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--ink-300);margin:12px 0 2px;}
+  .jt-trend-gridline{stroke:var(--ink-100);stroke-width:1;}
+  .jt-trend-axislabel{fill:var(--ink-300);font-size:9.5px;font-family:'IBM Plex Mono',monospace;}
+  .jt-trend-endlabel{fill:var(--ink-700);font-size:10.5px;font-weight:600;font-family:'IBM Plex Mono',monospace;}
+  .jt-trend-crosshair{stroke:var(--ink-300);stroke-width:1;pointer-events:none;opacity:0;}
+  .jt-trend-barlabel{fill:var(--ink-500);font-size:9.5px;font-family:'IBM Plex Mono',monospace;}
+  .jt-trend-tooltip{position:absolute;pointer-events:none;background:var(--ink-900);color:#fff;font-size:12px;
+    line-height:1.5;border-radius:8px;padding:8px 11px;box-shadow:var(--shadow-md);opacity:0;z-index:5;
+    transform:translate(-50%,-100%);top:0;left:0;white-space:nowrap;transition:opacity .08s;}
+  html[data-theme="dark"] .jt-trend-tooltip{background:var(--surface);border:1px solid var(--ink-150);color:var(--ink-900);}
+  .jt-trend-tooltip .tt-week{font-weight:700;margin-bottom:4px;}
+  .jt-trend-tooltip .tt-row{display:flex;align-items:center;gap:6px;}
+  .jt-trend-tooltip .tt-key{width:9px;height:2px;border-radius:1px;flex-shrink:0;}
+  .jt-trend-tooltip .tt-val{margin-left:auto;font-family:var(--font-mono);font-weight:700;padding-left:10px;}
+  .jt-trend-empty{color:var(--ink-300);font-size:12.5px;font-style:italic;padding:8px 0;}
+
   /* Printing this page should only print the Cancellation reasons card
      — the week picker, stats, leaderboards and the whole case table
      are screen-only context, not what someone hitting Print wants on
@@ -127,7 +153,7 @@
   @media print{
     #shellRoot .app-sidebar,#shellRoot .app-topbar{display:none !important;}
     #shellRoot .app-main,#shellRoot .app-content{overflow:visible !important;height:auto !important;padding:0 !important;}
-    .jt-toolbar,.jt-stats,.jt-lb-section,.jt-controls,.jt-table-wrap,.jt-foot-note,.jt-no-print{display:none !important;}
+    .jt-toolbar,.jt-stats,.jt-lb-section,.jt-controls,.jt-table-wrap,.jt-foot-note,.jt-trend,.jt-no-print{display:none !important;}
     body,body *{color:#000 !important;background:#fff !important;}
     .jt-reasons{border:none !important;box-shadow:none !important;}
     .jt-reason-bar-fill{background:#000 !important;}
@@ -141,7 +167,7 @@
 <script type="module">
   import { requireSession, blockBoardOnly } from "./js/auth.js";
   import { renderShell } from "./js/shell.js";
-  import { loadJourneyWeek, buildCancellationReasonStats } from "./js/journey-times.js";
+  import { loadJourneyWeek, loadJourneyTrend, buildCancellationReasonStats } from "./js/journey-times.js";
   import { applyTheme } from "./js/theme.js";
   applyTheme();
 
@@ -187,6 +213,207 @@
   }
 
   function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+  function shortDate(iso) {
+    const d = new Date(iso + "T00:00:00");
+    return `${d.getDate()} ${d.toLocaleDateString("en-GB", { month: "short" })}`;
+  }
+
+  function niceStep(max) {
+    const steps = [5, 10, 15, 20, 25, 30, 45, 60, 90, 120, 180];
+    return steps.find(s => max / s <= 4) || Math.ceil(max / 5 / 60) * 60;
+  }
+
+  // ---- Trend over time ---------------------------------------------
+  // Deliberately NOT scoped to the week picker above — the whole point
+  // is seeing several weeks side by side, so it loads every uploaded
+  // week once, independent of whatever week the rest of the page is
+  // showing. Capped to the most recent 26 (roughly six months) so the
+  // chart doesn't get unreadably cramped as upload history grows.
+  async function renderTrend() {
+    const el = document.getElementById("jtTrend");
+    // Same teal/blue/orange trio Monthly Reports already uses elsewhere
+    // in the app, for one consistent palette across every chart in
+    // Cadence. CANCEL_COLOR (red) lives in its own chart below with its
+    // own title and axis — it's never a rival series next to these
+    // three, so it doesn't need to be colour-distinct from the orange.
+    const TREND_METRICS = [
+      { key: "sent_arrived", label: "Sent → Arrived", color: "#0B6E64" },
+      { key: "started_into", label: "Started → Into theatre", color: "#2F6FED" },
+      { key: "into_knife", label: "Into theatre → Knife", color: "#D55E00" }
+    ];
+    const CANCEL_COLOR = "#E0554F";
+    const TREND_MAX_WEEKS = 26;
+    const uploaded = await loadJourneyTrend(profile.departmentId);
+    if (uploaded.length < 2) {
+      el.innerHTML = `
+        <div class="jt-trend-head"><h3>Trend over time</h3></div>
+        <div class="jt-trend-empty">Upload at least two weeks of journey times to see a trend here.</div>
+      `;
+      return;
+    }
+    // A week that was never uploaded at all shouldn't be silently
+    // skipped — stitching straight from one upload to the next, with
+    // even spacing between them, would smooth over a skipped week and
+    // misreport it as a continuous trend. Rebuilding every Monday
+    // between the first and last upload, with a null placeholder for
+    // any that have no document, means a genuinely missing week shows
+    // as the real gap it is — both in the spacing (that stretch of the
+    // axis is wider) and as a visible break in the line.
+    const byStart = Object.fromEntries(uploaded.map(w => [w.weekStart, w]));
+    const full = [];
+    for (let d = uploaded[0].weekStart; d <= uploaded[uploaded.length - 1].weekStart; d = isoPlusDays(d, 7)) {
+      full.push(byStart[d] || { weekStart: d, week: null, summary: null, totals: null });
+    }
+    const weeks = full.slice(-TREND_MAX_WEEKS);
+
+    const PAD_L = 38, PAD_R = 14, PAD_T = 12, PAD_B = 24;
+    const W = 640, H1 = 190, H2 = 100;
+    const plotW = W - PAD_L - PAD_R;
+    const xAt = (i) => weeks.length === 1 ? PAD_L + plotW / 2 : PAD_L + (i / (weeks.length - 1)) * plotW;
+
+    // ---- chart 1: the three duration metrics, one shared minutes axis
+    const allMeans = weeks.flatMap(w => TREND_METRICS.map(m => w.summary?.[m.key]?.mean)).filter(v => v != null);
+    const rawMax = allMeans.length ? Math.max(...allMeans) : 10;
+    const step = niceStep(rawMax);
+    const niceMax = step * Math.ceil(Math.max(rawMax, step) / step);
+    const plotH1 = H1 - PAD_T - PAD_B;
+    const y1At = (v) => PAD_T + (1 - v / niceMax) * plotH1;
+
+    const gridTicks = [0, step, step * 2, step * 3, step * 4].filter(t => t <= niceMax);
+    const gridlines1 = gridTicks.map(t => `
+      <line class="jt-trend-gridline" x1="${PAD_L}" x2="${W - PAD_R}" y1="${y1At(t)}" y2="${y1At(t)}"/>
+      <text class="jt-trend-axislabel" x="${PAD_L - 6}" y="${y1At(t) + 3}" text-anchor="end">${t}</text>
+    `).join("");
+
+    // The first/last labels anchor to start/end rather than centering,
+    // so they align with the plot edge instead of overflowing it.
+    const thin = Math.ceil(weeks.length / 8);
+    const xAnchor = (i) => i === 0 ? "start" : i === weeks.length - 1 ? "end" : "middle";
+    const xLabels1 = weeks.map((w, i) => (i % thin === 0 || i === weeks.length - 1)
+      ? `<text class="jt-trend-axislabel" x="${xAt(i)}" y="${H1 - 6}" text-anchor="${xAnchor(i)}">${esc(shortDate(w.weekStart))}</text>` : "").join("");
+
+    const lineLayers = TREND_METRICS.map(m => {
+      let path = "", open = false;
+      const points = [];
+      weeks.forEach((w, i) => {
+        const v = w.summary?.[m.key]?.mean;
+        if (v == null) { open = false; return; }
+        const x = xAt(i), y = y1At(v);
+        path += (open ? " L " : " M ") + x.toFixed(1) + " " + y.toFixed(1);
+        open = true;
+        points.push({ x, y });
+      });
+      const dots = points.map(p => `<circle cx="${p.x}" cy="${p.y}" r="4" fill="${m.color}" stroke="var(--surface)" stroke-width="2"/>`).join("");
+      return { metric: m, path, points, svg: `<path d="${path}" fill="none" stroke="${m.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>${dots}` };
+    });
+
+    // Direct end-labels at each line's last valid point — nudged apart
+    // vertically if two or more would otherwise collide (lines converging
+    // near the right edge), per usual "don't stack them" chart practice.
+    const endPoints = lineLayers
+      .map(l => l.points.length ? { color: l.metric.color, y: l.points[l.points.length - 1].y, v: weeks.map((w, i) => w.summary?.[l.metric.key]?.mean).filter(v => v != null).slice(-1)[0] } : null)
+      .filter(Boolean)
+      .sort((a, b) => a.y - b.y);
+    for (let i = 1; i < endPoints.length; i++) {
+      if (endPoints[i].y - endPoints[i - 1].y < 14) endPoints[i].y = endPoints[i - 1].y + 14;
+    }
+    const endLabelsSvg = endPoints.map(p => `
+      <rect x="${W - PAD_R - 30}" y="${p.y - 9}" width="30" height="14" fill="var(--surface)" opacity="0.001"/>
+      <text class="jt-trend-endlabel" x="${W - PAD_R - 2}" y="${p.y + 3}" text-anchor="end" fill="${p.color}">${p.v}m</text>
+    `).join("");
+
+    // ---- chart 2: cancellation rate, one bar per week, 0-100% fixed scale
+    const plotH2 = H2 - PAD_T - PAD_B;
+    const y2At = (pct) => PAD_T + (1 - pct / 100) * plotH2;
+    const slotW = weeks.length > 1 ? plotW / weeks.length : plotW;
+    const barW = Math.min(22, slotW * 0.55);
+    const gridlines2 = [0, 25, 50, 75, 100].map(t => `
+      <line class="jt-trend-gridline" x1="${PAD_L}" x2="${W - PAD_R}" y1="${y2At(t)}" y2="${y2At(t)}"/>
+      <text class="jt-trend-axislabel" x="${PAD_L - 6}" y="${y2At(t) + 3}" text-anchor="end">${t}%</text>
+    `).join("");
+    const xLabels2 = weeks.map((w, i) => (i % thin === 0 || i === weeks.length - 1)
+      ? `<text class="jt-trend-axislabel" x="${xAt(i)}" y="${H2 - 6}" text-anchor="${xAnchor(i)}">${esc(shortDate(w.weekStart))}</text>` : "").join("");
+    const rates = weeks.map(w => w.totals?.total ? (w.totals.cancelled / w.totals.total) * 100 : null);
+    // Rounded top, square at the baseline — a plain rx-rounded rect
+    // rounds all four corners, which reads oddly where the bar meets
+    // the axis, so this draws the outline by hand instead.
+    function roundedTopBar(x, y, w, h) {
+      const r = Math.min(4, w / 2, Math.max(h, 0));
+      if (h <= 0) return "";
+      return `M${x} ${y + h} L${x} ${y + r} Q${x} ${y} ${x + r} ${y} L${x + w - r} ${y} Q${x + w} ${y} ${x + w} ${y + r} L${x + w} ${y + h} Z`;
+    }
+    const bars = weeks.map((w, i) => {
+      const r = rates[i];
+      if (r == null) return "";
+      const x = xAt(i) - barW / 2, y = y2At(r), h = (PAD_T + plotH2) - y;
+      return `<path d="${roundedTopBar(x, y, barW, h)}" fill="${CANCEL_COLOR}"/>`;
+    }).join("");
+
+    el.innerHTML = `
+      <div class="jt-trend-head"><h3>Trend over time</h3></div>
+      <div class="jt-trend-sub">${esc(shortDate(weeks[0].weekStart))} – ${esc(shortDate(weeks[weeks.length - 1].weekStart))} — hover a point for exact figures${weeks.some(w => !w.week) ? "; a gap means that week wasn't uploaded" : ""}.</div>
+      <div class="jt-trend-legend">
+        ${TREND_METRICS.map(m => `<span class="jt-trend-legend-item"><span class="jt-trend-swatch" style="background:${m.color}"></span>${esc(m.label)}</span>`).join("")}
+      </div>
+      <div class="jt-trend-charts" id="jtTrendCharts">
+        <svg id="jtTrendSvg1" viewBox="0 0 ${W} ${H1}">
+          ${gridlines1}${lineLayers.map(l => l.svg).join("")}${endLabelsSvg}${xLabels1}
+          <line class="jt-trend-crosshair" id="jtCross1" x1="0" x2="0" y1="${PAD_T}" y2="${PAD_T + plotH1}"/>
+        </svg>
+        <div class="jt-trend-chart-label">Cancellation rate</div>
+        <svg id="jtTrendSvg2" viewBox="0 0 ${W} ${H2}">
+          ${gridlines2}${bars}${xLabels2}
+          <line class="jt-trend-crosshair" id="jtCross2" x1="0" x2="0" y1="${PAD_T}" y2="${PAD_T + plotH2}"/>
+        </svg>
+        <div class="jt-trend-tooltip" id="jtTrendTooltip"></div>
+      </div>
+    `;
+
+    // One shared hover: moving over either chart finds the nearest
+    // week by x position and updates both crosshairs plus a single
+    // tooltip listing every metric for that week — the pointer never
+    // has to land exactly on a line or bar to get a value.
+    const wrap = document.getElementById("jtTrendCharts");
+    const cross1 = document.getElementById("jtCross1");
+    const cross2 = document.getElementById("jtCross2");
+    const tooltip = document.getElementById("jtTrendTooltip");
+    const xs = weeks.map((w, i) => xAt(i));
+
+    function showAt(i, clientX, clientY) {
+      const w = weeks[i];
+      const x = xs[i];
+      cross1.setAttribute("x1", x); cross1.setAttribute("x2", x); cross1.style.opacity = 1;
+      cross2.setAttribute("x1", x); cross2.setAttribute("x2", x); cross2.style.opacity = 1;
+      const rate = rates[i];
+      tooltip.innerHTML = `
+        <div class="tt-week">${esc(w.week || shortDate(w.weekStart))}</div>
+        ${TREND_METRICS.map(m => {
+          const v = w.summary?.[m.key]?.mean;
+          return `<div class="tt-row"><span class="tt-key" style="background:${m.color}"></span>${esc(m.label)}<span class="tt-val">${v != null ? v + "m" : "—"}</span></div>`;
+        }).join("")}
+        <div class="tt-row"><span class="tt-key" style="background:${CANCEL_COLOR}"></span>Cancellation rate<span class="tt-val">${rate != null ? Math.round(rate) + "%" : "—"}</span></div>
+      `;
+      const wrapRect = wrap.getBoundingClientRect();
+      tooltip.style.left = `${clientX - wrapRect.left}px`;
+      tooltip.style.top = `${clientY - wrapRect.top - 14}px`;
+      tooltip.style.opacity = 1;
+    }
+    function hideTooltip() {
+      cross1.style.opacity = 0; cross2.style.opacity = 0; tooltip.style.opacity = 0;
+    }
+    function nearestIndex(clientX, svgEl) {
+      const rect = svgEl.getBoundingClientRect();
+      const relX = ((clientX - rect.left) / rect.width) * W;
+      let best = 0, bestDist = Infinity;
+      xs.forEach((x, i) => { const d = Math.abs(x - relX); if (d < bestDist) { bestDist = d; best = i; } });
+      return best;
+    }
+    [document.getElementById("jtTrendSvg1"), document.getElementById("jtTrendSvg2")].forEach(svg => {
+      svg.addEventListener("mousemove", (e) => showAt(nearestIndex(e.clientX, svg), e.clientX, e.clientY));
+      svg.addEventListener("mouseleave", hideTooltip);
+    });
+  }
 
   // Scoped to whichever week the toolbar below is currently showing —
   // not the whole upload history — so it always matches what the rest
@@ -234,6 +461,7 @@
 
   async function renderPage() {
     content.innerHTML = `
+      <div class="jt-trend" id="jtTrend"></div>
       <div class="jt-reasons" id="jtReasons"></div>
       <div class="jt-toolbar">
         <button class="btn btn-secondary btn-sm" id="prevWeekBtn">‹ Previous week</button>
@@ -243,6 +471,7 @@
       </div>
       <div id="jtBody"></div>
     `;
+    renderTrend();
     const weekInput = document.getElementById("weekDate");
     weekInput.value = defaultWeekStart();
 

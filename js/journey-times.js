@@ -14,7 +14,7 @@
 // free-text reasons column used for delays and cancellations.
 // -----------------------------------------------------------------------
 
-import { db, doc, getDoc, setDoc } from "./firebase-init.js";
+import { db, doc, getDoc, setDoc, collection, getDocs } from "./firebase-init.js";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_SET = new Set(DAY_NAMES.map(d => d.toLowerCase()));
@@ -156,6 +156,18 @@ export async function saveJourneyWeek(deptId, weekStart, payload, uploadedBy) {
 export async function loadJourneyWeek(deptId, weekStart) {
   const snap = await getDoc(doc(db, "departments", deptId, "journeyTimes", weekStart));
   return snap.exists() ? snap.data() : null;
+}
+
+// Every uploaded week's own headline numbers, oldest to newest — for the
+// Trend Over Time chart, which is the one view that's deliberately NOT
+// scoped to a single week (the whole point is seeing several weeks side
+// by side). Only the summary/totals a trend line needs, not full case
+// lists, since this reads every doc in the collection at once.
+export async function loadJourneyTrend(deptId) {
+  const snap = await getDocs(collection(db, "departments", deptId, "journeyTimes"));
+  return snap.docs
+    .map(d => ({ weekStart: d.id, week: d.data().week, summary: d.data().summary, totals: d.data().totals }))
+    .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
 }
 
 // The Reasons column is free text someone typed in the moment, so the
