@@ -706,19 +706,27 @@
   const caseModalBody = document.getElementById("caseModalBody");
   const CUSTOM_CASE_VALUE = "__custom__";
 
-  // Three fixed, ordered slots (a dropdown each) rather than a checklist —
-  // a checklist can't represent "CABG" twice since a case name can only
-  // be checked once, but a theatre's list can genuinely repeat (two CABGs
+  // Fixed, ordered slots (a dropdown each) rather than a checklist — a
+  // checklist can't represent "CABG" twice since a case name can only be
+  // checked once, but a theatre's list can genuinely repeat (two CABGs
   // back to back). A dropdown per slot allows any case, including the
   // same one, in more than one slot. Each slot also has a "Custom…"
   // option for a case that isn't in the admin-managed list at all — its
   // paired text input only shows once that option is picked.
+  //
+  // Most theatres run at most 3 cases a day, but Theatre 1 regularly
+  // runs more — so it gets extra slots here, by name, the same way
+  // CASE_ENABLED_THEATRE_NAMES above switches the feature on by name.
+  const CASE_SLOT_COUNT_OVERRIDES = { "Theatre 1": 6 };
+  function caseSlotCountFor(theatreName) { return CASE_SLOT_COUNT_OVERRIDES[theatreName] || 3; }
+
   function openCaseModal(theatreId, theatreName) {
     const current = getSelectedCases(theatreId, localIso(new Date()));
     const options = [...(dept.caseList || [])].sort((a, b) => a.localeCompare(b));
+    const slotCount = caseSlotCountFor(theatreName);
     caseModalTitle.textContent = `${theatreName} — today's cases`;
     caseModalBody.innerHTML = options.length
-      ? `<div class="cb-case-slots">${[0, 1, 2].map(i => {
+      ? `<div class="cb-case-slots">${Array.from({ length: slotCount }, (_, i) => i).map(i => {
           const val = current[i] || "";
           const isCustom = val && !options.includes(val);
           return `<label class="cb-case-slot">
