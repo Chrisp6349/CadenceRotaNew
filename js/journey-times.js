@@ -14,7 +14,7 @@
 // free-text reasons column used for delays and cancellations.
 // -----------------------------------------------------------------------
 
-import { db, doc, getDoc, setDoc, collection, getDocs } from "./firebase-init.js";
+import { db, doc, getDoc, setDoc } from "./firebase-init.js";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_SET = new Set(DAY_NAMES.map(d => d.toLowerCase()));
@@ -158,14 +158,6 @@ export async function loadJourneyWeek(deptId, weekStart) {
   return snap.exists() ? snap.data() : null;
 }
 
-// Every uploaded week's data, for the Cancellation Reasons leaderboard
-// below — that needs to look across the department's whole upload
-// history, not just whichever week the report's own week picker is on.
-export async function loadAllJourneyWeeks(deptId) {
-  const snap = await getDocs(collection(db, "departments", deptId, "journeyTimes"));
-  return snap.docs.map(d => d.data());
-}
-
 // The Reasons column is free text someone typed in the moment, so the
 // same underlying blocker shows up worded differently every time
 // ("No General ICU bed available", "no CICU beds", "Cancelled as no
@@ -192,8 +184,10 @@ export function classifyCancelReason(text) {
   return hit ? hit.label : "Other";
 }
 
-// One count + a couple of real example reasons per category, across
-// every uploaded week — the examples are what make "Other" (or any
+// One count + a couple of real example reasons per category. Takes an
+// array of week payloads (usually just the one currently selected) so
+// the same function also works if a future caller wants to look across
+// several weeks at once. The examples are what make "Other" (or any
 // category, really) checkable at a glance instead of a bare number you
 // have to take on faith.
 export function buildCancellationReasonStats(weeks) {
