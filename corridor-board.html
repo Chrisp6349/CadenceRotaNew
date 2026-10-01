@@ -789,9 +789,22 @@
     const next = window.prompt(`Show as (today only — leave blank for "${realName}"):`, current);
     if (next === null) return; // cancelled
     const label = next.trim();
-    boardLabels[theatreId] = label; // local update first so the board reflects it immediately, not just after the write round-trips
-    await saveBoardLabel(profile.departmentId, todayIso, theatreId, label);
-    renderBody();
+    boardLabels[theatreId] = label;
+    renderBody(); // update the board immediately — don't wait on the save below, which can fail
+    try {
+      await saveBoardLabel(profile.departmentId, todayIso, theatreId, label);
+    } catch (err) {
+      // The card above already shows the new label, which is misleading
+      // on its own if the write actually failed — most likely cause is
+      // the firestore.rules update for the boardLabels collection not
+      // having been published in the Firebase Console yet. Revert the
+      // local change and say so plainly, rather than leaving a change
+      // on screen that won't survive a refresh or show on any other
+      // screen.
+      boardLabels[theatreId] = current;
+      renderBody();
+      window.alert("Couldn't save that — it won't stick after a refresh. If this just started happening, check that the latest Firestore rules have been published in the Firebase Console.");
+    }
   });
 
   function tickClock() {
