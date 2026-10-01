@@ -106,6 +106,10 @@
   .cb-card-head .dot.inlist{background:var(--status-inlist);animation:pulse-dot 1.8s infinite;}
   .cb-card-head .dot.closed{background:var(--status-closed);}
   .cb-theatre-name{font-family:var(--font-display);font-weight:800;font-size:19px;flex:1;}
+  .cb-rename-btn{flex-shrink:0;border:none;background:transparent;padding:4px;margin:0;cursor:pointer;
+    color:var(--ink-300);border-radius:6px;display:flex;align-items:center;justify-content:center;}
+  .cb-rename-btn:hover{color:var(--teal-600);background:var(--teal-50);}
+  .cb-rename-btn svg{width:15px;height:15px;}
   .cb-team{display:flex;flex-direction:column;gap:8px;}
   .cb-team-block{border-top:1px solid var(--ink-100);padding-top:8px;}
   .cb-team-block:first-child{border-top:none;padding-top:0;}
@@ -311,6 +315,7 @@
   import { loadTheatreIntelligence } from "./js/insights.js";
   import { loadNursingTheatreIntelligence } from "./js/nursing-insights.js";
   import { loadStaffInsights, buildDeptMonthlyReport, currentMonthKey, pickBadgeHighlights } from "./js/staff-insights.js";
+  import { db, doc, getDoc, setDoc } from "./js/firebase-init.js";
   applyTheme();
   registerServiceWorker();
 
@@ -360,6 +365,29 @@
   }
   function setSelectedCases(theatreId, dateIso, cases) {
     try { localStorage.setItem(caseStorageKey(theatreId, dateIso), JSON.stringify(cases)); } catch {}
+  }
+
+  // Per-day display-name overrides (e.g. "Theatre 3" standing in for
+  // "Cath Lab" just for today) — shared via Firestore, not localStorage,
+  // since the point is changing what the actual wall-mounted board
+  // shows, not just this one device's own view of it. Loaded once on
+  // startup (board content doesn't need to react within the same day —
+  // a page refresh picks up any change) and purely additive: nothing
+  // here touches `theatres` or any theatre's real `name`, which is what
+  // the rota, Administration, and the case-picker's own matching above
+  // all keep using.
+  let boardLabels = {};
+  async function loadBoardLabels(deptId, dateIso) {
+    try {
+      const snap = await getDoc(doc(db, "departments", deptId, "boardLabels", dateIso));
+      return snap.exists() ? (snap.data() || {}) : {};
+    } catch { return {}; }
+  }
+  async function saveBoardLabel(deptId, dateIso, theatreId, label) {
+    await setDoc(doc(db, "departments", deptId, "boardLabels", dateIso), { [theatreId]: label }, { merge: true });
+  }
+  function displayNameFor(t) {
+    return boardLabels[t.id] || t.name;
   }
 
   // ---- Schedule: when the board shows the on-call-only / weekend view --
@@ -500,6 +528,21 @@
     return `${listType} List`;
   }
 
+  // A small pencil next to the theatre name — editor/admin only, same
+  // one-click-then-prompt() pattern as the rota's own per-slot notes —
+  // for renaming it just for today (e.g. Cath Lab standing in as
+  // "Theatre 3" for the day). Viewers and shared "board" kiosk logins
+  // never see it; this writes to the shared board, not just this
+  // device, so it shouldn't be something anyone passing the kiosk can
+  // trigger.
+  const canRenameBoard = profile.role === "editor" || profile.role === "admin";
+  function renameBtnHtml(t) {
+    if (!canRenameBoard) return "";
+    return `<button type="button" class="cb-rename-btn" data-rename-theatre="${t.id}" data-rename-theatre-default="${t.name}" title="Rename for today">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+    </button>`;
+  }
+
   function theatreCardHtml(day, t, todayIsoNow) {
     const i = theatreInfo(day, t);
     const accent = `style="--card-accent:${STATUS_ACCENT[i.status]}"`;
@@ -516,7 +559,8 @@
       return `<div class="cb-card" ${accent}>
         <div class="cb-card-head">
           <span class="dot closed"></span>
-          <span class="cb-theatre-name">${t.name}</span>
+          <span class="cb-theatre-name">${displayNameFor(t)}</span>
+          ${renameBtnHtml(t)}
         </div>
         <div class="cb-closed-label">${label}</div>
       </div>`;
@@ -540,7 +584,8 @@
     return `<div class="cb-card" ${accent}>
       <div class="cb-card-head">
         <span class="dot ${i.status}"></span>
-        <span class="cb-theatre-name">${t.name}</span>
+        <span class="cb-theatre-name">${displayNameFor(t)}</span>
+        ${renameBtnHtml(t)}
       </div>
       <div class="cb-theatre-sub">
         Anaesthetist: <b>${i.anaes || "—"}</b><br>
@@ -734,6 +779,19 @@
     if (!el) return;
     e.preventDefault();
     openCaseModal(el.dataset.caseTheatre, el.dataset.caseTheatreName);
+  });
+  boardBodyEl.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-rename-theatre]");
+    if (!btn) return;
+    const theatreId = btn.dataset.renameTheatre;
+    const realName = btn.dataset.renameTheatreDefault;
+    const current = boardLabels[theatreId] || "";
+    const next = window.prompt(`Show as (today only — leave blank for "${realName}"):`, current);
+    if (next === null) return; // cancelled
+    const label = next.trim();
+    boardLabels[theatreId] = label; // local update first so the board reflects it immediately, not just after the write round-trips
+    await saveBoardLabel(profile.departmentId, todayIso, theatreId, label);
+    renderBody();
   });
 
   function tickClock() {
@@ -1124,6 +1182,7 @@
     document.getElementById("tbToggleBtn").addEventListener("click", toggleBoardMode);
   }
 
+  boardLabels = await loadBoardLabels(profile.departmentId, todayIso);
   tickClock();
   renderBody();
   renderTeamBoard();

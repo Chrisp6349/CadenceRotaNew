@@ -76,6 +76,19 @@ service cloud.firestore {
         allow write: if isEditorOrAdmin(deptId);
       }
 
+      // Per-day display-name overrides for the Theatre Board (see
+      // corridor-board.html) — e.g. showing "Theatre 3" instead of
+      // "Cath Lab" just for today, without touching the theatre's real
+      // name anywhere else (the rota, Administration, case-picker
+      // matching all still use the real name). One doc per calendar
+      // date, keyed {theatreId: "label"} — a date with no doc just
+      // means nobody overrode anything that day, which is also how a
+      // day's override naturally stops applying after it's passed.
+      match /boardLabels/{dateId} {
+        allow read: if inMyDept(deptId);
+        allow write: if isEditorOrAdmin(deptId);
+      }
+
       // HealthRoster availability import (see js/healthroster-import.js)
       // — read by anyone filling in the rota (editor/admin, same as the
       // rota itself), written only via the upload/review screen in
