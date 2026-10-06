@@ -244,6 +244,20 @@ export function buildOverrunStats(data) {
   return Object.values(byTheatre).sort((a, b) => b.count - a.count);
 }
 
+// Every case that week, by theatre — the volume baseline Cancellation
+// reasons and Theatres that overran are both a subset of. "examples"
+// here is a completed/cancelled split rather than quoted text, since
+// there's no free-text reason to show for a case that just... happened.
+export function buildCaseVolumeStats(data) {
+  const byTheatre = {};
+  (data?.cases || []).forEach(c => {
+    if (!byTheatre[c.theatre]) byTheatre[c.theatre] = { theatre: c.theatre, count: 0, completed: 0, cancelled: 0 };
+    byTheatre[c.theatre].count++;
+    if (c.cancelled) byTheatre[c.theatre].cancelled++; else byTheatre[c.theatre].completed++;
+  });
+  return Object.values(byTheatre).sort((a, b) => b.count - a.count);
+}
+
 // "W/C 07/09/2026" -> "2026-09-01" (that date's own Monday, in case the
 // sheet's W/C date is ever typed as a mid-week date by mistake) — same
 // Monday-anchored week-keying convention rota.js's own mondayOf() uses,

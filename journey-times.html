@@ -97,7 +97,7 @@
     border-radius:var(--r-md);padding:12px 14px;margin-top:18px;}
   .jt-foot-note b{color:var(--ink-900);}
 
-  .jt-reasons,.jt-overruns{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);
+  .jt-reasons,.jt-overruns,.jt-casevolume{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);
     box-shadow:var(--shadow-sm);margin-bottom:18px;overflow:hidden;}
   .jt-reasons-head{padding:14px 18px;border-bottom:1px solid var(--ink-150);}
   .jt-reasons-head-top{display:flex;align-items:center;justify-content:space-between;gap:12px;}
@@ -159,10 +159,10 @@
   @media print{
     #shellRoot .app-sidebar,#shellRoot .app-topbar{display:none !important;}
     #shellRoot .app-main,#shellRoot .app-content{overflow:visible !important;height:auto !important;padding:0 !important;}
-    .jt-toolbar,.jt-stats,.jt-lb-section,.jt-controls,.jt-table-wrap,.jt-foot-note,.jt-trend,.jt-reasons,.jt-overruns,.jt-no-print{display:none !important;}
+    .jt-toolbar,.jt-stats,.jt-lb-section,.jt-controls,.jt-table-wrap,.jt-foot-note,.jt-trend,.jt-reasons,.jt-overruns,.jt-casevolume,.jt-no-print{display:none !important;}
     .jt-print-this{display:block !important;}
     body,body *{color:#000 !important;background:#fff !important;}
-    .jt-reasons,.jt-overruns{border:none !important;box-shadow:none !important;}
+    .jt-reasons,.jt-overruns,.jt-casevolume{border:none !important;box-shadow:none !important;}
     .jt-reason-bar-fill{background:#000 !important;}
     .jt-reason-rank{background:#e0e0e0 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
@@ -174,7 +174,7 @@
 <script type="module">
   import { requireSession, blockBoardOnly } from "./js/auth.js";
   import { renderShell } from "./js/shell.js";
-  import { loadJourneyWeek, loadJourneyTrend, buildCancellationReasonStats, buildOverrunStats } from "./js/journey-times.js";
+  import { loadJourneyWeek, loadJourneyTrend, buildCancellationReasonStats, buildOverrunStats, buildCaseVolumeStats } from "./js/journey-times.js";
   import { applyTheme } from "./js/theme.js";
   applyTheme();
 
@@ -522,11 +522,56 @@
     wirePrintButton("jtOverrunsPrintBtn", el);
   }
 
+  // Same shape again, grouped by theatre — the volume baseline the two
+  // cards above are both a subset of. No free-text reason to quote for
+  // a case that just happened, so the "examples" line carries the
+  // completed/cancelled split instead.
+  function renderCaseVolume(data) {
+    const el = document.getElementById("jtCaseVolume");
+    const weekLabel = data?.week || "";
+    const stats = data ? buildCaseVolumeStats(data) : [];
+    if (!stats.length) {
+      el.innerHTML = `<div class="jt-reasons-head">
+        <div class="jt-reasons-head-top"><h3>Cases by theatre</h3></div>
+        <div class="jt-reasons-sub">No cases logged ${data ? `this week${weekLabel ? ` (${esc(weekLabel)})` : ""}` : "— no data uploaded for this week"}.</div>
+      </div>`;
+      return;
+    }
+    const totalCases = stats.reduce((a, s) => a + s.count, 0);
+    const max = stats[0].count;
+    el.innerHTML = `
+      <div class="jt-reasons-head">
+        <div class="jt-reasons-head-top">
+          <h3>Cases by theatre</h3>
+          <button type="button" class="btn btn-secondary btn-sm jt-no-print" id="jtCaseVolumePrintBtn">Print</button>
+        </div>
+        <div class="jt-reasons-sub">${totalCases} case${totalCases === 1 ? "" : "s"} done${weekLabel ? ` — ${esc(weekLabel)}` : ""} — completed and cancelled together, per theatre</div>
+      </div>
+      <div class="jt-reasons-body">
+        ${stats.map((s, i) => `
+          <div class="jt-reason-row">
+            <span class="jt-reason-rank">${i + 1}</span>
+            <div class="jt-reason-main">
+              <div class="jt-reason-top">
+                <span class="jt-reason-label">${esc(s.theatre)}</span>
+                <div class="jt-reason-bar-track"><div class="jt-reason-bar-fill" style="width:${Math.round((s.count / max) * 100)}%"></div></div>
+                <span class="jt-reason-count">${s.count}</span>
+              </div>
+              <div class="jt-reason-examples">${s.completed} completed${s.cancelled ? ` · ${s.cancelled} cancelled` : ""}</div>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+    wirePrintButton("jtCaseVolumePrintBtn", el);
+  }
+
   async function renderPage() {
     content.innerHTML = `
       <div class="jt-trend" id="jtTrend"></div>
       <div class="jt-reasons" id="jtReasons"></div>
       <div class="jt-overruns" id="jtOverruns"></div>
+      <div class="jt-casevolume" id="jtCaseVolume"></div>
       <div class="jt-toolbar">
         <button class="btn btn-secondary btn-sm" id="prevWeekBtn">‹ Previous week</button>
         <input type="date" id="weekDate">
@@ -560,6 +605,7 @@
       const data = await loadJourneyWeek(profile.departmentId, weekInput.value);
       renderCancellationReasons(data);
       renderOverruns(data);
+      renderCaseVolume(data);
       if (!data) {
         body.innerHTML = `<div class="empty-state">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
