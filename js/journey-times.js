@@ -244,16 +244,14 @@ export function buildOverrunStats(data) {
   return Object.values(byTheatre).sort((a, b) => b.count - a.count);
 }
 
-// Every case that week, by theatre — the volume baseline Cancellation
-// reasons and Theatres that overran are both a subset of. "examples"
-// here is a completed/cancelled split rather than quoted text, since
-// there's no free-text reason to show for a case that just... happened.
+// Completed cases that week, by theatre — cancelled ones excluded
+// entirely (those are what Cancellation reasons above already covers).
 export function buildCaseVolumeStats(data) {
   const byTheatre = {};
   (data?.cases || []).forEach(c => {
-    if (!byTheatre[c.theatre]) byTheatre[c.theatre] = { theatre: c.theatre, count: 0, completed: 0, cancelled: 0 };
+    if (c.cancelled) return;
+    if (!byTheatre[c.theatre]) byTheatre[c.theatre] = { theatre: c.theatre, count: 0 };
     byTheatre[c.theatre].count++;
-    if (c.cancelled) byTheatre[c.theatre].cancelled++; else byTheatre[c.theatre].completed++;
   });
   return Object.values(byTheatre).sort((a, b) => b.count - a.count);
 }

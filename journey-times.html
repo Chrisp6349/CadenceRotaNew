@@ -118,6 +118,12 @@
     width:20px;text-align:right;}
   .jt-reason-examples{font-size:11.5px;color:var(--ink-500);margin-top:4px;font-style:italic;}
 
+  /* Cases by theatre reuses every .jt-reason-* rule above as-is — this
+     just overrides the colour, since a busy theatre is a good thing,
+     not the red "needs attention" red every other card here uses. */
+  .jt-casevolume .jt-reason-bar-fill{background:var(--status-available);}
+  .jt-casevolume .jt-reason-row:first-child .jt-reason-rank{background:var(--status-available-bg);color:var(--status-available);}
+
   .jt-trend{background:var(--surface);border:1px solid var(--ink-150);border-radius:var(--r-lg);
     box-shadow:var(--shadow-sm);margin-bottom:18px;padding:16px 18px;}
   .jt-trend-head h3{font-family:var(--font-display);font-weight:800;font-size:14px;margin:0 0 2px;}
@@ -522,10 +528,11 @@
     wirePrintButton("jtOverrunsPrintBtn", el);
   }
 
-  // Same shape again, grouped by theatre — the volume baseline the two
-  // cards above are both a subset of. No free-text reason to quote for
-  // a case that just happened, so the "examples" line carries the
-  // completed/cancelled split instead.
+  // Same shape again, grouped by theatre — completed cases only
+  // (cancelled ones are Cancellation reasons' territory above), styled
+  // green via the .jt-casevolume override near the top of this file
+  // rather than the red every other card here shares, since a busy
+  // theatre isn't a problem the way a cancellation or an overrun is.
   function renderCaseVolume(data) {
     const el = document.getElementById("jtCaseVolume");
     const weekLabel = data?.week || "";
@@ -533,7 +540,7 @@
     if (!stats.length) {
       el.innerHTML = `<div class="jt-reasons-head">
         <div class="jt-reasons-head-top"><h3>Cases by theatre</h3></div>
-        <div class="jt-reasons-sub">No cases logged ${data ? `this week${weekLabel ? ` (${esc(weekLabel)})` : ""}` : "— no data uploaded for this week"}.</div>
+        <div class="jt-reasons-sub">No completed cases ${data ? `this week${weekLabel ? ` (${esc(weekLabel)})` : ""}` : "— no data uploaded for this week"}.</div>
       </div>`;
       return;
     }
@@ -545,7 +552,7 @@
           <h3>Cases by theatre</h3>
           <button type="button" class="btn btn-secondary btn-sm jt-no-print" id="jtCaseVolumePrintBtn">Print</button>
         </div>
-        <div class="jt-reasons-sub">${totalCases} case${totalCases === 1 ? "" : "s"} done${weekLabel ? ` — ${esc(weekLabel)}` : ""} — completed and cancelled together, per theatre</div>
+        <div class="jt-reasons-sub">${totalCases} case${totalCases === 1 ? "" : "s"} completed${weekLabel ? ` — ${esc(weekLabel)}` : ""} — per theatre</div>
       </div>
       <div class="jt-reasons-body">
         ${stats.map((s, i) => `
@@ -557,7 +564,6 @@
                 <div class="jt-reason-bar-track"><div class="jt-reason-bar-fill" style="width:${Math.round((s.count / max) * 100)}%"></div></div>
                 <span class="jt-reason-count">${s.count}</span>
               </div>
-              <div class="jt-reason-examples">${s.completed} completed${s.cancelled ? ` · ${s.cancelled} cancelled` : ""}</div>
             </div>
           </div>
         `).join("")}
