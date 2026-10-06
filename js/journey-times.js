@@ -180,11 +180,17 @@ export async function loadJourneyTrend(deptId) {
 // Anything that matches nothing stays in "Other" rather than being
 // force-fit somewhere wrong — see buildCancellationReasonStats() for
 // how "Other" still keeps its own text visible rather than hiding it.
+// Shared with buildOverrunStats() below — same wording covers both "this
+// case was cancelled because the one before it overran" and "this case
+// went ahead but ran over," so one regex serves both reads of the same
+// free text instead of drifting into two slightly different ones.
+const OVERRUN_TEST = /overran|back on bypass|ran (over|late)/i;
+
 const CANCEL_CATEGORIES = [
   { label: "No CICU / ITU bed", test: /\b(cicu|icu|itu)\b.*\bbed|\bbed\b.*\b(cicu|icu|itu)\b|\bno\s+beds?\b/i },
   { label: "No anaesthetist available", test: /no\s+anaes/i },
   { label: "Equipment unavailable", test: /\b(toe\s*machine|equipment)\b/i },
-  { label: "Previous case overran", test: /overran|back on bypass|ran (over|late)/i },
+  { label: "Previous case overran", test: OVERRUN_TEST },
   { label: "Staff fatigue / unavailable", test: /all night|staff (not )?avail/i },
   { label: "Awaiting a decision", test: /final decision|awaiting.*decision|change of order/i }
 ];
@@ -216,6 +222,26 @@ export function buildCancellationReasonStats(weeks) {
     });
   });
   return Object.values(byCategory).sort((a, b) => b.count - a.count);
+}
+
+// Grouped by theatre rather than by reason category — the question
+// here is which theatre ran over, not why in the abstract (the why
+// still rides along as example text). Looks at EVERY case that week,
+// not just cancelled ones, since a case can run over and still go
+// ahead; only a cancelled case with no reason at all is skipped, same
+// as buildCancellationReasonStats() above.
+export function buildOverrunStats(data) {
+  const byTheatre = {};
+  (data?.cases || []).forEach(c => {
+    if (!c.reason || !OVERRUN_TEST.test(c.reason)) return;
+    if (!byTheatre[c.theatre]) byTheatre[c.theatre] = { theatre: c.theatre, count: 0, examples: [] };
+    byTheatre[c.theatre].count++;
+    const example = `${c.day} — ${c.reason}`;
+    if (byTheatre[c.theatre].examples.length < 3 && !byTheatre[c.theatre].examples.includes(example)) {
+      byTheatre[c.theatre].examples.push(example);
+    }
+  });
+  return Object.values(byTheatre).sort((a, b) => b.count - a.count);
 }
 
 // "W/C 07/09/2026" -> "2026-09-01" (that date's own Monday, in case the
