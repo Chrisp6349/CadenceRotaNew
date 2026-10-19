@@ -47,9 +47,10 @@ function suffix(n) {
 }
 
 function isoPlusDays(mondayIso, i) {
-  let d = new Date(mondayIso);
+  const d = new Date(mondayIso + "T00:00:00");
   d.setDate(d.getDate() + i);
-  return d.toISOString().split("T")[0];
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
 }
 
 // ---- Firestore read/write ------------------------------------------------
@@ -205,7 +206,7 @@ export function renderNursingGrid({ weekStart, dept, theatres, staff, rota, edit
 
   function dayLabel(i) {
     const ds = isoPlusDays(weekStart, i);
-    const d = new Date(ds);
+    const d = new Date(ds + "T00:00:00");
     let txt = `${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][i]} ${suffix(d.getDate())}`;
     if (dept.bankHolidays && dept.bankHolidays[ds]) txt += `<br><span class="bh">BANK HOLIDAY</span>`;
     return txt;

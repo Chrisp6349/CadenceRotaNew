@@ -27,12 +27,30 @@ export function registerServiceWorker() {
   // once so the tab is running the new version straight away, instead of
   // silently sitting on stale cached content until the person happens to
   // close and reopen the app themselves.
+  //
+  // On iOS, "resuming" a home-screen app is exactly when this tends to
+  // fire (see checkForUpdate() below) — reloading right at that instant
+  // yanks the screen out from under whoever just switched back to it,
+  // which is what "the app randomly glitches" looks like from the
+  // outside. If the page is actually visible when control changes, wait
+  // until it's hidden again (they switch away, lock the screen, etc.)
+  // before reloading — by the time they come back, it's already fresh,
+  // with nothing visibly happening while they're looking at it.
   let reloadedAlready = false;
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
+  function reloadOnceHidden() {
     if (reloadedAlready) return;
     reloadedAlready = true;
-    window.location.reload();
-  });
+    if (document.visibilityState === "hidden") {
+      window.location.reload();
+      return;
+    }
+    document.addEventListener("visibilitychange", function onHide() {
+      if (document.visibilityState !== "hidden") return;
+      document.removeEventListener("visibilitychange", onHide);
+      window.location.reload();
+    });
+  }
+  navigator.serviceWorker.addEventListener("controllerchange", reloadOnceHidden);
 
   let registrationRef = null;
   function checkForUpdate() {

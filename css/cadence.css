@@ -170,7 +170,15 @@ a{color:inherit;}
 @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:.35;}}
 
 /* ---------- App shell: sidebar + topbar ---------- */
-.app-shell{display:flex;height:100vh;overflow:hidden;}
+/* 100vh on iOS Safari is measured against the LARGEST possible
+   viewport (toolbar hidden), so the shell can end up a bit taller than
+   what's actually visible once the toolbar slides back in, clipping
+   the bottom of the sidebar/content — and it visibly resizes as the
+   toolbar animates in and out. 100dvh tracks whatever's actually
+   visible right now instead; declaring 100vh first keeps older
+   browsers (anything that doesn't know dvh just ignores that line and
+   keeps this one) working exactly as before. */
+.app-shell{display:flex;height:100vh;height:100dvh;overflow:hidden;}
 .app-sidebar{width:236px;flex-shrink:0;background:var(--sidebar-bg);color:#fff;display:flex;flex-direction:column;
   box-shadow:2px 0 12px rgba(0,0,0,.08);z-index:1;
   transition:width var(--dur-panel) var(--ease-out);}
@@ -224,10 +232,14 @@ a{color:inherit;}
 }
 
 /* ---------- Forms ---------- */
+/* Every text input/select in this file is at least 16px — iOS Safari
+   auto-zooms the whole page on focus for anything smaller, which reads
+   as a jarring, unexplained jump on iPhone/iPad (invisible on desktop,
+   since this is iOS-only behaviour). */
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;}
 .field label{font-size:12.5px;font-weight:600;color:var(--ink-700);}
 .field input,.field select{
-  font-family:var(--font-body);font-size:14px;padding:10px 12px;border-radius:var(--r-sm);
+  font-family:var(--font-body);font-size:16px;padding:10px 12px;border-radius:var(--r-sm);
   border:1px solid var(--ink-150);background:var(--surface);color:var(--ink-900);
 }
 .field input:focus,.field select:focus{outline:2px solid var(--teal-500);outline-offset:1px;}
@@ -240,10 +252,10 @@ a{color:inherit;}
 h4.admin-h{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-500);margin:0 0 12px;}
 .inline-form{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
 .inline-form input,.inline-form select{
-  font-family:var(--font-body);font-size:13.5px;padding:8px 10px;border-radius:var(--r-sm);
+  font-family:var(--font-body);font-size:16px;padding:8px 10px;border-radius:var(--r-sm);
   border:1px solid var(--ink-150);background:var(--surface);color:var(--ink-900);flex:1;min-width:140px;
 }
-.admin-row select{font-family:var(--font-body);font-size:12.5px;padding:4px 8px;border-radius:var(--r-sm);
+.admin-row select{font-family:var(--font-body);font-size:16px;padding:4px 8px;border-radius:var(--r-sm);
   border:1px solid var(--ink-150);background:var(--surface);color:var(--ink-900);}
 .admin-list{display:flex;flex-direction:column;gap:6px;}
 .admin-list.collapsed{display:none;}
@@ -259,7 +271,7 @@ h4.admin-h{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;
 .section-list-head .count{font-family:var(--font-mono);font-size:11px;color:var(--ink-500);white-space:nowrap;}
 .list-toggle-btn{background:none;border:none;color:var(--teal-600);font-size:12px;font-weight:600;
   cursor:pointer;padding:0;text-decoration:underline;white-space:nowrap;margin-left:auto;}
-.list-filter{font-family:var(--font-body);font-size:12.5px;padding:5px 10px;border-radius:var(--r-pill);
+.list-filter{font-family:var(--font-body);font-size:16px;padding:5px 10px;border-radius:var(--r-pill);
   border:1px solid var(--ink-150);background:var(--canvas);color:var(--ink-900);width:140px;
   transition:width var(--dur-standard) var(--ease-standard);}
 .list-filter:focus{width:180px;}

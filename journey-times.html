@@ -132,7 +132,7 @@
   .jt-trend-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-700);}
   .jt-trend-swatch{width:14px;height:2px;border-radius:1px;flex-shrink:0;}
   .jt-trend-charts{position:relative;}
-  .jt-trend-charts svg{display:block;width:100%;}
+  .jt-trend-charts svg{display:block;width:100%;touch-action:none;}
   .jt-trend-chart-label{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.05em;
     color:var(--ink-300);margin:12px 0 2px;}
   .jt-trend-gridline{stroke:var(--ink-100);stroke-width:1;}
@@ -422,10 +422,22 @@
       xs.forEach((x, i) => { const d = Math.abs(x - relX); if (d < bestDist) { bestDist = d; best = i; } });
       return best;
     }
+    // Pointer events (not mousemove/mouseleave) so this also works by
+    // touch on iPad/iPhone, not just by mouse. touch-action:none on the
+    // chart SVGs (see .jt-trend-charts svg in the CSS above) stops a
+    // tap-and-drag across either chart from being read as a page
+    // scroll instead. A mouse hides the tooltip on leaving the chart,
+    // same as before — but a touch tap has no separate "release"
+    // moment to key off, it's just down-then-up, so hiding on that
+    // would make the value flash and vanish before anyone could read
+    // it. A tap instead pins the tooltip until the next tap lands
+    // outside both charts (see the document-level listener below).
     [document.getElementById("jtTrendSvg1"), document.getElementById("jtTrendSvg2")].forEach(svg => {
-      svg.addEventListener("mousemove", (e) => showAt(nearestIndex(e.clientX, svg), e.clientX, e.clientY));
-      svg.addEventListener("mouseleave", hideTooltip);
+      svg.addEventListener("pointerdown", (e) => showAt(nearestIndex(e.clientX, svg), e.clientX, e.clientY));
+      svg.addEventListener("pointermove", (e) => showAt(nearestIndex(e.clientX, svg), e.clientX, e.clientY));
+      svg.addEventListener("pointerleave", (e) => { if (e.pointerType === "mouse") hideTooltip(); });
     });
+    document.addEventListener("pointerdown", (e) => { if (!wrap.contains(e.target)) hideTooltip(); });
   }
 
   // Marks just this one card as the thing to print, then prints —
@@ -433,11 +445,22 @@
   // again straight after, since window.print() blocks until the
   // print dialog is dismissed, so a plain browser Ctrl+P later
   // doesn't still have some earlier card stuck in "print this" state.
+  // window.print() blocks until the dialog closes on desktop browsers,
+  // but iOS Safari can return from it immediately without waiting — if
+  // that happens here, removing "jt-print-this" right after the call
+  // (as this used to) strips it before Safari has actually rendered the
+  // print output, so the card can print blank. Removing it on the
+  // afterprint event instead works either way: synchronous browsers
+  // fire it right after the dialog closes, non-blocking ones fire it
+  // whenever printing actually finishes, so the class is always still
+  // in place while the page is genuinely being rendered for print.
+  window.addEventListener("afterprint", () => {
+    document.querySelectorAll(".jt-print-this").forEach(el => el.classList.remove("jt-print-this"));
+  });
   function wirePrintButton(btnId, cardEl) {
     document.getElementById(btnId).addEventListener("click", () => {
       cardEl.classList.add("jt-print-this");
       window.print();
-      cardEl.classList.remove("jt-print-this");
     });
   }
 

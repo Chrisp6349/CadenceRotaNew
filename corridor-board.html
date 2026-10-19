@@ -138,7 +138,7 @@
   .cb-cases-empty{font-size:12.5px;color:var(--ink-300);font-style:italic;}
 
   .cb-case-modal-overlay{position:fixed;inset:0;z-index:90;background:rgba(10,14,20,.55);
-    display:flex;align-items:center;justify-content:center;padding:20px;}
+    display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
   .cb-case-modal-overlay[hidden]{display:none;}
   .cb-case-modal{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-md);
     max-width:420px;width:100%;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;}
@@ -152,7 +152,10 @@
   .cb-case-slot{display:flex;flex-direction:column;gap:5px;}
   .cb-case-slot-label{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-500);text-transform:uppercase;
     letter-spacing:.05em;}
-  .cb-case-slot select,.cb-case-slot input{font-family:var(--font-body);font-size:14.5px;padding:10px 12px;border-radius:var(--r-sm);
+  /* 16px — anything smaller auto-zooms the whole page on iOS when a
+     slot is tapped, which is most of the time this modal gets used
+     (the board itself runs on iPads a lot of the time). */
+  .cb-case-slot select,.cb-case-slot input{font-family:var(--font-body);font-size:16px;padding:10px 12px;border-radius:var(--r-sm);
     border:1px solid var(--ink-150);background:var(--surface);color:var(--ink-900);width:100%;box-sizing:border-box;}
   .cb-case-slot input{margin-top:5px;}
   .cb-case-limit-note{font-size:11.5px;color:var(--ink-500);margin:12px 0 0;}
@@ -257,14 +260,14 @@
   .tb-del{background:none;border:none;color:var(--ink-300);cursor:pointer;font-size:17px;line-height:1;padding:2px;flex-shrink:0;}
   .tb-del:hover{color:var(--status-oncall);}
   .tb-form{display:flex;gap:10px;}
-  .tb-form input{flex:1;font-family:var(--font-body);font-size:15px;padding:11px 16px;border-radius:var(--r-pill);
+  .tb-form input{flex:1;font-family:var(--font-body);font-size:16px;padding:11px 16px;border-radius:var(--r-pill);
     border:1px solid var(--ink-150);background:var(--canvas);color:var(--ink-900);}
   /* Everyone signed in on the shared viewer/kiosk login looks identical
      to the Team Board otherwise — this asks for a first name once per
      device (remembered locally, same pattern as My Week) so posts are
      still attributable to a person, not just "Cardiac Theatre". */
   .tb-name-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
-  .tb-name-row input{flex:1;font-family:var(--font-body);font-size:14px;padding:9px 14px;border-radius:var(--r-pill);
+  .tb-name-row input{flex:1;font-family:var(--font-body);font-size:16px;padding:9px 14px;border-radius:var(--r-pill);
     border:1px solid var(--ink-150);background:var(--canvas);color:var(--ink-900);}
   .tb-name-current{font-size:12.5px;color:var(--ink-500);}
   .tb-name-current strong{color:var(--ink-900);}
@@ -759,6 +762,16 @@
   document.getElementById("caseModalCloseBtn").addEventListener("click", closeCaseModal);
   caseModalOverlay.addEventListener("click", (e) => { if (e.target === caseModalOverlay) closeCaseModal(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !caseModalOverlay.hidden) closeCaseModal(); });
+
+  // On iOS, the on-screen keyboard shrinks the VISUAL viewport without
+  // this fixed, vertically-centred overlay knowing to move — so a
+  // lower slot's input/select can end up sitting behind the keyboard
+  // once focused. Scrolling it into view on focus (covers both a tap
+  // and the programmatic .focus() above when "Custom…" is picked)
+  // brings it back above the keyboard either way.
+  caseModalBody.addEventListener("focusin", (e) => {
+    if (e.target.matches("select, input")) e.target.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
 
   document.getElementById("caseModalClearBtn").addEventListener("click", () => {
     setSelectedCases(caseModalOverlay.dataset.theatreId, localIso(new Date()), []);
