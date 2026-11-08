@@ -207,13 +207,27 @@ async function syncOneWeek(deptId, config, weekId, theatres, anaesInitials) {
   const receivedWeekId = mondayOf(payload.weekCommencing) || weekId;
   const days = mapAtriumConsultants(payload);
 
-  await db.doc(`departments/${deptId}/cadexImports/${receivedWeekId}`).set({
-    weekCommencing: receivedWeekId,
-    source: "atrium",
-    sourceLastUpdated: payload.lastUpdated || null,
-    receivedAt: admin.firestore.FieldValue.serverTimestamp(),
-    days
-  });
+  // This runs every minute, every week in the sync window, round the
+  // clock — almost always re-fetching a week that hasn't actually
+  // changed since the last check. Writing the snapshot unconditionally
+  // anyway turned that into thousands of no-op Firestore writes a day.
+  // Comparing against what's already stored and skipping the write
+  // when the consultant data itself is identical (same idea as
+  // applyToLiveWeek's own change check below) cuts that out — a
+  // genuinely quiet week now costs one read per check instead of a
+  // write, with nothing a reader of cadexImports would ever notice.
+  const importRef = db.doc(`departments/${deptId}/cadexImports/${receivedWeekId}`);
+  const existing = await importRef.get();
+  const unchanged = existing.exists && JSON.stringify(existing.data().days) === JSON.stringify(days);
+  if (!unchanged) {
+    await importRef.set({
+      weekCommencing: receivedWeekId,
+      source: "atrium",
+      sourceLastUpdated: payload.lastUpdated || null,
+      receivedAt: admin.firestore.FieldValue.serverTimestamp(),
+      days
+    });
+  }
 
   await applyToLiveWeek(deptId, receivedWeekId, days, theatres, anaesInitials);
 
