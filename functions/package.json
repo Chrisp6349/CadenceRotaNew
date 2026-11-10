@@ -2,7 +2,7 @@
   "name": "cadence-functions",
   "private": true,
   "description": "CADEX (Cadence-Atrium Data Exchange) Cloud Functions: Provider API, Consumer sync, admin callables.",
-  "engines": { "node": "20" },
+  "engines": { "node": "22" },
   "main": "index.js",
   "dependencies": {
     "firebase-admin": "^12.6.0",
