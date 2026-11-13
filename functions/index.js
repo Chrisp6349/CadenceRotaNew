@@ -12,12 +12,19 @@
 //                             Exposed at /api/v1/** via the hosting rewrite
 //                             in firebase.json.
 //   - cadexSync (onSchedule) Consumer: polls The Atrium's /api/v1/consultants
-//                             every minute (the proposal's "every 60
-//                             seconds") for every department with CADEX
-//                             enabled, and writes the result into a
-//                             read-only cadexImports doc — never into the
-//                             editable weekly rota directly, so an import
-//                             can never silently clobber a local edit.
+//                             every 10 minutes, 07:00-19:59 UK time, for
+//                             every department with CADEX enabled, and
+//                             writes the result into a read-only
+//                             cadexImports doc — never into the editable
+//                             weekly rota directly, so an import can
+//                             never silently clobber a local edit. (Was
+//                             every 60 seconds round the clock per the
+//                             original proposal, until that turned out to
+//                             be a meaningful chunk of Atrium's own
+//                             Vercel compute allowance — Craig flagged it
+//                             10 Nov 2026. The consultant rota changes at
+//                             most a few times a day, so this is no less
+//                             fresh in practice.)
 //   - cadexManualSync / cadexTestConnection (onCall)
 //                             Admin-triggered versions of the same, for
 //                             the CADEX panel in Administration.
@@ -308,10 +315,11 @@ async function enabledCadexConfigs() {
     .map(d => ({ deptId: d.ref.parent.parent.id, config: d.data() }));
 }
 
-// Cloud Scheduler's minimum granularity is one minute — this is the
-// closest match to the proposal's "automatic every 60 seconds" without
-// needing a separate always-on process.
-exports.cadexSync = onSchedule("every 1 minutes", async () => {
+// Every 10 minutes, 07:00-19:59 UK time (Europe/London, so this stays
+// 07:00-19:59 local through the BST/GMT switchover rather than drifting
+// an hour twice a year) — see the file header for why this isn't the
+// original every-60-seconds-round-the-clock schedule any more.
+exports.cadexSync = onSchedule({ schedule: "*/10 7-19 * * *", timeZone: "Europe/London" }, async () => {
   const configs = await enabledCadexConfigs();
   await Promise.all(configs.map(({ deptId, config }) =>
     syncDepartment(deptId, config).catch(err => logger.error("CADEX sync threw", { deptId, error: err.message }))
